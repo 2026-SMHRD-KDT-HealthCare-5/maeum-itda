@@ -40,6 +40,15 @@ Four layers: **client (React) → backend API (NestJS) → AI server (FastAPI) �
 
 Real-time conversation is WebSocket-based (per 기획서 section 3/4): the backend/ai-server pipeline does live STT + sentiment-based follow-up question generation during the call, then post-call runs full SGDS-K matching + tempo analysis to produce the day's 정서지수. REST is used for everything else (auth/login, report queries, notification inbox, dashboard data).
 
+### Mobile-portability guideline (see decision log §4)
+
+Only a web client is being built right now, but the team wants a future Flutter app to be a thin addition later, not a rewrite. When implementing backend/ai-server features, keep the API platform-agnostic:
+
+- Keep REST endpoints documented as an OpenAPI/Swagger spec (NestJS generates this close to for free) so a Dart client can eventually be generated from it instead of hand-written against React's assumptions.
+- Keep WebSocket event names and payload shapes pinned as types in `packages/shared-types` rather than left implicit in frontend code — that's the protocol doc a future mobile client would implement against.
+- Auth via JWT (bearer tokens), not browser-cookie/session-only mechanisms, so a mobile client can reuse the same auth flow.
+- Keep business logic (정서지수 계산, 임계치 판단, 권한 체크, etc.) in the backend/ai-server, not in React components — a second client shouldn't need to reimplement it.
+
 ## Git workflow
 
 GitFlow-style, documented in full in [CONTRIBUTING.md](CONTRIBUTING.md):
