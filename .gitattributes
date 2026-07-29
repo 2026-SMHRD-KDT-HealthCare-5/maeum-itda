@@ -1,0 +1,4 @@
+# Shell scripts must keep LF line endings regardless of core.autocrlf —
+# CRLF can break bash parsing (e.g. heredoc terminators, control-flow
+# keywords), which matters here since .claude/hooks/*.sh run automatically.
+*.sh text eol=lf

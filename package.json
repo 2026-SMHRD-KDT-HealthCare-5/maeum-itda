@@ -1,0 +1,16 @@
+{
+  "name": "maeum-itda",
+  "private": true,
+  "packageManager": "pnpm@11.17.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "eslint": "^10.8.0",
+    "prettier": "^3.9.6",
+    "turbo": "^2.10.7",
+    "typescript": "^7.0.2"
+  }
+}

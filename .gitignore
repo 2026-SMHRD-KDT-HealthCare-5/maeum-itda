@@ -1,0 +1,45 @@
+# ===== 공통 =====
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+Thumbs.db
+
+# ===== Node / pnpm =====
+node_modules/
+dist/
+build/
+.pnpm-store/
+.turbo/
+*.tsbuildinfo
+
+# ===== Vite (frontend) =====
+apps/frontend/dist/
+apps/frontend/.vite/
+
+# ===== NestJS (backend) =====
+apps/backend/dist/
+
+# ===== Python (ai-server) =====
+apps/ai-server/venv/
+apps/ai-server/__pycache__/
+apps/ai-server/**/__pycache__/
+apps/ai-server/*.pyc
+apps/ai-server/.pytest_cache/
+apps/ai-server/.mypy_cache/
+
+# ===== IDE / 에디터 =====
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# ===== 로그/캐시 =====
+coverage/
+*.tsbuildinfo
+npm-debug.log*
+pnpm-debug.log*
+
+# ===== 로컬 DB/업로드(있을 경우) =====
+*.sqlite
+uploads/
