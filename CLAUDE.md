@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This is a fresh monorepo scaffold — `apps/*` and most `packages/*` currently contain only a `.gitkeep`. Only `packages/shared-types` has a real `package.json` (empty `src/index.ts` placeholder) so far. `README.md` and `CONTRIBUTING.md` are written and reflect current state (including TODOs for what's not built yet). Expect to be scaffolding actual app code (NestJS backend, React frontend, FastAPI ai-server) rather than editing existing implementations.
+This is a fresh monorepo scaffold — `apps/backend`, `apps/ai-server`, and most `packages/*` currently contain only a `.gitkeep`. `packages/shared-types` has a real `package.json` (empty `src/index.ts` placeholder). `apps/frontend` is scaffolded (Vite + React + TS, FSD structure — see [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md)) but its slices are still mostly placeholders. `README.md` and `CONTRIBUTING.md` are written and reflect current state (including TODOs for what's not built yet). Expect to be scaffolding actual app code (NestJS backend, FastAPI ai-server) or filling in frontend placeholders rather than editing mature implementations.
 
 ## Monorepo tooling
 
@@ -30,7 +30,7 @@ Note: root devDependencies include eslint (^10.8.0) and prettier (^3.9.6), but n
 
 Four layers: **client (React) → backend API (NestJS) → AI server (FastAPI) → MySQL**, with a separate 알림(notification) server for caregiver alerts. Planned stack:
 
-- **apps/frontend** — TypeScript, React, React Router, TanStack Query
+- **apps/frontend** — TypeScript, React, React Router, TanStack Query. Follows Feature-Sliced Design (FSD) — see [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) for layer rules, the screen-ID/UC mapping, and segment conventions.
 - **apps/backend** — TypeScript, Node.js, NestJS
 - **apps/ai-server** — Python, FastAPI, OpenAI API (STT → SGDS-K mapping, tempo-baseline scoring, structured-output evidence-sentence extraction). Not yet a pnpm workspace member — see above.
 - **packages/shared-types** — types shared across frontend/backend (and the API contract with ai-server). Only workspace package scaffolded so far (has `package.json`, `src/index.ts` is empty).
