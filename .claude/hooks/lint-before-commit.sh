@@ -2,10 +2,9 @@
 # PreToolUse hook, gated to `git commit *` via settings.json's "if" filter.
 # Runs the workspace lint task and blocks the commit if it fails.
 #
-# Right now no package defines a `lint` script, so `pnpm lint` (turbo run
-# lint) exits 0 with "no tasks executed" and this always passes. Once
-# per-package lint scripts + packages/config are filled in, a real failure
-# here will start blocking commits automatically — no change needed then.
+# `apps/frontend` has a real eslint setup (via packages/config) now, so this
+# actually blocks on lint errors there. apps/backend/apps/ai-server still
+# have no lint script, so they're unaffected either way until they do.
 
 set -uo pipefail
 

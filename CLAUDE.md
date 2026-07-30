@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This is a fresh monorepo scaffold — `apps/*` and most `packages/*` currently contain only a `.gitkeep`. Only `packages/shared-types` has a real `package.json` (empty `src/index.ts` placeholder) so far. `README.md` and `CONTRIBUTING.md` are written and reflect current state (including TODOs for what's not built yet). Expect to be scaffolding actual app code (NestJS backend, React frontend, FastAPI ai-server) rather than editing existing implementations.
+This is a fresh monorepo scaffold — `apps/backend`, `apps/ai-server`, and most `packages/*` currently contain only a `.gitkeep`. `packages/shared-types` has a real `package.json` (empty `src/index.ts` placeholder). `apps/frontend` is scaffolded (Vite + React + TS, FSD structure — see [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md)) but its slices are still mostly placeholders. `README.md` and `CONTRIBUTING.md` are written and reflect current state (including TODOs for what's not built yet). Expect to be scaffolding actual app code (NestJS backend, FastAPI ai-server) or filling in frontend placeholders rather than editing mature implementations.
 
 ## Monorepo tooling
 
@@ -24,18 +24,18 @@ pnpm --filter <pkg-name> <script>   # run a script in one workspace package only
 
 **`apps/ai-server` isn't a pnpm package yet.** The `apps/*` glob in `pnpm-workspace.yaml` does match its directory, but it has no `package.json` (just `.gitkeep`), so pnpm doesn't register it as a workspace member and `pnpm --filter ai-server ...` will fail. It's a Python/FastAPI project anyway — manage it via its own `venv` and `requirements.txt` (`cd apps/ai-server && python -m venv venv && pip install -r requirements.txt`). Note: if a `package.json` is ever added there (e.g. for tooling), it will silently become a pnpm workspace member via the existing glob.
 
-Note: root devDependencies include eslint (^10.8.0) and prettier (^3.9.6), but no config files exist yet, and no per-package `lint` scripts exist either — `pnpm lint` currently no-ops silently (turbo finds no matching task and exits cleanly with nothing checked). Don't treat a clean `pnpm lint` run as a signal that code is actually lint-clean until this is set up. Intended home for shared config: `packages/config` (folder exists, currently empty).
+`packages/config` now has a real shared ESLint flat config (`@maeum-itda/config`, exported from `./eslint.js`) — a TS + React ruleset (typescript-eslint recommended, react-hooks, react-refresh, eslint-config-prettier) that `apps/frontend/eslint.config.js` spreads in. **`packages/config` pins its own `typescript` devDependency to `~6.0.2`** — typescript-eslint@8.x hard-errors against the root's TypeScript 7.x (`typescript-eslint does not support TS 7.0`), so don't remove that pin or let it drift from what `apps/frontend` uses. `pnpm lint` (`turbo run lint`) now actually runs and fails on real violations for `apps/frontend`; `apps/backend`/`apps/ai-server` still have no lint script, so they're unaffected either way. FSD layer-boundary enforcement (see apps/frontend/CLAUDE.md's import rule) still isn't wired into this config — it's plain TS/React rules only so far.
 
 ## Architecture (target, per 기획서)
 
 Four layers: **client (React) → backend API (NestJS) → AI server (FastAPI) → MySQL**, with a separate 알림(notification) server for caregiver alerts. Planned stack:
 
-- **apps/frontend** — TypeScript, React, React Router, TanStack Query
+- **apps/frontend** — TypeScript, React, React Router, TanStack Query. Follows Feature-Sliced Design (FSD) — see [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) for layer rules, the screen-ID/UC mapping, and segment conventions.
 - **apps/backend** — TypeScript, Node.js, NestJS
 - **apps/ai-server** — Python, FastAPI, OpenAI API (STT → SGDS-K mapping, tempo-baseline scoring, structured-output evidence-sentence extraction). Not yet a pnpm workspace member — see above.
 - **packages/shared-types** — types shared across frontend/backend (and the API contract with ai-server). Only workspace package scaffolded so far (has `package.json`, `src/index.ts` is empty).
 - **packages/api-client** — typed API client consumed by the frontend. Folder exists (`.gitkeep` only) but not yet scaffolded.
-- **packages/config** — shared lint/tsconfig config. Folder exists (`.gitkeep` only) but not yet scaffolded — planned home for the eslint/prettier setup described above.
+- **packages/config** — shared lint config (`@maeum-itda/config`). Has a real ESLint flat config consumed by `apps/frontend` (see Monorepo tooling above); shared tsconfig isn't there yet.
 - **infra** — deployment/infra config. Folder exists (`.gitkeep` only), not yet populated.
 
 Real-time conversation is WebSocket-based (per 기획서 section 3/4): the backend/ai-server pipeline does live STT + sentiment-based follow-up question generation during the call, then post-call runs full SGDS-K matching + tempo analysis to produce the day's 정서지수. REST is used for everything else (auth/login, report queries, notification inbox, dashboard data).
