@@ -1,32 +1,37 @@
-# React + TypeScript + Vite
+# 마음잇다 Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite + React + TypeScript 기반 웹 클라이언트입니다. Feature-Sliced Design(FSD)으로 구성되어 있으며, 레이어 규칙·화면ID/UC 매핑·현재 구현 상태는 [CLAUDE.md](CLAUDE.md)를 참고하세요.
 
-Currently, two official plugins are available:
+## 개발환경
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- TypeScript
+- React, React Router, TanStack Query
+- Vite
+- pnpm, Turborepo
 
-## React Compiler
+패키지 매니저는 루트 `package.json`에 지정된 `pnpm@11.17.0`을 사용합니다. npm이나 yarn으로 별도 잠금 파일을 만들지 않습니다.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 최초 설정
 
-## Expanding the Oxlint configuration
+의존성은 이 폴더가 아니라 저장소 루트에서 한 번에 설치합니다.
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd ../..
+corepack enable
+pnpm install
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## 실행
+
+저장소 루트에서 실행하는 방식을 권장합니다.
+
+```bash
+pnpm --filter frontend dev       # 개발 서버 (http://localhost:5173)
+pnpm --filter frontend build     # 프로덕션 빌드 (tsc -b && vite build)
+pnpm --filter frontend lint      # eslint (packages/config의 공유 설정 사용)
+```
+
+## 참고
+
+- 라우팅은 로그인 후 역할(시니어/보호자)에 따라 분기됩니다. 백엔드 인증이 아직 없어 `features/login-with-credentials`의 `mockResolveRole()`이 아이디에 `guardian` 포함 여부로 역할을 흉내냅니다.
+- 나머지 화면/기능별 구현 상태는 [CLAUDE.md](CLAUDE.md)의 "현재 구현 상태" 절 참고.
