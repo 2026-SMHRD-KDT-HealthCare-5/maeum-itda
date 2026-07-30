@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-This is a fresh monorepo scaffold — `apps/*` and most `packages/*` currently contain only a `.gitkeep`. Only `packages/shared-types` has a real `package.json` (empty `src/index.ts` placeholder) so far. `README.md` and `CONTRIBUTING.md` are written and reflect current state (including TODOs for what's not built yet). Expect to be scaffolding actual app code (NestJS backend, React frontend, FastAPI ai-server) rather than editing existing implementations.
+This is a fresh monorepo scaffold. `apps/backend` now contains a working NestJS application wired into the pnpm workspace and Turborepo. `apps/frontend`, `apps/ai-server`, and most remaining package/infra directories still contain only placeholders. `packages/shared-types` has a package scaffold with an empty `src/index.ts`. Expect to implement backend features on top of the NestJS scaffold while the React frontend and FastAPI AI server still need their initial scaffolding.
 
 ## Monorepo tooling
 
@@ -24,7 +24,7 @@ pnpm --filter <pkg-name> <script>   # run a script in one workspace package only
 
 **`apps/ai-server` isn't a pnpm package yet.** The `apps/*` glob in `pnpm-workspace.yaml` does match its directory, but it has no `package.json` (just `.gitkeep`), so pnpm doesn't register it as a workspace member and `pnpm --filter ai-server ...` will fail. It's a Python/FastAPI project anyway — manage it via its own `venv` and `requirements.txt` (`cd apps/ai-server && python -m venv venv && pip install -r requirements.txt`). Note: if a `package.json` is ever added there (e.g. for tooling), it will silently become a pnpm workspace member via the existing glob.
 
-Note: root devDependencies include eslint (^10.8.0) and prettier (^3.9.6), but no config files exist yet, and no per-package `lint` scripts exist either — `pnpm lint` currently no-ops silently (turbo finds no matching task and exits cleanly with nothing checked). Don't treat a clean `pnpm lint` run as a signal that code is actually lint-clean until this is set up. Intended home for shared config: `packages/config` (folder exists, currently empty).
+Note: `apps/backend` has its own ESLint/Prettier configuration and a working `lint` script, so root `pnpm lint` now checks the backend through Turborepo. Other apps are not checked until they are scaffolded and define their own `lint` scripts. The intended future home for shared lint/TypeScript configuration is `packages/config`, which is still empty.
 
 ## Architecture (target, per 기획서)
 
