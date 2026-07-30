@@ -5,6 +5,8 @@ import { SeniorConversationPage } from "../../pages/senior-conversation";
 import { GuardianHomePage } from "../../pages/guardian-home";
 import { GuardianReportPage } from "../../pages/guardian-report";
 import { GuardianNotificationPage } from "../../pages/guardian-notification";
+import { SeniorMyInfoPage } from "../../pages/senior-my-info";
+import { GuardianMyInfoPage } from "../../pages/guardian-my-info";
 import { ProtectedRoute } from "./ProtectedRoute";
 
 // UC-00 로그인 후 역할별 분기. 관리자 분기는 의도적으로 없음 — 관리자
@@ -31,6 +33,14 @@ export function AppRouter() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/senior/my-info"
+        element={
+          <ProtectedRoute role="senior">
+            <SeniorMyInfoPage />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/guardian"
@@ -53,6 +63,14 @@ export function AppRouter() {
         element={
           <ProtectedRoute role="guardian">
             <GuardianNotificationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/guardian/my-info"
+        element={
+          <ProtectedRoute role="guardian">
+            <GuardianMyInfoPage />
           </ProtectedRoute>
         }
       />

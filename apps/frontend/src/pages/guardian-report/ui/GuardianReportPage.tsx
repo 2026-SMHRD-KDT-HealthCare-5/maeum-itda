@@ -1,6 +1,7 @@
 import { SelectReportDateAction } from '../../../features/select-report-date'
 import { ViewEvidenceSentenceAction } from '../../../features/view-evidence-sentence'
 import { ConversationTimeline } from '../../../widgets/conversation-timeline'
+import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 
 // GUARDIAN_REPORT_01 (UC-08, UC-09)
 export function GuardianReportPage() {
@@ -10,6 +11,7 @@ export function GuardianReportPage() {
       <SelectReportDateAction />
       <ConversationTimeline />
       <ViewEvidenceSentenceAction />
+      <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
     </main>
   )
 }

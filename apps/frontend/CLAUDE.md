@@ -40,11 +40,13 @@ Every feature and entity slice has these four segment folders, each with its own
 | `guardian-home` | GUARDIAN_HOME_01 | UC-08 |
 | `guardian-report` | GUARDIAN_REPORT_01 | UC-08, UC-09 |
 | `guardian-notification` | GUARDIAN_NOTIFICATION_01 | UC-11 |
+| `senior-my-info` | — (menu-tree only, see below) | — |
+| `guardian-my-info` | — (menu-tree only, see below) | — |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
 
 `pages/admin` is intentionally empty (just `.gitkeep`) — 결정사항 로그 §1 explicitly excludes the admin screen from MVP scope, and `AppRouter` has no admin route or role branch at all (only `senior`/`guardian`). Don't add one without checking the decision log first.
 
-**Gap to know about:** 화면설계서's 메뉴구성 also lists a "내 정보" screen under both 시니어 화면 and 보호자 화면 (and both home screens' tab bars reference it), but it has no 화면 ID of its own in the doc and wasn't in scope for this scaffolding pass — there's no `pages/my-info` yet, and `BottomTabBar` only wires up the tabs that currently have a page. Add it as its own page (with a real screen ID once one exists) when that screen gets built, rather than bolting it onto an existing page.
+**`senior-my-info` / `guardian-my-info` have no real spec.** 화면설계서's 메뉴구성 lists a "내 정보" leaf under both 시니어 화면 and 보호자 화면, but unlike every other screen in that document it has no 화면 ID, no UC, and no mockup page — it's a name in the menu tree and nothing else. Both pages are therefore just a heading + the logged-in `userId` + a working 로그아웃 button (wired to `entities/user`'s `logout()`), wrapped in the same `BottomTabBar` as their role's other screens. Rebuild them for real the moment an actual 화면 ID/mockup exists for "내 정보" — don't treat the current content as anything more than a nav placeholder.
 
 ## UC → `features/*` mapping (요구사항정의서)
 
@@ -65,8 +67,8 @@ Everything under `src/` right now is scaffolding, not real functionality:
 
 - `entities/*` have real TypeScript types in `model/` (grounded in the screen descriptions + 결정사항 로그, with comments pointing at open questions — e.g. `entities/report`'s `emotionScore: number | null` and `entities/notification`'s `target` shape are both still unresolved per 결정사항 로그 §1/§2), but `ui/api/lib` are placeholder stubs.
 - `features/*` are placeholder stubs across all four segments, **except** `login-with-credentials`, which has a working mock: `mockResolveRole()` in its `model/` fakes what UC-00's real auth would return (an id containing `guardian` logs in as a guardian, anything else as senior), so the routing skeleton is actually exercisable via `pnpm --filter frontend dev`. Replace that whole function with a real API call the moment `apps/backend` exposes a login endpoint — don't extend the string-matching hack.
-- `widgets/*` are placeholder stubs except `bottom-tab-bar`, which is real (renders whatever tab items the page passes in).
-- Routing (`app/routes`) is real: `/login`, `/senior`, `/senior/conversation`, `/guardian`, `/guardian/report`, `/guardian/notifications`, each guarded by `ProtectedRoute` checking `entities/user`'s session/role, unknown paths redirect to `/login`.
+- `widgets/*` are placeholder stubs except `bottom-tab-bar`, which is real (renders whatever tab items the page passes in) and also exports the `SENIOR_TAB_ITEMS`/`GUARDIAN_TAB_ITEMS` constants every page for that role should pass in — don't hand-roll a tab list in a page, import the constant.
+- Routing (`app/routes`) is real: `/login`, `/senior`, `/senior/conversation`, `/senior/my-info`, `/guardian`, `/guardian/report`, `/guardian/notifications`, `/guardian/my-info`, each guarded by `ProtectedRoute` checking `entities/user`'s session/role, unknown paths redirect to `/login`.
 - Session state (`entities/user`) is an in-memory React context — it resets on page refresh. There's no persistence (localStorage/cookies) yet.
 
 When implementing a real screen, replace the relevant placeholder(s) in place rather than adding parallel files — the folder structure and barrel exports are already where they should be.
