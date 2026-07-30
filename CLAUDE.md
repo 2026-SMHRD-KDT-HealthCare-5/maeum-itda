@@ -8,7 +8,7 @@
 
 ## Repository state
 
-이 저장소는 이제 막 시작된 모노레포 스캐폴딩 상태입니다 — `apps/backend`, `apps/ai-server`, 그리고 대부분의 `packages/*`에는 현재 `.gitkeep`만 있습니다. `packages/shared-types`는 실제 `package.json`을 갖고 있습니다 (`src/index.ts`는 아직 빈 placeholder). `apps/frontend`는 스캐폴딩되어 있고(Vite + React + TS, FSD 구조 — 자세한 내용은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) 참고), 다만 각 슬라이스는 아직 대부분 placeholder 상태입니다. `README.md`와 `CONTRIBUTING.md`는 이미 작성되어 현재 상태를 반영하고 있습니다 (아직 안 만들어진 부분은 TODO로 표시). 이미 완성된 구현을 수정하기보다는, 실제 앱 코드(NestJS 백엔드, FastAPI ai-server)를 새로 스캐폴딩하거나 frontend의 placeholder를 채워나가는 작업이 될 것으로 예상하세요.
+이 저장소는 초기 모노레포 스캐폴딩 단계입니다. `apps/frontend`는 Vite + React + TypeScript와 FSD 구조로 구성되어 있고(자세한 내용은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) 참고), 각 기능은 대부분 placeholder 상태입니다. `apps/backend`는 pnpm 워크스페이스와 Turborepo에 연결된 NestJS 기본 애플리케이션과 기능별 모듈 구조가 구성되어 있습니다. `apps/ai-server`와 일부 `packages/*`는 아직 placeholder 상태이며, `packages/shared-types`는 `package.json`과 빈 `src/index.ts`를 갖춘 패키지 스캐폴딩 상태입니다.
 
 ## Monorepo tooling
 
@@ -24,7 +24,7 @@ pnpm --filter <pkg-name> <script>   # 특정 워크스페이스 패키지 하나
 
 **`apps/ai-server`는 아직 pnpm 패키지가 아닙니다.** `pnpm-workspace.yaml`의 `apps/*` glob 패턴은 이 디렉터리와도 매칭되지만, `package.json`이 없어서(`.gitkeep`만 있음) pnpm이 워크스페이스 멤버로 인식하지 않으며 `pnpm --filter ai-server ...`는 실패합니다. 어차피 Python/FastAPI 프로젝트이므로 자체 `venv`와 `requirements.txt`로 관리하세요 (`cd apps/ai-server && python -m venv venv && pip install -r requirements.txt`). 참고: 나중에 이 디렉터리에 `package.json`이 추가되면(예: 툴링 목적) 기존 glob 패턴 때문에 자동으로 pnpm 워크스페이스 멤버가 되어버립니다.
 
-`packages/config`에는 이제 실제로 동작하는 공유 ESLint flat config(`@maeum-itda/config`, `./eslint.js`에서 export)가 있습니다 — TS + React 규칙 세트(typescript-eslint recommended, react-hooks, react-refresh, eslint-config-prettier)이며 `apps/frontend/eslint.config.js`가 이를 그대로 가져다 씁니다. **`packages/config`는 자체 `typescript` devDependency를 `~6.0.2`로 고정하고 있습니다** — typescript-eslint@8.x가 루트의 TypeScript 7.x에 대해 강하게 에러를 내기 때문입니다(`typescript-eslint does not support TS 7.0`). 이 pin을 제거하거나 `apps/frontend`가 쓰는 버전과 어긋나게 두지 마세요. `pnpm lint`(`turbo run lint`)는 이제 `apps/frontend`에서 실제로 실행되고 실제 위반 사항이 있으면 실패합니다. `apps/backend`/`apps/ai-server`는 아직 lint 스크립트가 없어서 어느 쪽이든 영향받지 않습니다. FSD 레이어 경계 강제(apps/frontend/CLAUDE.md의 import 규칙 참고)는 아직 이 config에 반영되어 있지 않습니다 — 지금은 순수 TS/React 규칙뿐입니다.
+`packages/config`에는 실제로 동작하는 공유 ESLint flat config(`@maeum-itda/config`, `./eslint.js`에서 export)가 있습니다 — TS + React 규칙 세트(typescript-eslint recommended, react-hooks, react-refresh, eslint-config-prettier)이며 `apps/frontend/eslint.config.js`가 이를 그대로 가져다 씁니다. **`packages/config`는 자체 `typescript` devDependency를 `~6.0.2`로 고정하고 있습니다** — typescript-eslint@8.x가 루트의 TypeScript 7.x에 대해 강하게 에러를 내기 때문입니다(`typescript-eslint does not support TS 7.0`). 이 pin을 제거하거나 `apps/frontend`가 쓰는 버전과 어긋나게 두지 마세요. `apps/backend`는 자체 ESLint/Prettier 설정과 lint 스크립트를 사용합니다. 따라서 `pnpm lint`(`turbo run lint`)는 frontend와 backend에서 실제로 실행되며 위반 사항이 있으면 실패합니다. `apps/ai-server`는 아직 lint 대상이 아닙니다. FSD 레이어 경계 강제(apps/frontend/CLAUDE.md의 import 규칙 참고)는 아직 공유 config에 반영되어 있지 않습니다.
 
 ## Architecture (target, per 기획서)
 
