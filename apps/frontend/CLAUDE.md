@@ -17,7 +17,7 @@ This app is organized with FSD. Code lives under `src/` in one of these layers:
 
 Each layer may only import from layers strictly below it (`app` → `pages` → `widgets` → `features` → `entities` → `shared`). Never import upward, and never import sideways between two slices of the same layer (one `feature` reaching directly into another `feature` — go through `entities`/`shared` instead). Needing a sideways or upward import is a signal the code is in the wrong layer, not a reason to add one.
 
-Enforcement isn't wired up yet (`packages/config`, the shared lint config, is still empty — see root CLAUDE.md). Until an eslint boundaries rule exists, follow this by convention. Every `features/*` and `entities/*` folder listed below already exists as a real directory (not just a plan) — the layering isn't aspirational.
+`eslint` (via `packages/config`'s shared flat config, see root CLAUDE.md) now runs for real here — `pnpm --filter frontend lint`, and it also gates `git commit` (`.claude/hooks/lint-before-commit.sh`). It only checks general TS/React correctness (typescript-eslint, react-hooks, react-refresh) so far, though — layer-boundary violations (a `feature` importing another `feature` sideways, etc.) aren't caught by a rule yet, so follow the import rule by convention until an eslint-plugin-boundaries config exists. Every `features/*` and `entities/*` folder listed below already exists as a real directory (not just a plan) — the layering isn't aspirational.
 
 ### Segment convention (inside each `features/*` and `entities/*` slice)
 
