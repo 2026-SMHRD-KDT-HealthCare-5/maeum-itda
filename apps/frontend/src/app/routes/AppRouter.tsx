@@ -1,10 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../../pages/login";
+import { JoinPage } from "../../pages/join";
 import { SeniorHomePage } from "../../pages/senior-home";
 import { SeniorConversationPage } from "../../pages/senior-conversation";
+import { SeniorConnectionPage } from "../../pages/senior-connection";
 import { GuardianHomePage } from "../../pages/guardian-home";
 import { GuardianReportPage } from "../../pages/guardian-report";
 import { GuardianNotificationPage } from "../../pages/guardian-notification";
+import { GuardianNotificationSettingsPage } from "../../pages/guardian-notification-settings";
+import { GuardianConnectionPage } from "../../pages/guardian-connection";
 import { SeniorMyInfoPage } from "../../pages/senior-my-info";
 import { GuardianMyInfoPage } from "../../pages/guardian-my-info";
 import { ProtectedRoute } from "./ProtectedRoute";
@@ -16,6 +20,7 @@ export function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/join" element={<JoinPage />} />
 
       <Route
         path="/senior"
@@ -30,6 +35,14 @@ export function AppRouter() {
         element={
           <ProtectedRoute role="senior">
             <SeniorConversationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/senior/connection"
+        element={
+          <ProtectedRoute role="senior">
+            <SeniorConnectionPage />
           </ProtectedRoute>
         }
       />
@@ -63,6 +76,22 @@ export function AppRouter() {
         element={
           <ProtectedRoute role="guardian">
             <GuardianNotificationPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/guardian/notification-settings"
+        element={
+          <ProtectedRoute role="guardian">
+            <GuardianNotificationSettingsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/guardian/connection"
+        element={
+          <ProtectedRoute role="guardian">
+            <GuardianConnectionPage />
           </ProtectedRoute>
         }
       />

@@ -58,3 +58,8 @@ GitFlow 방식이며, 전체 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)에 문
 - `feat/기능이름` — 기능 브랜치, `dev`에서 분기하여 PR로 다시 병합
 
 커밋 컨벤션(prefix 필수): `feat`, `fix`, `refactor`, `style`, `chore` — 예: `git commit -m "feat: 로그인 API 구현"`. `origin/dev`를 feature 브랜치에 병합한 후에는, CONTRIBUTING.md에 따라 push 전에 빌드와 기능이 정상 동작하는지 반드시 확인해야 합니다.
+
+### Claude Code 작업 규칙
+
+- **새 작업 시작 전 브랜치 확인**: 현재 브랜치가 `dev`인 상태에서 새로운 작업/기능 구현을 시작하려는 의도가 보이면, 코드를 작성하기 전에 먼저 현재 브랜치가 `dev`인지 확인하세요. 그런 다음 GitFlow 규칙(`feat/기능이름`)에 맞는 feature 브랜치 이름을 2~3개 후보로 추천하고, 사용자의 확정을 받은 뒤에만 그 브랜치를 생성하세요.
+- **커밋 전 승인**: 작업을 마쳤다고 바로 커밋하지 마세요. 항상 변경 요약과 Conventional Commits 형식의 커밋 메시지 초안을 먼저 보여주고, 사용자가 승인한 뒤에만 커밋하세요.
