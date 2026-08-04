@@ -2,6 +2,8 @@
 // - emotionLevel: 결정사항 로그 §1 — 좋음/보통/나쁨 3단계 (문서상 높음/낮음 아님)
 // - emotionScore가 null인 경우: 결정사항 로그 §1 — SGDS-K 응답 매핑 문항이
 //   3개 미만이면 산출 보류 (UC-06-2 대안흐름). null 처리 시 화면 표기는 미정.
+// - emotionScore는 결정사항 로그 §2-5에 따라 TextScore 단일값이다 — 문서의
+//   "TextScore×0.7 + VoiceScore×0.3" 공식은 폐기됐으니 그대로 구현하지 말 것.
 export type EmotionLevel = '좋음' | '보통' | '나쁨'
 
 export interface EvidenceSentence {
