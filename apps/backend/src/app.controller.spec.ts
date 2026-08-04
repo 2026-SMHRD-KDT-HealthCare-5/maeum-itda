@@ -1,3 +1,4 @@
+//단일 경로를 가진 기본 컨트롤러
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
