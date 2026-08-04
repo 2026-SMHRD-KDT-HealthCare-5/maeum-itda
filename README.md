@@ -27,7 +27,7 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 |---|---|
 | Front-end | TypeScript, React, React Router, TanStack Query |
 | Back-end | TypeScript, Node.js, NestJS |
-| AI / Data Pipeline | Python, FastAPI, OpenAI API |
+| AI / Data Pipeline | Python, FastAPI, Whisper(faster-whisper, STT), LLM(꼬리질문·감성분석·TTS, 벤더 미정, OpenAI API 가정) |
 | Database | MySQL |
 | 기타 | Git, GitHub, VS Code, pnpm, Turborepo |
 

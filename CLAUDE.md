@@ -32,7 +32,7 @@ pnpm --filter <pkg-name> <script>   # 특정 워크스페이스 패키지 하나
 
 - **apps/frontend** — TypeScript, React, React Router, TanStack Query. Feature-Sliced Design(FSD)을 따릅니다 — 레이어 규칙, 화면ID/UC 매핑, 세그먼트 컨벤션은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md)를 참고하세요.
 - **apps/backend** — TypeScript, Node.js, NestJS
-- **apps/ai-server** — Python, FastAPI, OpenAI API (STT → SGDS-K 매핑, tempo 베이스라인 스코어링, structured output 기반 근거 문장 추출). 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
+- **apps/ai-server** — Python, FastAPI. STT는 Whisper(faster-whisper) 로컬 모델(GPU 없으면 CPU로 동작)을 사용하고, 꼬리질문 생성·실시간 감성분석(같은 LLM 호출의 Structured Output)·TTS는 LLM 기반입니다(벤더 미정, README 기준 OpenAI API 가정). SGDS-K·GAD-7·LSNS-6 3개 척도 매칭과 음성 톤·피치 분석을 결합해 정서지수를 산출합니다. 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
 - **packages/shared-types** — frontend/backend 사이에서 공유하는 타입(그리고 ai-server와의 API 계약). 지금까지 스캐폴딩된 유일한 워크스페이스 패키지입니다 (`package.json`은 있고 `src/index.ts`는 비어있음).
 - **packages/api-client** — frontend가 사용할 타입이 있는 API client. 폴더는 존재하지만(`.gitkeep`만 있음) 아직 스캐폴딩되지 않았습니다.
 - **packages/config** — 공유 lint config (`@maeum-itda/config`). `apps/frontend`가 사용하는 실제 ESLint flat config가 있습니다(위 Monorepo tooling 참고); 공유 tsconfig는 아직 없습니다.
