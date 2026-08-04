@@ -37,9 +37,10 @@
 | `join` | JOIN_01 | UC-00 |
 | `login` | LOGIN_01 | UC-00 |
 | `senior-home` | SENIOR_HOME_01 | UC-01, UC-13 |
-| `senior-guardian-link` | SENIOR_LINK_01 / GUARDIAN_LINK_01 | UC-00-1 |
+| `senior-connection` | SENIOR_LINK_01 | UC-00-1 |
 | `senior-conversation` | SENIOR_CONVERSATION_01 | UC-01, UC-02, UC-03 |
 | `guardian-home` | GUARDIAN_HOME_01 | UC-08 |
+| `guardian-connection` | GUARDIAN_LINK_01 | UC-00-1 |
 | `guardian-report` | GUARDIAN_REPORT_01 | UC-08, UC-09 |
 | `guardian-notification` | GUARDIAN_NOTIFICATION_01 | UC-10, UC-11 |
 | `guardian-notification-settings` | — (화면설계서 본문에 화면ID 미배정, `docs/page-pdf/보호자 알림 설정.pdf` 참고) | UC-12 |
@@ -47,7 +48,7 @@
 | `guardian-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
 
-`join`, `senior-guardian-link`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면이며, 아직 `apps/frontend/src/pages`에 실제 디렉터리/라우트가 없습니다 — 구현 시 새로 만드세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다 더 구체적이므로, `pages/*` 구현 시 이 파일을 최종 디자인 소스로 참고하세요. `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
+`join`, `senior-connection`, `guardian-connection`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. 네 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다 더 구체적이므로, `pages/*` 구현 시 이 파일을 최종 디자인 소스로 참고하세요. `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
 
 `pages/admin`은 의도적으로 비워둔 상태입니다 (`.gitkeep`만 있음) — 결정사항 로그 §1에서 관리자 화면을 MVP 범위에서 명시적으로 제외했고, `AppRouter`에도 관리자 라우트나 역할 분기가 전혀 없습니다(`senior`/`guardian`만 있음). 결정사항 로그를 먼저 확인하지 않고 임의로 추가하지 마세요.
 
@@ -73,10 +74,10 @@ UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3 (SGDS-K
 
 지금 `src/` 아래에 있는 모든 것은 스캐폴딩이지, 실제 기능이 아닙니다:
 
-- `entities/*`는 `model/`에 실제 TypeScript 타입이 있습니다(화면 설명 + 결정사항 로그에 근거하며, 미해결 사항은 주석으로 표시 — 예를 들어 `entities/report`의 `emotionScore: number | null`과 `entities/notification`의 `target` 구조는 결정사항 로그 §1/§2 기준으로 아직 미해결입니다), 다만 `ui/api/lib`는 placeholder 껍데기입니다.
+- `entities/*`는 `model/`에 실제 TypeScript 타입이 있습니다(화면 설명 + 결정사항 로그에 근거하며, 미해결 사항은 주석으로 표시 — 예를 들어 `entities/report`의 `emotionScore: number | null`과 `entities/notification`의 `target` 구조는 결정사항 로그 §2 기준으로 아직 미해결입니다), 다만 `ui/api/lib`는 placeholder 껍데기입니다. `entities/connection`(UC-00-1 연결 상태: `pending`/`accepted`/`rejected`/`expired`)은 이번에 새로 추가된 entity로, 시니어·보호자 어느 한쪽에도 속하지 않는 둘 사이의 관계라서 별도로 뺐습니다 — `entities/senior`의 `connectedGuardianId`, `entities/guardian`의 `connectedSeniorId`는 각 역할 쪽에서 보는 최소 참조 필드일 뿐, 연결 요청 자체의 상태는 여기서 다룹니다.
 - `features/*`는 네 세그먼트 전부 placeholder 껍데기입니다, **단** `login-with-credentials`는 예외로 실제로 동작하는 목업이 있습니다: `model/`의 `mockResolveRole()`이 UC-00의 실제 인증이 반환할 값을 흉내내며(아이디에 `guardian`이 포함되면 보호자로, 그 외엔 시니어로 로그인), 이 덕분에 라우팅 뼈대를 `pnpm --filter frontend dev`로 실제로 동작해볼 수 있습니다. `apps/backend`가 로그인 엔드포인트를 제공하는 즉시 이 함수 전체를 실제 API 호출로 교체하세요 — 이 문자열 매칭 임시방편을 확장하지 마세요.
 - `widgets/*`는 placeholder 껍데기입니다, `bottom-tab-bar`는 예외로 실제로 동작하며(page가 넘겨주는 tab item을 그대로 렌더링) 각 역할의 모든 page가 넘겨야 할 `SENIOR_TAB_ITEMS`/`GUARDIAN_TAB_ITEMS` 상수도 함께 export합니다 — page 안에서 tab 목록을 직접 만들지 말고 이 상수를 import하세요.
-- 라우팅(`app/routes`)은 실제로 동작합니다: `/login`, `/senior`, `/senior/conversation`, `/senior/my-info`, `/guardian`, `/guardian/report`, `/guardian/notifications`, `/guardian/my-info` 각각이 `entities/user`의 세션/역할을 확인하는 `ProtectedRoute`로 보호되며, 알 수 없는 경로는 `/login`으로 리다이렉트됩니다.
+- 라우팅(`app/routes`)은 실제로 동작합니다: `/login`, `/join`, `/senior`, `/senior/conversation`, `/senior/connection`, `/senior/my-info`, `/guardian`, `/guardian/report`, `/guardian/notifications`, `/guardian/notification-settings`, `/guardian/connection`, `/guardian/my-info` 각각이 `entities/user`의 세션/역할을 확인하는 `ProtectedRoute`로 보호되며(`/login`, `/join`은 로그인 전 화면이라 예외), 알 수 없는 경로는 `/login`으로 리다이렉트됩니다.
 - 세션 상태(`entities/user`)는 메모리에만 있는 React context입니다 — 새로고침하면 초기화됩니다. 아직 localStorage/cookies 같은 영속화는 없습니다.
 
 실제 화면을 구현할 때는 별도 파일을 새로 추가하지 말고 해당 placeholder를 그 자리에서 교체하세요 — 폴더 구조와 barrel export는 이미 있어야 할 자리에 있습니다.
