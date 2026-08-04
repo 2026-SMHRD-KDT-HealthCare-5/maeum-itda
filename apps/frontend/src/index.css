@@ -11,13 +11,22 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
+  /* 마음잇다 앱 전용 토큰 — page-html 소스의 배경색(#f7f4ee)은 확인된 값,
+     녹색 계열은 화면설계서 목업 근사치(정확한 디자인 토큰 확정 전까지 임시). */
+  --app-bg: #f7f4ee;
+  --primary: #1f6f54;
+  --primary-pressed: #17553f;
+  --primary-tint: #e6f2ec;
+  --danger: #d64545;
+  --danger-bg: #fdecec;
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -30,36 +39,26 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+/* 이 앱의 화면 목업(docs/page-pdf)은 전부 라이트 테마 고정이고 다크 테마는
+   아직 디자인된 적이 없다. 예전엔 여기 @media (prefers-color-scheme: dark)
+   오버라이드가 있었는데, 그게 --text/--text-h만 밝은 색으로 바꾸고
+   Card/TextField 같은 컴포넌트의 고정 흰 배경(#fff)은 그대로 둬서, OS가
+   다크모드면 흰 배경에 밝은 글자색이 얹혀 텍스트가 안 보이는 버그가 났다
+   (예: "자동 로그인" 라벨, 입력창 글자). 실제 다크 테마가 디자인되면 그때
+   surface 배경까지 같이 바뀌는 진짜 다크모드로 다시 넣을 것. */
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
+/* 모바일 우선 앱 — 데스크톱에서도 폰 화면 폭으로 가운데 정렬한다.
+   기존 1126px 데스크톱 레이아웃/border-inline/text-align은 초기 Vite
+   템플릿 잔재였고 이 앱(시니어 안부 서비스)엔 맞지 않아 정리함. */
 #root {
-  width: 1126px;
-  max-width: 100%;
+  width: 100%;
+  max-width: 480px;
   margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  background: var(--app-bg);
 }
 
 body {

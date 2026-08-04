@@ -1,0 +1,59 @@
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 48px 20px 32px;
+  box-sizing: border-box;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.brandImage {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+}
+
+.subheading {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: var(--text-h);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.footer {
+  margin-top: 16px;
+  font-size: 12px;
+  line-height: 150%;
+  color: var(--text);
+  text-align: center;
+}
+
+.footerHighlight {
+  color: var(--primary);
+  text-decoration: underline;
+}
