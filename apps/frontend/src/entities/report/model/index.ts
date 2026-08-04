@@ -15,6 +15,8 @@ export interface DailyReport {
   seniorId: string
   emotionScore: number | null
   emotionLevel: EmotionLevel | null
-  summary: string
+  // UC-06-4 (FR-03-06) 산출 — 유효 대화 없으면 생성 생략(대안흐름 A1) → null.
+  conversationSummary: string | null
+  recommendedAction: string | null
   evidenceSentences: EvidenceSentence[]
 }
