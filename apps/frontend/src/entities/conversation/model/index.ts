@@ -8,11 +8,10 @@ export interface ConversationTurn {
   answer: string | null
   answeredAt: string | null
   // UC-04에서 같은 LLM 호출의 Structured Output으로 생성, UC-07에서 저장.
+  // voice_score/VoiceScore(음성 acoustic 수치화)는 결정사항 로그 §2-5에 따라
+  // 폐기됨 — 음성 특징은 이 sentimentLabel/Note 생성의 입력 재료로만 쓰임.
   sentimentLabel: string | null
   sentimentNote: string | null
-  // UC-07이 turn마다 저장한다는 voice_score. UC-06-2 공식의 일간 집계
-  // VoiceScore와 이름이 겹치지만 다른 값으로 보임 — 결정사항 로그 §2 참고.
-  voiceScore: number | null
 }
 
 export interface Conversation {
