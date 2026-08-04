@@ -34,15 +34,20 @@
 
 | `pages/*` | 화면 ID | 관련 UC |
 |---|---|---|
+| `join` | JOIN_01 | UC-00 |
 | `login` | LOGIN_01 | UC-00 |
-| `senior-home` | SENIOR_HOME_01 | UC-01 |
+| `senior-home` | SENIOR_HOME_01 | UC-01, UC-13 |
+| `senior-guardian-link` | SENIOR_LINK_01 / GUARDIAN_LINK_01 | UC-00-1 |
 | `senior-conversation` | SENIOR_CONVERSATION_01 | UC-01, UC-02, UC-03 |
 | `guardian-home` | GUARDIAN_HOME_01 | UC-08 |
 | `guardian-report` | GUARDIAN_REPORT_01 | UC-08, UC-09 |
-| `guardian-notification` | GUARDIAN_NOTIFICATION_01 | UC-11 |
+| `guardian-notification` | GUARDIAN_NOTIFICATION_01 | UC-10, UC-11 |
+| `guardian-notification-settings` | — (화면설계서 본문에 화면ID 미배정, `docs/page-pdf/보호자 알림 설정.pdf` 참고) | UC-12 |
 | `senior-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `guardian-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
+
+`join`, `senior-guardian-link`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면이며, 아직 `apps/frontend/src/pages`에 실제 디렉터리/라우트가 없습니다 — 구현 시 새로 만드세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다 더 구체적이므로, `pages/*` 구현 시 이 파일을 최종 디자인 소스로 참고하세요. `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
 
 `pages/admin`은 의도적으로 비워둔 상태입니다 (`.gitkeep`만 있음) — 결정사항 로그 §1에서 관리자 화면을 MVP 범위에서 명시적으로 제외했고, `AppRouter`에도 관리자 라우트나 역할 분기가 전혀 없습니다(`senior`/`guardian`만 있음). 결정사항 로그를 먼저 확인하지 않고 임의로 추가하지 마세요.
 
@@ -53,13 +58,16 @@
 | `features/*` | UC | 유스케이스 이름 |
 |---|---|---|
 | `login-with-credentials` | UC-00 | 로그인 및 역할별 진입 |
+| `send-connection-request` / `respond-connection-request` | UC-00-1 | 보호자 → 시니어 연결 요청 및 승인 |
 | `start-conversation` | UC-01 | 실시간 안부 대화 시작 |
 | `record-voice-answer` | UC-02 | 음성 통화 진행 및 답변 |
 | `select-report-date` | UC-08 | 일간/주간 정서 리포트 조회 (날짜 선택) |
 | `view-evidence-sentence` | UC-09 | 위험 발화 근거 문장 확인 |
-| `mark-notification-read` | UC-11 | 알림함 목록 조회 및 읽음 처리 |
+| `mark-notification-read` | UC-10, UC-11 | 알림함 목록 조회 및 읽음 처리 (정서지수 하락 알림 수신 포함) |
+| `set-notification-threshold` | UC-12 | 알림 받을 정서지수 임계치 설정 |
+| `view-attendance-calendar` | UC-13 | 시니어 홈화면 출석 캘린더 조회 |
 
-UC-03 (STT 변환), UC-05 (발화 속도 분석), UC-06-1/UC-06-2 (SGDS-K 채점/정서지수 산출), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다.
+UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3 (SGDS-K·GAD-7·LSNS-6 채점, 정서지수 산출, 음성 톤·피치 분석), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다. UC-14(대화 빈도 기반 캐릭터 환경 꾸미기)는 팀 결정으로 구현하지 않기로 했으므로 대응 슬라이스를 만들지 마세요. UC-10(정서지수 하락 알림 수신)은 별도 화면/슬라이스가 아니라 UC-11(알림함)에 흡수됩니다 — `mark-notification-read` 목록에 정서지수 하락 알림도 다른 알림 유형과 동일하게 표시될 뿐입니다. 웹 푸시 알림(실제 push 발송)은 MVP 범위가 아니며, 이 프로젝트를 먼저 웹앱으로 완성한 뒤 PWA를 적용하는 시점에 별도로 구현할 계획입니다 — 지금은 알림함(REST 조회)만으로 충분하고, Service Worker/Push API 관련 코드를 미리 만들지 마세요.
 
 ## 현재 구현 상태
 
