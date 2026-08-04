@@ -33,7 +33,7 @@ export function LoginPage() {
             variant="outline"
             onClick={() => navigate("/join")}
           >
-            처음이신가요? 회원가입
+            회원가입
           </Button>
 
           {/* 개인정보 처리방침 페이지가 아직 없어 링크가 아니라 텍스트만 강조함. */}
