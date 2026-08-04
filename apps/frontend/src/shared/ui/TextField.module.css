@@ -1,16 +1,19 @@
 .field {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 52px;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: #fff;
+  gap: 11px;
+  height: 56px;
+  padding: 0 17px;
+  border-radius: 15px;
+  border: 1px solid #e4e9e6;
+  background: #f8faf9;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .field:focus-within {
   border-color: var(--primary);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(31, 111, 84, 0.1);
 }
 
 .fieldError {
@@ -18,9 +21,23 @@
 }
 
 .icon {
-  font-size: 16px;
-  line-height: 1;
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
   flex: none;
+  color: #89958f;
+}
+
+.icon svg,
+.toggle svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .input {
@@ -34,8 +51,8 @@
 }
 
 .input::placeholder {
-  color: var(--text);
-  opacity: 0.6;
+  color: #9da6a2;
+  opacity: 1;
 }
 
 .toggle {
@@ -43,9 +60,10 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 4px;
+  width: 23px;
+  height: 23px;
+  padding: 1px;
+  color: #929c97;
 }
 
 .errorText {
