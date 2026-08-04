@@ -1,6 +1,6 @@
 # apps/frontend/CLAUDE.md
 
-`apps/frontend`에 한정된 가이드이며, 루트 [CLAUDE.md](../../CLAUDE.md)와 함께 로드됩니다 — 거기 이미 있는 내용(기술 스택, 모노레포 툴링, WebSocket/REST 구분, 모바일 이식성 가이드라인)은 반복하지 않습니다. 이 파일은 frontend 내부 코드 구성만 다룹니다.
+`apps/frontend`에 한정된 가이드이며, 루트 [CLAUDE.md](../../CLAUDE.md) 및 [AGENTS.md](../../AGENTS.md)와 함께 로드됩니다 — 거기 이미 있는 내용(기술 스택, 모노레포 툴링, WebSocket/REST 구분, 모바일 이식성 가이드라인, Claude Code/Codex UI 작업분담, `docs/page-pdf`·`docs/page-html`의 성격)은 반복하지 않습니다. 이 파일은 frontend 내부 코드 구성만 다룹니다.
 
 ## 아키텍처: Feature-Sliced Design (FSD)
 
@@ -48,7 +48,7 @@
 | `guardian-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
 
-`join`, `senior-connection`, `guardian-connection`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. 네 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다 더 구체적이므로, `pages/*` 구현 시 이 파일을 최종 디자인 소스로 참고하세요. `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
+`join`, `senior-connection`, `guardian-connection`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. 네 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다는 구체적이지만, AGENTS.md 기준으로 이 파일도 **참고용 초안일 뿐 최종 디자인은 아닙니다**. `pages/*` 구현 시 최신 요구사항/결정사항/기존 코드/`shared/ui` 컴포넌트와 맞춰 조정하세요(자세한 조정 기준은 AGENTS.md 참고). `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
 
 `pages/admin`은 의도적으로 비워둔 상태입니다 (`.gitkeep`만 있음) — 결정사항 로그 §1에서 관리자 화면을 MVP 범위에서 명시적으로 제외했고, `AppRouter`에도 관리자 라우트나 역할 분기가 전혀 없습니다(`senior`/`guardian`만 있음). 결정사항 로그를 먼저 확인하지 않고 임의로 추가하지 마세요.
 
@@ -69,6 +69,10 @@
 | `view-attendance-calendar` | UC-13 | 시니어 홈화면 출석 캘린더 조회 |
 
 UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3/UC-06-4 (SGDS-K·GAD-7·LSNS-6 채점, 정서지수 산출, 음성 톤·피치 분석, 일간 대화 요약·AI 추천 행동 제안 생성), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다. UC-14(대화 빈도 기반 캐릭터 환경 꾸미기)는 요구사항정의서 재수정판에서 문서 자체에서 삭제됐습니다 — 예전엔 "문서엔 있지만 팀이 스코프 제외"였는데 이제는 존재하지도 않는 UC이니, 어쨌든 대응 슬라이스를 만들지 마세요. UC-10(정서지수 하락 알림 수신)은 별도 화면/슬라이스가 아니라 UC-11(알림함)에 흡수됩니다 — `mark-notification-read` 목록에 정서지수 하락 알림도 다른 알림 유형과 동일하게 표시될 뿐입니다. 웹 푸시 알림(실제 push 발송)은 MVP 범위가 아니며, 이 프로젝트를 먼저 웹앱으로 완성한 뒤 PWA를 적용하는 시점에 별도로 구현할 계획입니다 — 지금은 알림함(REST 조회)만으로 충분하고, Service Worker/Push API 관련 코드를 미리 만들지 마세요.
+
+## Codex에 UI를 넘길 때 보고할 것
+
+AGENTS.md의 "UI Ownership and Workflow"에 Claude Code/Codex 작업분담과 핸드오프 전 체크리스트(state, events, API/Query 연결, 비활성화 조건, logic)가 정리되어 있습니다 — 그 내용은 여기서 반복하지 않습니다. 다만 그 체크리스트에 없는 것 하나: **로딩/오류/빈 상태를 어떻게 처리하는지**도 같이 보고하세요(예: `isPending`이면 어떤 값을 보여줘야 하는지, 에러 시 어떤 필드에 무슨 메시지가 들어가는지, 데이터가 빈 배열/`null`일 때 UI가 무엇을 기준으로 판단해야 하는지). Codex가 로직을 다시 읽지 않고도 UI만 이어 붙일 수 있을 정도로 구체적으로 쓰세요.
 
 ## 현재 구현 상태
 

@@ -1,0 +1,136 @@
+.page {
+  position: relative;
+  isolation: isolate;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 100svh;
+  padding: 32px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% -10%, rgba(171, 224, 203, 0.5), transparent 38%),
+    linear-gradient(180deg, #f4faf7 0%, #f8faf8 48%, #f7f5f0 100%);
+}
+
+.page::before,
+.page::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.page::before {
+  top: 17%;
+  left: -110px;
+  width: 220px;
+  height: 220px;
+  background: rgba(184, 228, 211, 0.18);
+  filter: blur(2px);
+}
+
+.page::after {
+  right: -95px;
+  bottom: 8%;
+  width: 180px;
+  height: 180px;
+  background: rgba(245, 206, 200, 0.14);
+  filter: blur(4px);
+}
+
+.hero {
+  width: 100%;
+}
+
+.brand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.brandImage {
+  width: 100%;
+  max-width: 286px;
+  height: auto;
+  filter: drop-shadow(0 16px 26px rgba(35, 91, 69, 0.09));
+}
+
+.loginCard {
+  width: 100%;
+}
+
+.loginCard > div {
+  position: relative;
+  border: 1px solid rgba(30, 91, 68, 0.06);
+  border-radius: 28px;
+  padding: 28px 24px 22px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 24px 70px rgba(39, 74, 61, 0.11),
+    0 3px 12px rgba(39, 74, 61, 0.04);
+  backdrop-filter: blur(16px);
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: #a3aaa7;
+  font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #d9dfdc;
+}
+
+.footer {
+  margin-top: 18px;
+  font-size: 11px;
+  line-height: 150%;
+  color: #929895;
+  text-align: center;
+}
+
+.footerHighlight {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (max-height: 760px) {
+  .page {
+    justify-content: flex-start;
+    gap: 10px;
+    padding-block: 18px;
+  }
+
+  .brandImage {
+    max-width: 225px;
+  }
+
+  .loginCard > div {
+    padding-block: 22px 18px;
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding-inline: 16px;
+  }
+
+  .loginCard > div {
+    padding-inline: 18px;
+  }
+}
