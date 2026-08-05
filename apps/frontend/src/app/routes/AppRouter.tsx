@@ -1,11 +1,14 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import { SplashPage } from "../../pages/splash";
 import { LoginPage } from "../../pages/login";
 import { JoinPage } from "../../pages/join";
 import { SeniorHomePage } from "../../pages/senior-home";
 import { SeniorConversationPage } from "../../pages/senior-conversation";
 import { SeniorConnectionPage } from "../../pages/senior-connection";
+import { SeniorDailyRecordPage } from "../../pages/senior-daily-record";
 import { GuardianHomePage } from "../../pages/guardian-home";
 import { GuardianReportPage } from "../../pages/guardian-report";
+import { GuardianWeeklyReportPage } from "../../pages/guardian-weekly-report";
 import { GuardianNotificationPage } from "../../pages/guardian-notification";
 import { GuardianNotificationSettingsPage } from "../../pages/guardian-notification-settings";
 import { GuardianConnectionPage } from "../../pages/guardian-connection";
@@ -19,6 +22,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 export function AppRouter() {
   return (
     <Routes>
+      <Route path="/" element={<SplashPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/join" element={<JoinPage />} />
 
@@ -47,6 +51,14 @@ export function AppRouter() {
         }
       />
       <Route
+        path="/senior/daily-record"
+        element={
+          <ProtectedRoute role="senior">
+            <SeniorDailyRecordPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/senior/my-info"
         element={
           <ProtectedRoute role="senior">
@@ -68,6 +80,14 @@ export function AppRouter() {
         element={
           <ProtectedRoute role="guardian">
             <GuardianReportPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/guardian/report/weekly"
+        element={
+          <ProtectedRoute role="guardian">
+            <GuardianWeeklyReportPage />
           </ProtectedRoute>
         }
       />
