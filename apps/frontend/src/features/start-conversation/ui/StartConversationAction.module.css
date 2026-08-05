@@ -1,0 +1,191 @@
+.hero {
+  position: relative;
+}
+
+.scene {
+  position: relative;
+  height: 285px;
+  overflow: hidden;
+}
+
+.speechBubble {
+  position: absolute;
+  z-index: 2;
+  top: 54px;
+  left: 10px;
+  width: 148px;
+  padding: 18px;
+  box-sizing: border-box;
+  border-radius: 22px 22px 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 34px rgba(70, 78, 72, 0.09);
+  color: #33473e;
+  animation: speech-bubble-float 3.2s ease-in-out infinite;
+  will-change: transform;
+}
+
+.speechBubble::after {
+  position: absolute;
+  right: -15px;
+  bottom: 25px;
+  width: 28px;
+  height: 28px;
+  background: inherit;
+  content: '';
+  transform: rotate(45deg);
+}
+
+.speechBubble p {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.speechBubble p:first-child {
+  font-weight: 700;
+}
+
+.speechBubble span {
+  display: block;
+  margin-top: 8px;
+  color: #f39b9b;
+  font-size: 21px;
+}
+
+.character {
+  position: absolute;
+  right: -4px;
+  bottom: -20px;
+  width: 250px;
+  max-width: none;
+  height: auto;
+  animation: character-float 4s ease-in-out infinite;
+  filter: drop-shadow(0 18px 24px rgba(70, 86, 77, 0.09));
+  will-change: transform;
+}
+
+.button {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  min-height: 94px;
+  margin-top: -9px;
+  padding: 14px 20px;
+  box-sizing: border-box;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 15px;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #16704f 0%, #086b48 100%);
+  box-shadow: 0 15px 30px rgba(19, 101, 71, 0.22);
+  color: #fff;
+  text-decoration: none;
+}
+
+.microphone {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--primary);
+}
+
+.microphone svg {
+  width: 31px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.buttonCopy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.buttonCopy small {
+  font-size: 12px;
+}
+
+.buttonCopy strong {
+  font-size: 21px;
+  line-height: 1.35;
+  letter-spacing: -0.035em;
+}
+
+.arrow {
+  font-size: 35px;
+  font-weight: 200;
+}
+
+.button:focus-visible {
+  outline: 4px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 4px;
+}
+
+@keyframes speech-bubble-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+@keyframes character-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .speechBubble,
+  .character {
+    animation: none;
+  }
+}
+
+@media (max-width: 370px) {
+  .scene {
+    height: 255px;
+  }
+
+  .speechBubble {
+    top: 45px;
+    width: 135px;
+    padding: 15px;
+  }
+
+  .character {
+    right: -4px;
+    bottom: -16px;
+    width: 230px;
+  }
+
+  .button {
+    padding-inline: 15px;
+    gap: 11px;
+  }
+
+  .microphone {
+    width: 55px;
+    height: 55px;
+  }
+
+  .buttonCopy strong {
+    font-size: 18px;
+  }
+}
