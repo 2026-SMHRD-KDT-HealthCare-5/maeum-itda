@@ -10,6 +10,8 @@ Use pnpm 11 from the repository root:
 
 - `pnpm dev` starts workspace development tasks through Turbo.
 - `pnpm build` and `pnpm lint` verify all workspaces.
+- `pnpm format` formats frontend and shared-type source files with the root Prettier configuration.
+- `pnpm format:check` verifies frontend and shared-type formatting without modifying files. Backend formatting remains managed by `pnpm --filter backend format` and `apps/backend/.prettierrc`.
 - `pnpm --filter frontend lint` checks frontend TypeScript and React rules.
 - `pnpm --filter frontend build` runs `tsc -b` and creates the Vite build.
 - `pnpm --filter backend test` runs Jest unit tests.
@@ -18,7 +20,7 @@ Use pnpm 11 from the repository root:
 
 ## Style and Testing
 
-Use TypeScript with 2-space indentation and ESLint/Prettier formatting. React components use `PascalCase.tsx`; variables and functions use `camelCase`; slice directories use kebab-case. Frontend styles use colocated `*.module.css`. Global variables and base styles are in `apps/frontend/src/index.css`; reuse `shared/ui` and existing tokens first. NestJS files use `.module.ts`, `.service.ts`, and `.controller.ts` suffixes. Shell scripts retain LF endings.
+Use TypeScript with 2-space indentation and the root Prettier configuration. Format changed supported files before verification and run `pnpm format:check` before committing; ESLint does not format code. React components use `PascalCase.tsx`; variables and functions use `camelCase`; slice directories use kebab-case. Frontend styles use colocated `*.module.css`. Global variables and base styles are in `apps/frontend/src/index.css`; reuse `shared/ui` and existing tokens first. NestJS files use `.module.ts`, `.service.ts`, and `.controller.ts` suffixes. Shell scripts retain LF endings.
 
 Backend unit tests are `*.spec.ts`; e2e tests are `apps/backend/test/*.e2e-spec.ts`. No frontend test runner or coverage target is configured. For UI changes, run filtered frontend lint and build, then manually check affected routes at mobile and desktop sizes.
 
@@ -42,7 +44,7 @@ The current MVP is a responsive web app. Do not add PWA manifests, service worke
 
 Use concise Conventional Commit prefixes observed in history: `feat:`, `fix:`, `refactor:`, `style:`, `docs:`, or `chore:`. Branch from `dev` (for example, `feat/login-form`) and open PRs back to `dev`. Include a summary, linked requirement or issue, verification commands, and before/after screenshots for UI changes.
 
-When the user says they want to commit or asks for a commit, do not immediately run `git commit`. First inspect the current branch, worktree, and diff; separate user-owned changes from agent-made changes; group the diff into coherent commits; and run verification appropriate to the changed scope. If the work is directly on `dev`, point out the branch rule and propose a suitable feature branch. Present the proposed branch name and Conventional Commit split to the user, then create the branch and commits only after the user approves that plan. After committing, report the commit hashes, included changes, and verification results.
+When the user says they want to commit or asks for a commit, do not immediately run `git commit`. First inspect the current branch, worktree, and diff; separate user-owned changes from agent-made changes; group the diff into coherent commits; format changed supported files; and run `pnpm format:check` plus verification appropriate to the changed scope. If the work is directly on `dev`, point out the branch rule and propose a suitable feature branch. Present the proposed branch name and Conventional Commit split to the user, then create the branch and commits only after the user approves that plan. After committing, report the commit hashes, included changes, and verification results.
 
 ## Security
 
