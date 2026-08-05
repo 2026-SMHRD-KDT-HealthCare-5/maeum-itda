@@ -27,7 +27,7 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 |---|---|
 | Front-end | TypeScript, React, React Router, TanStack Query |
 | Back-end | TypeScript, Node.js, NestJS |
-| AI / Data Pipeline | Python, FastAPI, OpenAI API |
+| AI / Data Pipeline | Python, FastAPI, Whisper(faster-whisper, STT), LLM(꼬리질문·감성분석·TTS, 벤더 미정, OpenAI API 가정) |
 | Database | MySQL |
 | 기타 | Git, GitHub, VS Code, pnpm, Turborepo |
 
@@ -38,18 +38,18 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 ```
 maeum-itda/
 ├── apps/
-│   ├── frontend/       # React 기반 웹 클라이언트 (TODO: 초기 세팅 예정)
-│   ├── backend/        # NestJS 기반 API 서버, REST + WebSocket (TODO: 초기 세팅 예정)
+│   ├── frontend/       # React 기반 웹 클라이언트 (Vite + FSD 구조, 라우팅·eslint 포함 스캐폴딩 완료)
+│   ├── backend/        # NestJS 기반 API 서버 (기본 스캐폴딩 및 Turborepo 연결 완료)
 │   └── ai-server/       # FastAPI 기반 AI/감정분석 서버, Python (TODO: 초기 세팅 예정)
 ├── packages/
 │   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (package.json 존재, 내용은 비어있음)
 │   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (TODO: 초기 세팅 예정)
-│   └── config/           # 공통 설정(lint, tsconfig 등) (TODO: 초기 세팅 예정)
+│   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 스캐폴딩 완료, apps/frontend가 사용 중)
 ├── infra/                # 배포/인프라 관련 설정 (TODO: 초기 세팅 예정)
 └── docs/                 # 기획서, 요구사항정의서, 화면설계서 등 프로젝트 문서
 ```
 
-> `apps/*`, `packages/api-client`, `packages/config`, `infra`는 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다.
+> `apps/ai-server`, `packages/api-client`, `infra`는 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조 스캐폴딩(라우팅, eslint 포함)이, `apps/backend`는 NestJS 기본 스캐폴딩과 pnpm/Turborepo 연결이, `packages/config`는 공유 ESLint config가 각각 완료된 상태입니다.
 >
 > ⚠️ **`apps/ai-server`는 아직 pnpm이 인식하는 패키지가 아닙니다.** `package.json`이 없어 `pnpm --filter ai-server ...`가 동작하지 않으며, Python(FastAPI) 프로젝트이므로 의존성은 pnpm이 아닌 별도 가상환경(`venv`)과 `requirements.txt`로 관리할 예정입니다.
 
@@ -70,11 +70,11 @@ pnpm install
 ```
 
 ```bash
-# TODO: frontend 개발 서버 실행 명령어 추가 (apps/frontend 스캐폴딩 완료 후)
-# pnpm --filter frontend dev
+# frontend(Vite) 개발 서버 실행
+pnpm --filter frontend dev
 
-# TODO: backend(NestJS) 개발 서버 실행 명령어 추가 (apps/backend 스캐폴딩 완료 후)
-# pnpm --filter backend dev
+# backend(NestJS) 개발 서버 실행
+pnpm --filter backend dev
 
 # ai-server(FastAPI)는 pnpm 워크스페이스 밖이므로 별도 실행
 # cd apps/ai-server && python -m venv venv && pip install -r requirements.txt
@@ -83,6 +83,6 @@ pnpm install
 # TODO: 환경 변수(.env) 설정 가이드 추가
 ```
 
-> 참고: `pnpm lint`(`turbo run lint`)는 현재 eslint/prettier가 devDependency로만 설치되어 있고 설정 파일과 각 앱의 `lint` 스크립트가 없어 **아무 것도 검사하지 않고 조용히 끝납니다.** 각 앱 스캐폴딩 시점에 설정을 채울 예정입니다 (TODO).
+> 참고: `apps/frontend`(공유 `packages/config` ESLint 사용)와 `apps/backend`(자체 ESLint 설정 사용)에는 각각 `lint` 스크립트가 구성되어 있어, 루트의 `pnpm lint` 실행 시 두 앱의 코드가 검사됩니다. 아직 스캐폴딩되지 않은 앱은 검사 대상에 포함되지 않습니다.
 
 브랜치 전략 및 커밋 컨벤션은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고하세요.
