@@ -32,6 +32,8 @@ Treat `docs/page-pdf` and locally available, gitignored `docs/page-html` as draf
 
 UI work is complete when behavior is preserved, the diff is scoped, shared components are reused, loading/error/empty/disabled and keyboard-focus states are reviewed where applicable, and frontend lint/build pass. Report changed files, verification, and unresolved dependencies.
 
+When the user asks for an ongoing working preference with phrases such as "앞으로 이렇게 해줘" or "다음부터는 이렇게 해줘", apply it in the current conversation and determine whether it should persist across future sessions and tools. If it is a repository-wide workflow, verification rule, coding convention, or other durable team practice, ask whether the user wants it added to `AGENTS.md`. Do not change repository governance for a one-off preference or without the user's approval.
+
 ## Platform Scope
 
 The current MVP is a responsive web app. Do not add PWA manifests, service workers, Push API code, native bridges, or app-specific UI unless explicitly requested; notifications currently use the in-app REST-backed inbox. PWA support and a possible Flutter client are later phases. Keep REST/WebSocket contracts platform-neutral and defined in shared types so future clients can reuse the backend, but do not build speculative abstractions for them now.
@@ -39,6 +41,8 @@ The current MVP is a responsive web app. Do not add PWA manifests, service worke
 ## Commits and Pull Requests
 
 Use concise Conventional Commit prefixes observed in history: `feat:`, `fix:`, `refactor:`, `style:`, `docs:`, or `chore:`. Branch from `dev` (for example, `feat/login-form`) and open PRs back to `dev`. Include a summary, linked requirement or issue, verification commands, and before/after screenshots for UI changes.
+
+When the user says they want to commit or asks for a commit, do not immediately run `git commit`. First inspect the current branch, worktree, and diff; separate user-owned changes from agent-made changes; group the diff into coherent commits; and run verification appropriate to the changed scope. If the work is directly on `dev`, point out the branch rule and propose a suitable feature branch. Present the proposed branch name and Conventional Commit split to the user, then create the branch and commits only after the user approves that plan. After committing, report the commit hashes, included changes, and verification results.
 
 ## Security
 
