@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-이 파일은 이 저장소의 코드 작업 시 Claude Code(claude.ai/code)에게 제공하는 가이드입니다. 저장소 공통 작업 원칙(구조, 커맨드, 스타일, Claude Code/Codex UI 작업분담, 커밋·PR 규칙, 보안)은 [AGENTS.md](AGENTS.md)에 있습니다 — 거기 있는 내용은 여기서 반복하지 않습니다.
+이 파일은 이 저장소의 코드 작업 시 Claude Code(claude.ai/code)에게 제공하는 가이드입니다. 저장소 공통 작업 원칙(구조, 커맨드, 스타일, 작업 단위 소유권, 커밋·PR 규칙, 보안)은 [AGENTS.md](AGENTS.md)에 있습니다 — 거기 있는 내용은 여기서 반복하지 않습니다.
 
 ## Project
 
