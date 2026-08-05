@@ -1,0 +1,33 @@
+.transcript {
+  min-height: 170px;
+  padding: 8px 0 12px;
+}
+
+.empty {
+  display: flex;
+  min-height: 150px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #879089;
+  text-align: center;
+}
+
+.empty span {
+  display: grid;
+  width: 56px;
+  height: 34px;
+  place-items: center;
+  border-radius: 18px 18px 18px 6px;
+  background: #e4ede7;
+  color: #557065;
+  font-size: 15px;
+  letter-spacing: 3px;
+}
+
+.empty p {
+  max-width: 280px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
