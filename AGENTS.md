@@ -22,11 +22,11 @@ Use TypeScript with 2-space indentation and ESLint/Prettier formatting. React co
 
 Backend unit tests are `*.spec.ts`; e2e tests are `apps/backend/test/*.e2e-spec.ts`. No frontend test runner or coverage target is configured. For UI changes, run filtered frontend lint and build, then manually check affected routes at mobile and desktop sizes.
 
-## UI Ownership and Workflow
+## Task Ownership and Workflow
 
-Claude Code primarily implements feature behavior, API/Query integration, validation, and state transitions. Codex owns UI drafts and refinement: semantic markup, CSS Modules, visual hierarchy, responsiveness, accessibility, and consistent state presentation. Work on one screen or one clear problem at a time, and do not edit the same file concurrently.
+Claude Code and Codex may both implement feature behavior and UI. Assign each screen or clearly scoped task to one tool at a time; do not edit the same files concurrently. The primary tool should complete the requested behavior, UI, validation, and relevant verification. A second tool may review or refine the result afterward, but should preserve working behavior and avoid rewriting it without a concrete reason.
 
-Before UI handoff, identify state, events, API/Query connections, disabled conditions, and logic to preserve. UI work must not invent data or alter API contracts, authentication, sessions, routing, or state management. Report the reason and impact before touching functional files. Do not install UI libraries or broadly refactor unrelated screens.
+Before continuing another tool's work, inspect the current diff and identify state, events, API/Query connections, disabled conditions, and logic to preserve. UI work must not invent data or alter API contracts, authentication, sessions, routing, or state management. Report the reason and impact before expanding scope or changing functional contracts. Do not install UI libraries or broadly refactor unrelated screens.
 
 Treat `docs/page-pdf` and locally available, gitignored `docs/page-html` as draft layout references, not final specifications. Reconcile them with current requirements, decisions, working code, shared components, senior accessibility, and the service's warm but trustworthy healthcare tone. Use the Dasol character only for welcome, guidance, feedback, empty states, or restrained emotional emphasis.
 

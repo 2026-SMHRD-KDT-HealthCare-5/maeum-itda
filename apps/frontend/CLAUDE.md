@@ -1,6 +1,6 @@
 # apps/frontend/CLAUDE.md
 
-`apps/frontend`에 한정된 가이드이며, 루트 [CLAUDE.md](../../CLAUDE.md) 및 [AGENTS.md](../../AGENTS.md)와 함께 로드됩니다 — 거기 이미 있는 내용(기술 스택, 모노레포 툴링, WebSocket/REST 구분, 모바일 이식성 가이드라인, Claude Code/Codex UI 작업분담, `docs/page-pdf`·`docs/page-html`의 성격)은 반복하지 않습니다. 이 파일은 frontend 내부 코드 구성만 다룹니다.
+`apps/frontend`에 한정된 가이드이며, 루트 [CLAUDE.md](../../CLAUDE.md) 및 [AGENTS.md](../../AGENTS.md)와 함께 로드됩니다 — 거기 이미 있는 내용(기술 스택, 모노레포 툴링, WebSocket/REST 구분, 모바일 이식성 가이드라인, 작업 단위 소유권, `docs/page-pdf`·`docs/page-html`의 성격)은 반복하지 않습니다. 이 파일은 frontend 내부 코드 구성만 다룹니다.
 
 ## 아키텍처: Feature-Sliced Design (FSD)
 
@@ -70,9 +70,9 @@
 
 UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3/UC-06-4 (SGDS-K·GAD-7·LSNS-6 채점, 정서지수 산출, 음성 톤·피치 분석, 일간 대화 요약·AI 추천 행동 제안 생성), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다. UC-14(대화 빈도 기반 캐릭터 환경 꾸미기)는 요구사항정의서 재수정판에서 문서 자체에서 삭제됐습니다 — 예전엔 "문서엔 있지만 팀이 스코프 제외"였는데 이제는 존재하지도 않는 UC이니, 어쨌든 대응 슬라이스를 만들지 마세요. UC-10(정서지수 하락 알림 수신)은 별도 화면/슬라이스가 아니라 UC-11(알림함)에 흡수됩니다 — `mark-notification-read` 목록에 정서지수 하락 알림도 다른 알림 유형과 동일하게 표시될 뿐입니다. 웹 푸시 알림(실제 push 발송)은 MVP 범위가 아니며, 이 프로젝트를 먼저 웹앱으로 완성한 뒤 PWA를 적용하는 시점에 별도로 구현할 계획입니다 — 지금은 알림함(REST 조회)만으로 충분하고, Service Worker/Push API 관련 코드를 미리 만들지 마세요.
 
-## Codex에 UI를 넘길 때 보고할 것
+## 다른 도구가 이어서 작업할 때 보고할 것
 
-AGENTS.md의 "UI Ownership and Workflow"에 Claude Code/Codex 작업분담과 핸드오프 전 체크리스트(state, events, API/Query 연결, 비활성화 조건, logic)가 정리되어 있습니다 — 그 내용은 여기서 반복하지 않습니다. 다만 그 체크리스트에 없는 것 하나: **로딩/오류/빈 상태를 어떻게 처리하는지**도 같이 보고하세요(예: `isPending`이면 어떤 값을 보여줘야 하는지, 에러 시 어떤 필드에 무슨 메시지가 들어가는지, 데이터가 빈 배열/`null`일 때 UI가 무엇을 기준으로 판단해야 하는지). Codex가 로직을 다시 읽지 않고도 UI만 이어 붙일 수 있을 정도로 구체적으로 쓰세요.
+AGENTS.md의 "Task Ownership and Workflow"에 작업 소유권과 후속 검토 원칙이 정리되어 있습니다 — 그 내용은 여기서 반복하지 않습니다. 다른 도구가 이어서 작업한다면 state, events, API/Query 연결, 비활성화 조건, 보존할 logic과 함께 **로딩/오류/빈 상태를 어떻게 처리하는지**를 보고하세요(예: `isPending`일 때 표시할 값, 오류 메시지 위치, 빈 배열/`null` 판단 기준). 후속 도구가 기능 계약을 추측하거나 다시 만들지 않을 정도로 구체적으로 작성하세요.
 
 ## 현재 구현 상태
 
