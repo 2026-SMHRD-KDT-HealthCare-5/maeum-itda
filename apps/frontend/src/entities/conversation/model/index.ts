@@ -1,23 +1,7 @@
-// SENIOR_CONVERSATION_01 (UC-01/02/03) 기준. 실시간 turn 단위 구조 —
-// 서버가 WebSocket으로 보내는 실제 payload 모양은 packages/shared-types에
-// 타입이 고정되면 여기서 그걸 가져다 쓰도록 바꿀 것 (root CLAUDE.md의
-// mobile-portability guideline 참고).
-export interface ConversationTurn {
-  id: string
-  question: string
-  answer: string | null
-  answeredAt: string | null
-  // UC-04에서 같은 LLM 호출의 Structured Output으로 생성, UC-07에서 저장.
-  // voice_score/VoiceScore(음성 acoustic 수치화)는 결정사항 로그 §2-5에 따라
-  // 폐기됨 — 음성 특징은 이 sentimentLabel/Note 생성의 입력 재료로만 쓰임.
-  sentimentLabel: string | null
-  sentimentNote: string | null
-}
-
-export interface Conversation {
-  id: string
-  seniorId: string
-  startedAt: string
-  endedAt: string | null
-  turns: ConversationTurn[]
-}
+// SENIOR_CONVERSATION_01 (UC-01/02/03) 기준.
+// 결정사항 로그(§5, 2026-08-05)에 따라 "대화(conversation)" 컨테이너 개념은
+// 없다 — turn 하나하나가 자신의 createdAt을 갖는 독립적인 이력 레코드이며,
+// 시니어 안부 대화 화면은 이 turn들을 무한 스크롤로 이어서 보여준다.
+// 실제 타입은 packages/shared-types에 고정되어 있다(mobile-portability
+// guideline 참고) — 여기서는 그걸 그대로 재노출한다.
+export type { ConversationTurn } from '@maeum-itda/shared-types'
