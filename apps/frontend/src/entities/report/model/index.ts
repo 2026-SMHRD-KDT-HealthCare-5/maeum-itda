@@ -22,3 +22,15 @@ export interface DailyReport {
   recommendedAction: string | null
   evidenceSentences: EvidenceSentence[]
 }
+
+// 화면ID 미배정(신규, 결정사항 로그 §5) — 보호자 주간 리포트 상세 화면 초안.
+// weekStart의 정확한 의미(월요일/일요일 기준, 서비스 기준 시간대)는 아직
+// 기획 결정 전이라 미정으로 남겨둔다 — 확정 전까지 이 타입을 실제 API
+// 응답으로 취급하지 말 것.
+export interface WeeklyReport {
+  weekStart: string // 미정: 주 시작 요일·시간대 확정 필요
+  seniorId: string
+  dailyScores: Array<{ date: string; emotionScore: number | null; emotionLevel: EmotionLevel | null }>
+  averageScore: number | null
+  recommendedAction: string | null
+}
