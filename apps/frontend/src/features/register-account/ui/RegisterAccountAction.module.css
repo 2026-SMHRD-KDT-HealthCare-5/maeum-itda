@@ -37,7 +37,10 @@
   color: #68746f;
   text-align: center;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .roleCard:hover {
@@ -106,7 +109,10 @@
   font: inherit;
   font-size: 15px;
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
 }
 
 .input::placeholder {

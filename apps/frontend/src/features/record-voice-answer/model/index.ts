@@ -42,7 +42,12 @@ export function reduceRecordVoiceAnswer(
     case 'questionGenerationStarted':
       // 이 생성 요청이 시작된 시점엔 pendingAnswers가 이미 요청에 실려
       // 나갔다고 보고 비운다(호출자가 pendingAnswers를 실어 보낼 것).
-      return { ...state, phase: 'generatingQuestion', generationId: event.generationId, pendingAnswers: [] }
+      return {
+        ...state,
+        phase: 'generatingQuestion',
+        generationId: event.generationId,
+        pendingAnswers: [],
+      }
 
     case 'questionReady':
       if (state.phase !== 'generatingQuestion' || state.generationId !== event.generationId) {

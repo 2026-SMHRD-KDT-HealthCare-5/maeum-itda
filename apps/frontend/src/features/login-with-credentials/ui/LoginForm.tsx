@@ -2,7 +2,12 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, TextField, Toggle } from '../../../shared/ui'
 import { useSession } from '../../../entities/user'
-import { mockResolveRole, validateLoginForm, type LoginFormErrors, type LoginFormValues } from '../model'
+import {
+  mockResolveRole,
+  validateLoginForm,
+  type LoginFormErrors,
+  type LoginFormValues,
+} from '../model'
 import styles from './LoginForm.module.css'
 
 // LOGIN_01 (UC-00): 아이디/비밀번호 입력 + 자동 로그인 체크 + 로그인 버튼.

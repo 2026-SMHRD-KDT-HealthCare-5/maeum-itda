@@ -15,9 +15,7 @@ export type RegisterAccountErrors = Partial<Record<RegisterAccountField, string>
 const usernamePattern = /^[a-zA-Z0-9]{4,20}$/
 const phonePattern = /^01[016789]\d{7,8}$/
 
-export function validateRegisterAccount(
-  values: RegisterAccountValues,
-): RegisterAccountErrors {
+export function validateRegisterAccount(values: RegisterAccountValues): RegisterAccountErrors {
   const errors: RegisterAccountErrors = {}
 
   if (!values.role) errors.role = '가입할 역할을 선택해주세요.'

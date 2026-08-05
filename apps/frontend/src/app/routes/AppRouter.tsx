@@ -1,20 +1,20 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import { SplashPage } from "../../pages/splash";
-import { LoginPage } from "../../pages/login";
-import { JoinPage } from "../../pages/join";
-import { SeniorHomePage } from "../../pages/senior-home";
-import { SeniorConversationPage } from "../../pages/senior-conversation";
-import { SeniorConnectionPage } from "../../pages/senior-connection";
-import { SeniorDailyRecordPage } from "../../pages/senior-daily-record";
-import { GuardianHomePage } from "../../pages/guardian-home";
-import { GuardianReportPage } from "../../pages/guardian-report";
-import { GuardianWeeklyReportPage } from "../../pages/guardian-weekly-report";
-import { GuardianNotificationPage } from "../../pages/guardian-notification";
-import { GuardianNotificationSettingsPage } from "../../pages/guardian-notification-settings";
-import { GuardianConnectionPage } from "../../pages/guardian-connection";
-import { SeniorMyInfoPage } from "../../pages/senior-my-info";
-import { GuardianMyInfoPage } from "../../pages/guardian-my-info";
-import { ProtectedRoute } from "./ProtectedRoute";
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { SplashPage } from '../../pages/splash'
+import { LoginPage } from '../../pages/login'
+import { JoinPage } from '../../pages/join'
+import { SeniorHomePage } from '../../pages/senior-home'
+import { SeniorConversationPage } from '../../pages/senior-conversation'
+import { SeniorConnectionPage } from '../../pages/senior-connection'
+import { SeniorDailyRecordPage } from '../../pages/senior-daily-record'
+import { GuardianHomePage } from '../../pages/guardian-home'
+import { GuardianReportPage } from '../../pages/guardian-report'
+import { GuardianWeeklyReportPage } from '../../pages/guardian-weekly-report'
+import { GuardianNotificationPage } from '../../pages/guardian-notification'
+import { GuardianNotificationSettingsPage } from '../../pages/guardian-notification-settings'
+import { GuardianConnectionPage } from '../../pages/guardian-connection'
+import { SeniorMyInfoPage } from '../../pages/senior-my-info'
+import { GuardianMyInfoPage } from '../../pages/guardian-my-info'
+import { ProtectedRoute } from './ProtectedRoute'
 
 // UC-00 로그인 후 역할별 분기. 관리자 분기는 의도적으로 없음 — 관리자
 // 화면은 결정사항 로그 §1에 따라 MVP 구현 범위에서 제외되어 pages/admin이
@@ -126,5 +126,5 @@ export function AppRouter() {
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
-  );
+  )
 }

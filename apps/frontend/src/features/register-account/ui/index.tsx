@@ -32,7 +32,9 @@ function FormField({ label, error, className, ...props }: FormFieldProps) {
 
   return (
     <div className={[styles.fieldGroup, className].filter(Boolean).join(' ')}>
-      <label className={styles.label} htmlFor={inputId}>{label}</label>
+      <label className={styles.label} htmlFor={inputId}>
+        {label}
+      </label>
       <input
         {...props}
         id={inputId}
@@ -40,7 +42,11 @@ function FormField({ label, error, className, ...props }: FormFieldProps) {
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
       />
-      {error && <p className={styles.error} id={errorId}>{error}</p>}
+      {error && (
+        <p className={styles.error} id={errorId}>
+          {error}
+        </p>
+      )}
     </div>
   )
 }
@@ -72,11 +78,7 @@ export function RegisterAccountAction() {
   const handleUsernameCheck = () => {
     const usernameError = validateRegisterAccount(values).username
     setErrors((current) => ({ ...current, username: usernameError }))
-    setNotice(
-      usernameError
-        ? null
-        : '아이디 중복 확인은 회원가입 서버 연결 후 사용할 수 있어요.',
-    )
+    setNotice(usernameError ? null : '아이디 중복 확인은 회원가입 서버 연결 후 사용할 수 있어요.')
   }
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -87,9 +89,7 @@ export function RegisterAccountAction() {
 
     const firstInvalidField = Object.keys(nextErrors)[0] as RegisterAccountField | undefined
     if (firstInvalidField) {
-      const target = formRef.current?.querySelector<HTMLElement>(
-        `[name="${firstInvalidField}"]`,
-      )
+      const target = formRef.current?.querySelector<HTMLElement>(`[name="${firstInvalidField}"]`)
       target?.focus()
       setNotice('필수 항목을 확인해주세요.')
       return
@@ -103,7 +103,11 @@ export function RegisterAccountAction() {
       <fieldset className={styles.roleFieldset}>
         <legend>어떤 역할로 가입하시나요?</legend>
         <div className={styles.roleGrid}>
-          <label className={[styles.roleCard, values.role === 'senior' ? styles.roleSelected : ''].join(' ')}>
+          <label
+            className={[styles.roleCard, values.role === 'senior' ? styles.roleSelected : ''].join(
+              ' ',
+            )}
+          >
             <input
               className={styles.visuallyHidden}
               type="radio"
@@ -112,16 +116,16 @@ export function RegisterAccountAction() {
               checked={values.role === 'senior'}
               onChange={() => selectRole('senior')}
             />
-            <img
-              className={styles.roleImage}
-              src={seniorRoleImage}
-              alt=""
-              aria-hidden="true"
-            />
+            <img className={styles.roleImage} src={seniorRoleImage} alt="" aria-hidden="true" />
             <strong>시니어</strong>
             <span>따뜻한 안부 대화를 해요</span>
           </label>
-          <label className={[styles.roleCard, values.role === 'guardian' ? styles.roleSelected : ''].join(' ')}>
+          <label
+            className={[
+              styles.roleCard,
+              values.role === 'guardian' ? styles.roleSelected : '',
+            ].join(' ')}
+          >
             <input
               className={styles.visuallyHidden}
               type="radio"
@@ -130,25 +134,28 @@ export function RegisterAccountAction() {
               checked={values.role === 'guardian'}
               onChange={() => selectRole('guardian')}
             />
-            <img
-              className={styles.roleImage}
-              src={guardianRoleImage}
-              alt=""
-              aria-hidden="true"
-            />
+            <img className={styles.roleImage} src={guardianRoleImage} alt="" aria-hidden="true" />
             <strong>보호자</strong>
-            <span>소중한 분의<br />리포트를 받아요</span>
+            <span>
+              소중한 분의
+              <br />
+              리포트를 받아요
+            </span>
           </label>
         </div>
         {errors.role && <p className={styles.error}>{errors.role}</p>}
       </fieldset>
 
       <div className={styles.usernameGroup}>
-        <label className={styles.label} htmlFor={usernameId}>아이디</label>
+        <label className={styles.label} htmlFor={usernameId}>
+          아이디
+        </label>
         <div className={styles.usernameRow}>
           <input
             id={usernameId}
-            className={[styles.input, errors.username ? styles.inputError : ''].filter(Boolean).join(' ')}
+            className={[styles.input, errors.username ? styles.inputError : '']
+              .filter(Boolean)
+              .join(' ')}
             name="username"
             value={values.username}
             onChange={(event) => updateValue('username', event.target.value)}
@@ -162,7 +169,9 @@ export function RegisterAccountAction() {
           </button>
         </div>
         {errors.username && (
-          <p className={styles.error} id={usernameErrorId}>{errors.username}</p>
+          <p className={styles.error} id={usernameErrorId}>
+            {errors.username}
+          </p>
         )}
       </div>
 
@@ -207,9 +216,15 @@ export function RegisterAccountAction() {
         error={errors.phone}
       />
 
-      {notice && <p className={styles.notice} role="status">{notice}</p>}
+      {notice && (
+        <p className={styles.notice} role="status">
+          {notice}
+        </p>
+      )}
 
-      <Button type="submit" className={styles.submitButton}>가입하기</Button>
+      <Button type="submit" className={styles.submitButton}>
+        가입하기
+      </Button>
     </form>
   )
 }
