@@ -14,7 +14,7 @@ export function StartConversationAction() {
         <img
           className={styles.character}
           src={characterImage}
-          alt="하트 쿠션을 안고 인사하는 마음잇다 캐릭터 다솔"
+          alt="하트 쿠션을 안고 인사하는 마음잇다 캐릭터 다슬"
         />
       </div>
 
@@ -26,7 +26,7 @@ export function StartConversationAction() {
           </svg>
         </span>
         <span className={styles.buttonCopy}>
-          <small>다솔이와 함께</small>
+          <small>다슬이와 함께</small>
           <strong>안부 대화 시작하기</strong>
         </span>
         <span className={styles.arrow} aria-hidden="true">
