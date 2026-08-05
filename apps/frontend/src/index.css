@@ -137,6 +137,17 @@ body {
   background: var(--app-bg);
 }
 
+@media (min-width: 481px) {
+  body {
+    background-color: var(--app-bg);
+    background-image: url('./shared/assets/web/desktop-background.webp');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+}
+
 h1,
 h2 {
   font-family: var(--heading);
