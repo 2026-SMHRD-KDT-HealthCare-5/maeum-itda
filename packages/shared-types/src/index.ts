@@ -40,3 +40,40 @@ export interface ConversationHistoryPage {
   // 다음 페이지(더 과거) 요청 시 넘길 cursor. 더 이전 이력이 없으면 null.
   nextCursor: ConversationHistoryCursor | null
 }
+
+// 결정사항 로그(§5) — 질문 생성/출력 중 응답 유실 방지(barge-in) 처리(UC-02).
+// generationId는 질문 생성 요청마다 새로 발급되는 식별자로, 취소된 이전 요청의
+// 결과가 뒤늦게 도착해도 클라이언트/서버 양쪽이 무시할 수 있게 해준다.
+export type QuestionTurnPhase = 'generatingQuestion' | 'playingQuestion' | 'awaitingAnswer'
+
+export interface QuestionGenerationStartedEvent {
+  type: 'questionGenerationStarted'
+  generationId: string
+}
+
+export interface QuestionGenerationCancelledEvent {
+  type: 'questionGenerationCancelled'
+  generationId: string
+}
+
+export interface QuestionReadyEvent {
+  type: 'questionReady'
+  generationId: string
+  question: string
+}
+
+export interface QuestionPlaybackEndedEvent {
+  type: 'questionPlaybackEnded'
+  generationId: string
+}
+
+// 시니어 음성이 수집됐을 때 클라이언트 → 서버로 보내는 이벤트. phase는 수집
+// 시점의 상태를 그대로 실어 보내, 서버가 (1) 생성 중이었다면 해당 generationId
+// 요청을 취소하고 이 답변을 포함해 재요청하고, (2) 출력 중이었다면 다음 질문
+// 생성 요청에 포함하도록 구분해서 처리하게 한다. 오디오 payload 자체의
+// 인코딩/스트리밍 방식은 STT 파이프라인 확정 시 별도로 정의한다.
+export interface VoiceCapturedEvent {
+  type: 'voiceCaptured'
+  phase: QuestionTurnPhase
+  generationId: string | null
+}
