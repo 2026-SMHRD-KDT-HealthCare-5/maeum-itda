@@ -30,7 +30,11 @@ export interface DailyReport {
 export interface WeeklyReport {
   weekStart: string // 미정: 주 시작 요일·시간대 확정 필요
   seniorId: string
-  dailyScores: Array<{ date: string; emotionScore: number | null; emotionLevel: EmotionLevel | null }>
+  dailyScores: Array<{
+    date: string
+    emotionScore: number | null
+    emotionLevel: EmotionLevel | null
+  }>
   averageScore: number | null
   recommendedAction: string | null
 }
