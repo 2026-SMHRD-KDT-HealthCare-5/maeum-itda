@@ -84,7 +84,7 @@ export function AppRouter() {
         }
       />
       <Route
-        path="/guardian/report/weekly"
+        path="/guardian/report/weekly/:weekStart"
         element={
           <ProtectedRoute role="guardian">
             <GuardianWeeklyReportPage />
