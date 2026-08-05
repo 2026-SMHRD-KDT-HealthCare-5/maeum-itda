@@ -1,0 +1,147 @@
+.card {
+  padding: 21px 19px 18px;
+  border: 1px solid rgba(42, 72, 59, 0.05);
+  border-radius: 23px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 13px 30px rgba(55, 69, 61, 0.07);
+}
+
+.header,
+.monthNavigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h2 {
+  margin: 0;
+  color: #263930;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.header a {
+  color: #909994;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.monthNavigation {
+  margin-top: 14px;
+}
+
+.monthNavigation strong {
+  color: #33473e;
+  font-size: 15px;
+}
+
+.monthNavigation button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #61736a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 27px;
+  line-height: 1;
+}
+
+.monthNavigation button:hover {
+  background: #edf5f0;
+}
+
+.monthNavigation button:focus-visible,
+.header a:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.24);
+  outline-offset: 2px;
+}
+
+.calendar {
+  display: grid;
+  margin-top: 8px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  row-gap: 5px;
+}
+
+.weekDay,
+.date {
+  display: grid;
+  place-items: center;
+  color: #78877f;
+  font-size: 11px;
+}
+
+.weekDay {
+  height: 25px;
+  color: #8d9792;
+  font-weight: 600;
+}
+
+.date {
+  width: 34px;
+  height: 34px;
+  justify-self: center;
+  border-radius: 50%;
+}
+
+.outsideMonth {
+  color: #c9cfcc;
+}
+
+.today {
+  background: var(--primary);
+  box-shadow: 0 7px 16px rgba(31, 111, 84, 0.2);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.legend {
+  display: flex;
+  margin-top: 14px;
+  padding-top: 14px;
+  align-items: center;
+  gap: 20px;
+  border-top: 1px solid #edf0ee;
+  color: #8d9691;
+  font-size: 10px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.completedSample,
+.pendingSample {
+  display: inline-grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e9f4ee;
+  color: var(--primary);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.pendingSample {
+  background: #edf5f0;
+}
+
+@media (max-width: 350px) {
+  .card {
+    padding-inline: 14px;
+  }
+
+  .date {
+    width: 31px;
+    height: 31px;
+  }
+}
