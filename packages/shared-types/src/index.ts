@@ -18,3 +18,25 @@ export interface ConversationTurn {
   sentimentLabel: string | null
   sentimentNote: string | null
 }
+
+// 결정사항 로그(§5) — 시니어 안부 대화 화면(SENIOR_CONVERSATION_01)의
+// 이전 대화 이력 무한 스크롤용 cursor pagination 계약. cursor는 (createdAt, id)
+// 조합이어야 동일 시각 turn이 여러 개일 때도 순서가 어긋나지 않는다.
+export interface ConversationHistoryCursor {
+  createdAt: string
+  id: string
+}
+
+export interface ConversationHistoryQuery {
+  seniorId: string
+  // null/undefined면 최신 turn부터 조회(최초 진입 시).
+  cursor?: ConversationHistoryCursor | null
+  limit: number
+}
+
+export interface ConversationHistoryPage {
+  // 최신순(createdAt desc) 정렬.
+  turns: ConversationTurn[]
+  // 다음 페이지(더 과거) 요청 시 넘길 cursor. 더 이전 이력이 없으면 null.
+  nextCursor: ConversationHistoryCursor | null
+}
