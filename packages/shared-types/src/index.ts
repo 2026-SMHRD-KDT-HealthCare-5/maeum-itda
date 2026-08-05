@@ -6,13 +6,19 @@
 export interface ConversationTurn {
   id: string
   seniorId: string
-  // 이 turn이 발생한 시각(ISO 8601, UTC) — 정렬 기준이자 일간 리포트 귀속 기준.
-  // 하루의 경계는 서비스 기준 시간대의 [00:00, 다음날 00:00) 반개구간이며,
-  // 자정을 넘겨 진행된 통화라도 turn별로 각자의 createdAt이 속한 날짜에
-  // 개별 귀속된다(예전처럼 통화 시작일에 전체가 묶이지 않음).
+  // 이 turn(질문)이 생성된 시각(ISO 8601, UTC) — 무한 스크롤 정렬/페이지네이션
+  // 기준. 일간 리포트 귀속 기준이 아니다(아래 answeredAt 참고).
   createdAt: string
   question: string
   answer: string | null
+  // 시니어가 실제로 답변한 시각(ISO 8601, UTC) — **일간 리포트 귀속은 이 값
+  // 기준**이다(무응답 turn만 createdAt으로 대체 귀속). 하루의 경계는 서비스
+  // 기준 시간대(Asia/Seoul)의 [00:00, 다음날 00:00) 반개구간이며, 자정을
+  // 넘겨 진행된 통화라도 turn별로 각자의 귀속 시각이 속한 날짜에 개별
+  // 귀속된다(예전처럼 통화 시작일에 전체가 묶이지 않음). 질문은 23:59에
+  // 생성됐지만 답변이 00:01에 들어온 경우, createdAt이 아니라 answeredAt
+  // 기준으로 "오늘" 리포트에 잡혀야 한다 — 이게 실제 시니어 감정 신호가
+  // 발생한 시점이기 때문이다.
   answeredAt: string | null
   // UC-04에서 같은 LLM 호출의 Structured Output으로 생성, UC-07에서 저장.
   sentimentLabel: string | null
@@ -67,13 +73,25 @@ export interface QuestionPlaybackEndedEvent {
   generationId: string
 }
 
-// 시니어 음성이 수집됐을 때 클라이언트 → 서버로 보내는 이벤트. phase는 수집
-// 시점의 상태를 그대로 실어 보내, 서버가 (1) 생성 중이었다면 해당 generationId
-// 요청을 취소하고 이 답변을 포함해 재요청하고, (2) 출력 중이었다면 다음 질문
-// 생성 요청에 포함하도록 구분해서 처리하게 한다. 오디오 payload 자체의
-// 인코딩/스트리밍 방식은 STT 파이프라인 확정 시 별도로 정의한다.
+// 시니어 음성 한 건이 STT를 거쳐 수집된 결과. 오디오 payload 자체의
+// 인코딩/스트리밍 방식은 STT 파이프라인 확정 시 별도로 정의하고, 우선은
+// 텍스트 결과(transcript)와 재전송 중복 방지용 captureId만 고정한다.
+export interface CapturedAnswer {
+  captureId: string
+  capturedAt: string
+  transcript?: string
+  audioRef?: string
+}
+
+// 시니어 음성이 수집됐을 때 클라이언트 → 서버로 보내는 이벤트. phase/generationId는
+// 클라이언트가 인지한 상태를 실어 보내는 힌트일 뿐이다 — **서버는 이 값을 그대로
+// 신뢰하지 말고, 자신이 들고 있는 generationId 상태로 최종 판단해야 한다**(클라이언트
+// 상태가 지연/유실됐을 수 있으므로). 서버가 판단한 결과에 따라 (1) 생성 중이었다면
+// 해당 generationId 요청을 취소하고 이 답변을 포함해 재요청하고, (2) 출력 중이었다면
+// 다음 질문 생성 요청에 포함하도록 구분해서 처리한다.
 export interface VoiceCapturedEvent {
   type: 'voiceCaptured'
+  answer: CapturedAnswer
   phase: QuestionTurnPhase
   generationId: string | null
 }
