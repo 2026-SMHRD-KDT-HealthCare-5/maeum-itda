@@ -19,17 +19,13 @@ export function RecordVoiceAnswerAction({
 
       <div className={styles.listening} aria-live="polite">
         <span aria-hidden="true" />
-        <strong id="conversation-status">대화를 준비하고 있어요</strong>
+        <strong id="conversation-status">어르신 말씀을 듣고 있어요</strong>
       </div>
 
-      <button className={styles.finishAnswer} type="button" disabled aria-label="발화 완료 준비 중">
+      <button className={styles.finishAnswer} type="button" aria-label="말하기 완료">
         <span aria-hidden="true" />
       </button>
       <p className={styles.finishHint}>말을 마치시면 가운데 버튼을 눌러주세요</p>
-
-      <button className={styles.startConversation} type="button">
-        대화 시작
-      </button>
       <p className={styles.safety}>안전한 연결로 보호되고 있어요</p>
     </section>
   )

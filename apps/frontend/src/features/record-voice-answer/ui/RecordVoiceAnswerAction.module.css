@@ -1,19 +1,20 @@
 .controls {
   display: flex;
   align-items: center;
+  flex: 0 0 auto;
   flex-direction: column;
 }
 
 .characterFrame {
   display: grid;
-  width: 250px;
-  height: 250px;
-  margin-top: 10px;
+  width: 280px;
+  height: 315px;
+  margin-top: 2px;
   place-items: end center;
 }
 
 .characterFrame img {
-  width: 240px;
+  width: 270px;
   max-width: none;
   transform: translateY(6px);
   transform-origin: 50% 85%;
@@ -41,14 +42,14 @@
 .listening {
   display: inline-flex;
   min-height: 36px;
-  margin-top: 26px;
-  padding: 0 18px;
+  margin-top: 14px;
+  padding: 0 20px;
   align-items: center;
   gap: 8px;
   border-radius: 999px;
   background: #edf5f0;
   color: #22563f;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .listening span {
@@ -63,13 +64,13 @@
   display: grid;
   width: 104px;
   height: 104px;
-  margin-top: 18px;
+  margin-top: 20px;
   padding: 0;
   place-items: center;
   border: 0;
   border-radius: 50%;
   background: #58656c;
-  box-shadow: 0 13px 26px rgba(63, 75, 81, 0.2);
+  box-shadow: 0 10px 22px rgba(63, 75, 81, 0.17);
 }
 
 .finishAnswer:disabled {
@@ -85,39 +86,16 @@
 }
 
 .finishHint {
-  margin-top: 15px;
-  color: #7d857e;
-  font-size: 12px;
-}
-
-.startConversation {
-  display: flex;
-  width: 100%;
-  min-height: 62px;
-  margin-top: 18px;
-  box-sizing: border-box;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border-radius: 20px;
-  border: 0;
-  background: #2e765c;
-  box-shadow: 0 10px 22px rgba(46, 118, 92, 0.2);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.startConversation:focus-visible {
-  outline: 4px solid rgba(46, 118, 92, 0.2);
-  outline-offset: 3px;
+  margin-top: 16px;
+  color: #66736c;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .safety {
-  margin-top: 12px;
-  color: #9aa09a;
-  font-size: 11px;
+  margin-top: 16px;
+  color: #7c8781;
+  font-size: 13px;
 }
 
 @keyframes characterEnter {
@@ -174,13 +152,44 @@
   }
 }
 
-@media (max-width: 350px) {
+@media (max-height: 760px) {
   .characterFrame {
     width: 220px;
-    height: 220px;
+    height: 238px;
   }
 
   .characterFrame img {
-    width: 210px;
+    width: 205px;
+  }
+
+  .listening {
+    margin-top: 8px;
+  }
+
+  .finishAnswer {
+    width: 88px;
+    height: 88px;
+    margin-top: 12px;
+  }
+
+  .finishAnswer span {
+    width: 29px;
+    height: 29px;
+  }
+
+  .finishHint,
+  .safety {
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 350px) {
+  .characterFrame {
+    width: 246px;
+    height: 280px;
+  }
+
+  .characterFrame img {
+    width: 240px;
   }
 }
