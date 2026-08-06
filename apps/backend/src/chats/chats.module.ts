@@ -18,10 +18,7 @@ import { AuthModule } from '../auth/auth.module';
   imports: [
     AuthModule,
     AnalysisModule,
-    TypeOrmModule.forFeature([
-      ConversationMessage,
-      MessageRelationship,
-    ]),
+    TypeOrmModule.forFeature([ConversationMessage, MessageRelationship]),
   ],
   controllers: [ChatsController],
   providers: [ChatsGateway, ChatsService],
