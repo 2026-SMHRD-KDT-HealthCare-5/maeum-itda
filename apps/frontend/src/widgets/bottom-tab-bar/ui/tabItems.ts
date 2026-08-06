@@ -7,14 +7,14 @@ import type { TabItem } from './BottomTabBar'
 // (react-refresh/only-export-components 때문에 컴포넌트 파일과 분리함 —
 // BottomTabBar.tsx만 컴포넌트를 export해야 Fast Refresh가 정상 동작함)
 export const SENIOR_TAB_ITEMS: TabItem[] = [
-  { label: '홈', to: '/senior' },
-  { label: '안부 대화', to: '/senior/conversation' },
-  { label: '내 정보', to: '/senior/my-info' },
+  { label: '홈', to: '/senior', icon: 'home' },
+  { label: '안부 대화', to: '/senior/conversation', icon: 'chat' },
+  { label: '내 정보', to: '/senior/my-info', icon: 'user' },
 ]
 
 export const GUARDIAN_TAB_ITEMS: TabItem[] = [
-  { label: '홈', to: '/guardian' },
-  { label: '리포트', to: '/guardian/report' },
-  { label: '알림', to: '/guardian/notifications' },
-  { label: '내 정보', to: '/guardian/my-info' },
+  { label: '홈', to: '/guardian', icon: 'home' },
+  { label: '리포트', to: '/guardian/report', icon: 'report' },
+  { label: '알림', to: '/guardian/notifications', icon: 'notification' },
+  { label: '내 정보', to: '/guardian/my-info', icon: 'user' },
 ]

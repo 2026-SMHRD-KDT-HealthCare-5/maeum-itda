@@ -52,7 +52,7 @@
             "shell": "bash",
             "if": "Bash(git commit *)",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/lint-before-commit.sh\"",
-            "statusMessage": "Running pnpm lint before commit...",
+            "statusMessage": "Checking formatting and lint before commit...",
             "timeout": 120
           },
           {

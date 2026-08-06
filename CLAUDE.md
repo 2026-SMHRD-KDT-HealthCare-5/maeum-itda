@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-이 파일은 이 저장소의 코드 작업 시 Claude Code(claude.ai/code)에게 제공하는 가이드입니다.
+이 파일은 이 저장소의 코드 작업 시 Claude Code(claude.ai/code)에게 제공하는 가이드입니다. 저장소 공통 작업 원칙(구조, 커맨드, 스타일, 작업 단위 소유권, 커밋·PR 규칙, 보안)은 [AGENTS.md](AGENTS.md)에 있습니다 — 거기 있는 내용은 여기서 반복하지 않습니다.
 
 ## Project
 
@@ -32,7 +32,7 @@ pnpm --filter <pkg-name> <script>   # 특정 워크스페이스 패키지 하나
 
 - **apps/frontend** — TypeScript, React, React Router, TanStack Query. Feature-Sliced Design(FSD)을 따릅니다 — 레이어 규칙, 화면ID/UC 매핑, 세그먼트 컨벤션은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md)를 참고하세요.
 - **apps/backend** — TypeScript, Node.js, NestJS
-- **apps/ai-server** — Python, FastAPI, OpenAI API (STT → SGDS-K 매핑, tempo 베이스라인 스코어링, structured output 기반 근거 문장 추출). 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
+- **apps/ai-server** — Python, FastAPI. STT는 Whisper(faster-whisper) 로컬 모델(GPU 없으면 CPU로 동작)을 사용하고, 꼬리질문 생성·실시간 감성분석(같은 LLM 호출의 Structured Output)·TTS는 LLM 기반입니다(벤더 미정, README 기준 OpenAI API 가정). SGDS-K·GAD-7·LSNS-6 3개 척도 매칭과 음성 톤·피치 분석을 결합해 정서지수를 산출합니다. 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
 - **packages/shared-types** — frontend/backend 사이에서 공유하는 타입(그리고 ai-server와의 API 계약). 지금까지 스캐폴딩된 유일한 워크스페이스 패키지입니다 (`package.json`은 있고 `src/index.ts`는 비어있음).
 - **packages/api-client** — frontend가 사용할 타입이 있는 API client. 폴더는 존재하지만(`.gitkeep`만 있음) 아직 스캐폴딩되지 않았습니다.
 - **packages/config** — 공유 lint config (`@maeum-itda/config`). `apps/frontend`가 사용하는 실제 ESLint flat config가 있습니다(위 Monorepo tooling 참고); 공유 tsconfig는 아직 없습니다.
@@ -58,3 +58,8 @@ GitFlow 방식이며, 전체 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)에 문
 - `feat/기능이름` — 기능 브랜치, `dev`에서 분기하여 PR로 다시 병합
 
 커밋 컨벤션(prefix 필수): `feat`, `fix`, `refactor`, `style`, `chore` — 예: `git commit -m "feat: 로그인 API 구현"`. `origin/dev`를 feature 브랜치에 병합한 후에는, CONTRIBUTING.md에 따라 push 전에 빌드와 기능이 정상 동작하는지 반드시 확인해야 합니다.
+
+### Claude Code 작업 규칙
+
+- **새 작업 시작 전 브랜치 확인**: 현재 브랜치가 `dev`인 상태에서 새로운 작업/기능 구현을 시작하려는 의도가 보이면, 코드를 작성하기 전에 먼저 현재 브랜치가 `dev`인지 확인하세요. 그런 다음 GitFlow 규칙(`feat/기능이름`)에 맞는 feature 브랜치 이름을 2~3개 후보로 추천하고, 사용자의 확정을 받은 뒤에만 그 브랜치를 생성하세요.
+- **커밋 전 승인**: 작업을 마쳤다고 바로 커밋하지 마세요. 항상 변경 요약과 Conventional Commits 형식의 커밋 메시지 초안을 먼저 보여주고, 사용자가 승인한 뒤에만 커밋하세요.
