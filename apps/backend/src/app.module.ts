@@ -1,4 +1,7 @@
-//애플리케이션의 루트 모듈
+/*
+ 역할: 백엔드의 환경설정과 기능별 모듈을 한곳에서 등록한다.
+ 전체 흐름: main.ts → AppModule → 기능별 Module
+ */
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
@@ -12,13 +15,18 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
 
+// 루트 모듈에 환경설정·DB·기능 모듈을 등록한다.
+// NestJS는 메타데이터를 읽어 하위 모듈과 Provider를 초기화한다.
 @Module({
   imports: [
+    // .env와 프로젝트 설정을 등록하고 ConfigService를 전역에서 사용하게 한다.
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['apps/backend/.env', '.env'],
       load: [databaseConfig],
     }),
+
+    // ConfigService에서 DB 설정을 조회해 TypeORM 연결을 생성한다.
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
