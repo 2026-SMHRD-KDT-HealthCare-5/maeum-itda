@@ -9,7 +9,6 @@ import {
 } from '@nestjs/websockets';
 import { ChatsService } from './chats.service';
 import { AuthService } from '../auth/auth.service';
-import type WebSocket from 'ws';
 
 // 브라우저의 /ws/chats 연결 요청과 텍스트 이벤트·음성 바이너리를 이 Gateway로 전달한다.
 // 운영 환경에서는 TLS가 적용된 WSS로 연결한다.
@@ -27,12 +26,12 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // WebSocket 연결이 성립되면 NestJS가 자동으로 호출한다.
-  handleConnection(client: WebSocket): void {
+  handleConnection(): void {
     console.log('WebSocket 연결');
   }
 
   // WebSocket 연결이 끊어지면 NestJS가 자동으로 호출한다.
-  handleDisconnect(client: WebSocket): void {
+  handleDisconnect(): void {
     console.log('WebSocket 연결 종료');
   }
 }
