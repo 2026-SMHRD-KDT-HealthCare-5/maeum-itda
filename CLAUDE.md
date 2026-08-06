@@ -4,11 +4,11 @@
 
 ## Project
 
-마음잇다 (Maeum-Itda) — AI 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 서비스. 시니어와의 음성 우선(Voice-first) 안부 대화를 STT로 텍스트 변환하고, 한국형 노인우울척도(SGDS-K)·불안척도(GAD-7)·사회적 고립척도(LSNS-6) 3개 척도의 실시간 채점과 음성 톤·피치 기반 비언어적 지표 분석을 결합해 정서지수를 산출한 뒤, 근거 문장과 위험 알림이 담긴 일간/주간 리포트로 보호자에게 제공합니다. 전체 제품 설명은 [README.md](README.md)를, 기획서/요구사항정의서/화면설계서는 [docs/](docs/)를 참고하세요. 그리고 [docs/마음잇다_결정사항_및_이슈로그.md](docs/마음잇다_결정사항_및_이슈로그.md)에는 구두로 결정되어 원본 문서 내용을 대체하는 사항들이 기록되어 있습니다 (예: 정서 상태 라벨은 문서상 높음/낮음이 아니라 좋음/보통/나쁨이다; 백엔드는 기획 문서의 오탈자 "Express"가 아니라 NestJS이다; DB는 문서의 오탈자 PostgreSQL이 아니라 MySQL이다). docs/의 PDF 내용을 그대로 믿기 전에 항상 이 로그를 먼저 확인하세요.
+마음잇다 (Maeum-Itda) — AI 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 서비스. 시니어와의 음성 우선(Voice-first) 안부 대화를 STT로 텍스트 변환하고, 한국형 노인우울척도(SGDS-K)·불안척도(GAD-7)·사회적 고립척도(LSNS-6) 3개 척도의 실시간 채점 결과(위험 응답 비율 기반)로 정서지수(TextScore 단일값)를 산출합니다. 음성 톤·피치 기반 비언어적 지표는 별도로 점수화하지 않고 실시간 감성분석의 입력 재료로만 사용합니다. 산출된 정서지수는 근거 문장과 위험 알림이 담긴 일간/주간 리포트로 보호자에게 제공됩니다. 전체 제품 설명은 [README.md](README.md)를, 기획서/요구사항정의서/화면설계서는 [docs/](docs/)를 참고하세요. 그리고 [docs/마음잇다_결정사항_및_이슈로그.md](docs/마음잇다_결정사항_및_이슈로그.md)에는 구두로 결정되어 원본 문서 내용을 대체하는 사항들이 기록되어 있습니다 (예: 정서 상태 라벨은 문서상 높음/낮음이 아니라 좋음/보통/나쁨이다; 백엔드는 기획 문서의 오탈자 "Express"가 아니라 NestJS이다; DB는 문서의 오탈자 PostgreSQL이 아니라 MySQL이다). docs/의 PDF 내용을 그대로 믿기 전에 항상 이 로그를 먼저 확인하세요.
 
 ## Repository state
 
-이 저장소는 초기 모노레포 스캐폴딩 단계입니다. `apps/frontend`는 Vite + React + TypeScript와 FSD 구조로 구성되어 있고(자세한 내용은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) 참고), 각 기능은 대부분 placeholder 상태입니다. `apps/backend`는 pnpm 워크스페이스와 Turborepo에 연결된 NestJS 기본 애플리케이션과 기능별 모듈 구조가 구성되어 있습니다. `apps/ai-server`와 일부 `packages/*`는 아직 placeholder 상태이며, `packages/shared-types`는 `package.json`과 빈 `src/index.ts`를 갖춘 패키지 스캐폴딩 상태입니다.
+이 저장소는 초기 모노레포 스캐폴딩 단계입니다. `apps/frontend`는 Vite + React + TypeScript와 FSD 구조로 구성되어 있고(자세한 내용은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md) 참고), 각 기능은 대부분 placeholder 상태입니다. `apps/backend`는 pnpm 워크스페이스와 Turborepo에 연결된 NestJS 기본 애플리케이션이며, `src/` 아래 `auth`/`users`/`chats`/`analysis`/`reports`/`notifications` 모듈 구조가 잡혀 있으나 서비스 로직은 대부분 빈 껍데기입니다. `apps/ai-server`와 `packages/api-client`/`infra`는 아직 placeholder 상태입니다. `packages/shared-types`는 더 이상 비어있지 않습니다 — `ConversationTurn`, 대화 이력 cursor pagination(`ConversationHistoryCursor`/`Query`/`Page`), 질문 생성 단계별 WebSocket 이벤트 계약(`QuestionGenerationStartedEvent` 등), `VoiceCapturedEvent`/`CapturedAnswer` 등 실제 타입이 정의되어 있습니다.
 
 ## Monorepo tooling
 
@@ -26,19 +26,19 @@ pnpm --filter <pkg-name> <script>   # 특정 워크스페이스 패키지 하나
 
 `packages/config`에는 실제로 동작하는 공유 ESLint flat config(`@maeum-itda/config`, `./eslint.js`에서 export)가 있습니다 — TS + React 규칙 세트(typescript-eslint recommended, react-hooks, react-refresh, eslint-config-prettier)이며 `apps/frontend/eslint.config.js`가 이를 그대로 가져다 씁니다. **`packages/config`는 자체 `typescript` devDependency를 `~6.0.2`로 고정하고 있습니다** — typescript-eslint@8.x가 루트의 TypeScript 7.x에 대해 강하게 에러를 내기 때문입니다(`typescript-eslint does not support TS 7.0`). 이 pin을 제거하거나 `apps/frontend`가 쓰는 버전과 어긋나게 두지 마세요. `apps/backend`는 자체 ESLint/Prettier 설정과 lint 스크립트를 사용합니다. 따라서 `pnpm lint`(`turbo run lint`)는 frontend와 backend에서 실제로 실행되며 위반 사항이 있으면 실패합니다. `apps/ai-server`는 아직 lint 대상이 아닙니다. FSD 레이어 경계 강제(apps/frontend/CLAUDE.md의 import 규칙 참고)는 아직 공유 config에 반영되어 있지 않습니다.
 
-## Architecture (target, per 기획서)
+## Architecture (target, per 기획서/요구사항정의서 — 상충 시 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) 우선)
 
 4계층 구조입니다: **클라이언트(React) → 백엔드 API(NestJS) → AI 서버(FastAPI) → MySQL**, 그리고 보호자 알림(notification)을 위한 별도의 서버가 있습니다. 계획된 스택은 다음과 같습니다:
 
 - **apps/frontend** — TypeScript, React, React Router, TanStack Query. Feature-Sliced Design(FSD)을 따릅니다 — 레이어 규칙, 화면ID/UC 매핑, 세그먼트 컨벤션은 [apps/frontend/CLAUDE.md](apps/frontend/CLAUDE.md)를 참고하세요.
 - **apps/backend** — TypeScript, Node.js, NestJS
-- **apps/ai-server** — Python, FastAPI. STT는 Whisper(faster-whisper) 로컬 모델(GPU 없으면 CPU로 동작)을 사용하고, 꼬리질문 생성·실시간 감성분석(같은 LLM 호출의 Structured Output)·TTS는 LLM 기반입니다(벤더 미정, README 기준 OpenAI API 가정). SGDS-K·GAD-7·LSNS-6 3개 척도 매칭과 음성 톤·피치 분석을 결합해 정서지수를 산출합니다. 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
-- **packages/shared-types** — frontend/backend 사이에서 공유하는 타입(그리고 ai-server와의 API 계약). 지금까지 스캐폴딩된 유일한 워크스페이스 패키지입니다 (`package.json`은 있고 `src/index.ts`는 비어있음).
+- **apps/ai-server** — Python, FastAPI. STT는 Whisper(faster-whisper) 로컬 모델(GPU 없으면 CPU로 동작)을 사용하고, 꼬리질문 생성·실시간 감성분석(같은 LLM 호출의 Structured Output)은 OpenAI API, TTS는 Typecast(Typecast Streaming API)로 벤더가 확정되어 있습니다. SGDS-K·GAD-7·LSNS-6 3개 척도 매칭 결과만으로 정서지수(TextScore)를 산출하며, 음성 톤·피치 분석 결과는 별도 점수화하지 않고 실시간 감성분석의 입력 재료로만 사용합니다(자세한 내용은 [docs/마음잇다_결정사항_및_이슈로그.md](docs/마음잇다_결정사항_및_이슈로그.md) 참고). 아직 pnpm 워크스페이스 멤버가 아님 — 위 내용 참고.
+- **packages/shared-types** — frontend/backend 사이에서 공유하는 타입(그리고 ai-server와의 API 계약). `src/index.ts`에 `ConversationTurn`(turn 단위 이력, `Conversation` 컨테이너 없음), 무한 스크롤용 cursor pagination 타입, 질문 생성/재생 단계를 다루는 WebSocket 이벤트 타입(`QuestionGenerationStartedEvent` 등), `VoiceCapturedEvent`/`CapturedAnswer`가 이미 정의되어 있습니다. 아직 비어있는 쪽은 `packages/api-client`입니다.
 - **packages/api-client** — frontend가 사용할 타입이 있는 API client. 폴더는 존재하지만(`.gitkeep`만 있음) 아직 스캐폴딩되지 않았습니다.
 - **packages/config** — 공유 lint config (`@maeum-itda/config`). `apps/frontend`가 사용하는 실제 ESLint flat config가 있습니다(위 Monorepo tooling 참고); 공유 tsconfig는 아직 없습니다.
 - **infra** — 배포/인프라 설정. 폴더는 존재하지만(`.gitkeep`만 있음) 아직 채워지지 않았습니다.
 
-실시간 대화는 WebSocket 기반입니다(기획서 3/4장 기준): 통화 중에는 backend/ai-server 파이프라인이 실시간 STT와 감성 기반 꼬리 질문 생성을 수행하고, 통화 종료 후에는 전체 SGDS-K 매칭과 tempo 분석을 수행해 그날의 정서지수를 산출합니다. 그 외 나머지(로그인 인증, 리포트 조회, 알림함, 대시보드 데이터)는 REST로 처리합니다. 알림 전달은 MVP에서 알림함(REST 조회)만으로 이루어지며, 실제 웹 푸시(Service Worker/Push API)는 MVP 이후 PWA를 적용하는 시점에 별도로 추가할 계획입니다 — 지금 백엔드/알림 서버에 푸시 발송 인프라를 미리 만들지 마세요.
+실시간 대화는 WebSocket 기반입니다: 응답(turn) 하나가 들어올 때마다 STT 변환 → SGDS-K/GAD-7/LSNS-6 실시간 채점(UC-06-1) → 같은 LLM 호출에서 감성분석과 함께 꼬리 질문 생성(UC-04)이 즉시 일어납니다. 대화가 하나 끝날 때마다(또는 같은 날 재접속 시) 그 시점까지 해당 날짜에 귀속된 모든 turn을 다시 모아 정서지수(TextScore 단일값, UC-06-2)를 산출·갱신합니다 — `Conversation`처럼 여러 turn을 묶는 컨테이너 개념은 없으며, 음성 톤·피치는 별도 점수화되지 않고 감성분석의 입력 재료로만 쓰입니다(자세한 내용은 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) 참고). 그 외 나머지(로그인 인증, 리포트 조회, 알림함, 대시보드 데이터)는 REST로 처리합니다. 알림 전달은 MVP에서 알림함(REST 조회)만으로 이루어지며, 실제 웹 푸시(Service Worker/Push API)는 MVP 이후 PWA를 적용하는 시점에 별도로 추가할 계획입니다 — 지금 백엔드/알림 서버에 푸시 발송 인프라를 미리 만들지 마세요.
 
 ### Mobile-portability guideline (결정사항 로그 §4 참고)
 

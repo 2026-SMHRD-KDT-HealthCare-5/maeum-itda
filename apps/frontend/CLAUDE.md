@@ -40,22 +40,22 @@
 | `senior-home` | SENIOR_HOME_01 | UC-01, UC-13 |
 | `senior-connection` | SENIOR_LINK_01 | UC-00-1 |
 | `senior-conversation` | SENIOR_CONVERSATION_01 | UC-01, UC-02, UC-03 |
-| `senior-daily-record` | — (화면설계서에 없음, 결정사항 로그 §5의 신규 화면 — 아래 참고) | — |
+| `senior-daily-record` | — (화면설계서에 아직 목업 없음 — 요구사항정의서에는 UC-14/FR-01-09로 확정, 아래 참고) | UC-14 |
 | `guardian-home` | GUARDIAN_HOME_01 | UC-08 |
 | `guardian-connection` | GUARDIAN_LINK_01 | UC-00-1 |
 | `guardian-report` | GUARDIAN_REPORT_01 | UC-08, UC-09 |
-| `guardian-weekly-report` | — (화면설계서에 없음, 결정사항 로그 §5의 신규 화면 — 아래 참고) | — |
+| `guardian-weekly-report` | — (화면설계서에 아직 목업 없음 — 요구사항정의서에는 UC-15/FR-03-07로 확정, 아래 참고) | UC-15 |
 | `guardian-notification` | GUARDIAN_NOTIFICATION_01 | UC-10, UC-11 |
 | `guardian-notification-settings` | — (화면설계서 본문에 화면ID 미배정, `docs/page-pdf/보호자 알림 설정.pdf` 참고) | UC-12 |
 | `senior-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `guardian-my-info` | — (메뉴 트리에만 존재, 아래 참고) | — |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
 
-`join`, `senior-connection`, `guardian-connection`, `guardian-notification-settings`는 2026-08-28 문서 갱신으로 화면설계서에 새로 추가된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. 네 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다는 구체적이지만, AGENTS.md 기준으로 이 파일도 **참고용 초안일 뿐 최종 디자인은 아닙니다**. `pages/*` 구현 시 최신 요구사항/결정사항/기존 코드/`shared/ui` 컴포넌트와 맞춰 조정하세요(자세한 조정 기준은 AGENTS.md 참고). `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
+`join`, `senior-connection`, `guardian-connection`은 2026-08-28 문서 갱신으로 화면설계서에 화면ID(`JOIN_01`, `SENIOR_LINK_01`, `GUARDIAN_LINK_01`)가 새로 부여된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. `guardian-notification-settings`(UC-12)는 이 셋과 달리 **화면설계서 본문에 화면ID가 아예 배정되어 있지 않습니다** — 이번 통합 문서(8개 화면 목업)에서 빠져 있고, 구버전 `docs/page-pdf/보호자 알림 설정.pdf`에만 존재합니다. 네 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 목업은 `docs/page-pdf/<화면이름>.pdf`에 화면이름 그대로 저장되어 있습니다 — 화면설계서 본문의 개요 와이어프레임보다는 구체적이지만, AGENTS.md 기준으로 이 파일도 **참고용 초안일 뿐 최종 디자인은 아닙니다**. `pages/*` 구현 시 최신 요구사항/결정사항/기존 코드/`shared/ui` 컴포넌트와 맞춰 조정하세요(자세한 조정 기준은 AGENTS.md 참고). `docs/page-html/<화면이름>.html`도 같은 화면의 인터랙티브 버전이지만 용량이 커서 `.gitignore` 처리되어 있습니다 — 로컬에 있으면 추가로 참고해도 되지만, git으로 공유되는 소스는 아니므로 다른 사람 환경에는 없을 수 있습니다.
 
 `pages/admin`은 의도적으로 비워둔 상태입니다 (`.gitkeep`만 있음) — 결정사항 로그 §1에서 관리자 화면을 MVP 범위에서 명시적으로 제외했고, `AppRouter`에도 관리자 라우트나 역할 분기가 전혀 없습니다(`senior`/`guardian`만 있음). 결정사항 로그를 먼저 확인하지 않고 임의로 추가하지 마세요.
 
-**`splash`/`senior-daily-record`/`guardian-weekly-report`는 화면설계서에 아예 없는 신규 화면입니다** (결정사항 로그 §5, 2026-08-05). 셋 다 화면ID/상세 목업 없이 다른 placeholder와 동일한 수준으로 스캐폴딩만 해뒀고 `AppRouter`에도 라우트가 연결되어 있습니다 — `splash`는 목적(단순 브랜딩 vs 인증 복원 대기)조차 미정이라 자동 리다이렉트를 넣지 않았고, `senior-daily-record`는 시니어 홈 화면의 임시 링크로만 진입 가능하며, `guardian-weekly-report`는 `GUARDIAN_HOME_01` 확장이냐 별도 화면이냐가 아직 기획 결정 전이라 `guardian-report`의 임시 링크로만 진입 가능합니다. 화면 설계와 UC/FR이 정해지는 즉시 이 placeholder들을 교체하고 이 표도 함께 갱신하세요.
+**`splash`/`senior-daily-record`/`guardian-weekly-report`는 화면설계서에 화면ID/상세 목업이 아직 없는 화면입니다** (결정사항 로그 §5). 셋 다 다른 placeholder와 동일한 수준으로 스캐폴딩만 해뒀고 `AppRouter`에도 라우트가 연결되어 있습니다. `splash`는 UC/FR 자체가 아직 없고 목적(단순 브랜딩 vs 인증 복원 대기)도 미정이라 자동 리다이렉트를 넣지 않았습니다. `senior-daily-record`(UC-14/FR-01-09)와 `guardian-weekly-report`(UC-15/FR-03-07, `GUARDIAN_HOME_01`과는 별도 화면으로 최신 요구사항정의서에서 확정됨)는 이제 UC/FR과 기능 스펙은 정해졌으니, 남은 건 화면 설계(화면ID·상세 목업)뿐입니다 — 그때까지는 각각 시니어 홈 화면/`guardian-report`의 임시 링크로만 진입 가능합니다. 화면 설계가 나오는 즉시 이 placeholder들을 교체하고 이 표도 함께 갱신하세요.
 
 **`senior-my-info` / `guardian-my-info`는 실제 스펙이 없습니다.** 화면설계서의 메뉴구성에는 시니어 화면과 보호자 화면 양쪽 모두에 "내 정보"라는 항목이 있지만, 그 문서의 다른 모든 화면과 달리 화면 ID도, UC도, 목업 페이지도 없습니다 — 메뉴 트리 안의 이름 하나뿐입니다. 그래서 두 페이지 모두 제목 + 로그인된 `userId` + 실제로 동작하는 로그아웃 버튼(`entities/user`의 `logout()`에 연결)만 있고, 각 역할의 다른 화면들과 동일한 `BottomTabBar`로 감싸져 있습니다. "내 정보"에 대한 실제 화면 ID/목업이 생기는 즉시 제대로 다시 만드세요 — 지금 내용은 네비게이션용 placeholder 이상으로 취급하지 마세요.
 
@@ -73,7 +73,7 @@
 | `set-notification-threshold` | UC-12 | 알림 받을 정서지수 임계치 설정 |
 | `view-attendance-calendar` | UC-13 | 시니어 홈화면 출석 캘린더 조회 |
 
-UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3/UC-06-4 (SGDS-K·GAD-7·LSNS-6 채점, 정서지수 산출, 음성 톤·피치 분석, 일간 대화 요약·AI 추천 행동 제안 생성), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다. UC-14(대화 빈도 기반 캐릭터 환경 꾸미기)는 요구사항정의서 재수정판에서 문서 자체에서 삭제됐습니다 — 예전엔 "문서엔 있지만 팀이 스코프 제외"였는데 이제는 존재하지도 않는 UC이니, 어쨌든 대응 슬라이스를 만들지 마세요. UC-10(정서지수 하락 알림 수신)은 별도 화면/슬라이스가 아니라 UC-11(알림함)에 흡수됩니다 — `mark-notification-read` 목록에 정서지수 하락 알림도 다른 알림 유형과 동일하게 표시될 뿐입니다. 웹 푸시 알림(실제 push 발송)은 MVP 범위가 아니며, 이 프로젝트를 먼저 웹앱으로 완성한 뒤 PWA를 적용하는 시점에 별도로 구현할 계획입니다 — 지금은 알림함(REST 조회)만으로 충분하고, Service Worker/Push API 관련 코드를 미리 만들지 마세요.
+UC-03 (STT 변환), UC-04 (꼬리질문 생성), UC-06-1/UC-06-2/UC-06-3/UC-06-4 (SGDS-K·GAD-7·LSNS-6 채점, 정서지수 산출, 음성 톤·피치 분석, 일간 대화 요약·AI 추천 행동 제안 생성), UC-07 (데이터 저장)은 전부 `시스템/AI 엔진` 액터의 UC입니다 — 여기가 아니라 `apps/backend`/`apps/ai-server`에서 일어나는 일이라, 의도적으로 대응하는 `features/*` 슬라이스를 만들지 않았습니다. **구 UC-14(대화 빈도 기반 캐릭터 환경 꾸미기)는 요구사항정의서에서 삭제됐지만, `UC-14`라는 ID 자체는 최신 요구사항정의서에서 전혀 다른 기능인 "시니어 일간 기록 조회"(FR-01-09)로 재배정됐습니다** — 그 구현 대상은 위 표의 `pages/senior-daily-record`이니 혼동하지 마세요(캐릭터/꾸미기 관련 슬라이스는 여전히 만들지 않습니다). UC-15("보호자 주간 리포트 상세 조회", FR-03-07)는 `pages/guardian-weekly-report`가 구현 대상입니다. UC-14/UC-15 둘 다 지금은 페이지에 직접 구현할 예정이라 별도 `features/*` 슬라이스가 없습니다 — 화면 설계가 나와서 상호작용이 구체화되면 필요 시 분리하세요. UC-10(정서지수 하락 알림 수신)은 별도 화면/슬라이스가 아니라 UC-11(알림함)에 흡수됩니다 — `mark-notification-read` 목록에 정서지수 하락 알림도 다른 알림 유형과 동일하게 표시될 뿐입니다. 웹 푸시 알림(실제 push 발송)은 MVP 범위가 아니며, 이 프로젝트를 먼저 웹앱으로 완성한 뒤 PWA를 적용하는 시점에 별도로 구현할 계획입니다 — 지금은 알림함(REST 조회)만으로 충분하고, Service Worker/Push API 관련 코드를 미리 만들지 마세요.
 
 ## 다른 도구가 이어서 작업할 때 보고할 것
 

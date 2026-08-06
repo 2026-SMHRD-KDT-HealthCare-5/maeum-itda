@@ -7,7 +7,7 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 독거·원거리 시니어의 정서 위기를 조기에 발견하고, 근거 있는 리포트로 보호자에게 전달하는 서비스입니다.
 
 - **AI 안부대화**: 음성 우선(Voice-first) 대화로 하루 일과·수면·식사·기분 상태를 자연스럽게 수집합니다.
-- **정서지수 분석 엔진**: STT 변환 텍스트를 한국형 노인우울척도(SGDS-K) 15문항에 매핑하고, 발화 속도(Tempo)를 개인 베이스라인과 비교해 정서지수를 산출합니다.
+- **정서지수 분석 엔진**: STT 변환 텍스트를 한국형 노인우울척도(SGDS-K)·범불안장애척도(GAD-7)·사회적관계망척도(LSNS-6) 3개 척도 문항에 매핑해 위험 응답 비율 기반 텍스트 점수(TextScore)로 정서지수를 산출합니다. 음성 톤·피치 등 비언어적 지표는 별도로 점수화하지 않고 실시간 감성분석의 입력 재료로만 사용합니다.
 - **보호자 리포트 및 알림**: 일간/주간 리포트(위험도 추이 그래프 + 근거 문장)를 제공하고, 임계치 초과 시 행동 제안과 함께 알림을 발송합니다.
 
 ### 팀 정보 (팀명: 마음잇다)
@@ -27,7 +27,7 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 |---|---|
 | Front-end | TypeScript, React, React Router, TanStack Query |
 | Back-end | TypeScript, Node.js, NestJS |
-| AI / Data Pipeline | Python, FastAPI, Whisper(faster-whisper, STT), LLM(꼬리질문·감성분석·TTS, 벤더 미정, OpenAI API 가정) |
+| AI / Data Pipeline | Python, FastAPI, Whisper(faster-whisper, STT), OpenAI API(꼬리질문 생성·실시간 감성분석 LLM), Typecast(TTS, Streaming API) |
 | Database | MySQL |
 | 기타 | Git, GitHub, VS Code, pnpm, Turborepo |
 
@@ -42,7 +42,7 @@ maeum-itda/
 │   ├── backend/        # NestJS 기반 API 서버 (기본 스캐폴딩 및 Turborepo 연결 완료)
 │   └── ai-server/       # FastAPI 기반 AI/감정분석 서버, Python (TODO: 초기 세팅 예정)
 ├── packages/
-│   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (package.json 존재, 내용은 비어있음)
+│   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (ConversationTurn, 대화 이력 cursor pagination, WebSocket 이벤트 계약 등 실제 타입 존재)
 │   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (TODO: 초기 세팅 예정)
 │   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 스캐폴딩 완료, apps/frontend가 사용 중)
 ├── infra/                # 배포/인프라 관련 설정 (TODO: 초기 세팅 예정)
