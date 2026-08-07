@@ -9,6 +9,7 @@ import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
 import { ChatsService, type StartedChat } from '../chats.service';
 import { sendWsEvent } from '../ws-event';
+import { ChatConnectionStateService } from '../chat-connection-state.service';
 
 // 프론트가 인증 성공 후 보내는 대화 시작 요청 형식
 interface ChatStartEvent {
@@ -20,10 +21,15 @@ interface ChatStartEvent {
 @Injectable()
 export class ChatStartHandler {
   private readonly chatsService: ChatsService; // 최초 질문 생성·저장 업무 객체
+  private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
 
   // NestJS DI 컨테이너가 ChatsService 객체를 생성자에 주입
-  constructor(chatsService: ChatsService) {
+  constructor(
+    chatsService: ChatsService,
+    chatConnectionStateService: ChatConnectionStateService,
+  ) {
     this.chatsService = chatsService;
+    this.chatConnectionStateService = chatConnectionStateService;
   }
 
   // 역할: chat:start 검증 후 최초 고정 질문 생성 요청과 결과 전송
@@ -52,6 +58,9 @@ export class ChatStartHandler {
       const startedChat = await this.chatsService.startChat(
         authenticatedUser.sub,
       );
+
+      // 이후 audio:metadata가 현재 질문의 답변인지 확인할 식별정보 보관
+      this.chatConnectionStateService.setCurrentQuestion(client, startedChat);
 
       // DB 저장이 끝난 경우에만 시작 완료와 AI 질문을 순서대로 전송
       this.handleChatStarted(client);

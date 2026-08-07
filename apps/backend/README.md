@@ -210,6 +210,18 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - 연결: `ChatsService`, 인증된 사용자 정보
 - 이후 흐름: 고정 질문 저장 후 `chat:started`, `ai:question` 순서로 전송
 
+### `audio-metadata.handler.ts`
+
+- 역할: `audio:metadata` 필수값 검증과 연결별 임시 보관
+- 연결: `ChatConnectionStateService`, 인증된 사용자 정보
+- 이후 흐름: 현재 질문 식별정보 확인 후 다음 음성 바이너리 수신 대기
+
+### `chat-connection-state.service.ts`
+
+- 역할: WebSocket 연결별 현재 `aiQuestionMessageId`, `generationId` 관리
+- 연결: `ChatStartHandler`, `AudioMetadataHandler`, `ChatsGateway`
+- 이후 흐름: 대화 시작 시 저장하고 metadata 수신 시 현재 질문과 비교
+
 ### `chats.service.ts`
 
 - 역할: 대화 업무 처리 순서 관리
@@ -287,13 +299,15 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - `ChatAuthHandler → AuthService → JwtService` 인증 흐름 구현
 - `ChatStartHandler → ChatsService → ConversationMessageRepository` 최초 질문 저장 흐름 구현
 - `auth:success`, `auth:error`, `chat:started`, `ai:question` 전송
+- `audio:metadata` 검증과 연결별 pending metadata 저장
+- 현재 AI 질문과 metadata의 `aiQuestionMessageId`, `generationId` 일치 여부 확인
 - `ChatsService → AnalysisService → AiClient` 의존성 주입
 - 대화 메시지에서 대화 세션 ID 제거
 
 ### 다음 구현
 
-- WebSocket 단일 연결의 텍스트 이벤트·음성 바이너리 구분 규칙 정의
-- 시니어 음성 답변 수신과 ACK 처리
+- 음성 바이너리 수신과 metadata 페어링
+- `audio:ack` 전송과 `captureId` 중복 완료 처리
 - Repository를 통한 메시지 저장
 - FastAPI STT·척도 채점·acoustic 특징·감성분석 REST API 호출
 - 원본 음성 분석 완료 후 즉시 폐기
