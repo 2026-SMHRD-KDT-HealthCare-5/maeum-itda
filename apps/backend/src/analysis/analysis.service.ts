@@ -14,6 +14,8 @@ export class AnalysisService {
     this.aiClient = aiClient;
   }
 
-  // 분석 메서드 구현 시 요청 데이터를 가공하고
-  // this.aiClient의 FastAPI 요청 메서드를 호출하는 로직이 이 위치에 추가된다.
+  // ChatsService에서 전달받은 분석 요청을 AiClient로 전달한다.
+  analyzeConversation(requestData: unknown): Promise<unknown> {
+    return this.aiClient.analyzeConversation(requestData);
+  }
 }
