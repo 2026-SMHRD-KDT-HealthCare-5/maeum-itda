@@ -1,6 +1,6 @@
 /*
 역할: AI·시니어 대화 메시지 객체와 CONVERSATION_MESSAGE 테이블을 연결한다.
-전체 흐름: ChatsService → Repository<ConversationMessage> → MySQL
+전체 흐름: ConversationMessageRepository → Repository<ConversationMessage> → MySQL
 */
 import {
   Check,

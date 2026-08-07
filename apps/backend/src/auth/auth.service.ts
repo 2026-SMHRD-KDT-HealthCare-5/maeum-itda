@@ -1,6 +1,6 @@
 /*
 역할: Access Token 검증과 인증·회원가입 업무 규칙을 처리한다.
-전체 흐름: ChatsGateway → AuthService → JwtService
+전체 흐름: ChatAuthHandler → AuthService → JwtService
  */
 import {
   BadRequestException,
@@ -34,7 +34,7 @@ export class AuthService {
   }
 
   // Gateway에서 전달받은 Access Token을 검증하고 인증된 사용자 정보를 반환한다.
-  // 호출 흐름: ChatsGateway → verifyAccessToken() → JwtService.verifyAsync()
+  // 호출 흐름: ChatAuthHandler → verifyAccessToken() → JwtService.verifyAsync()
   async verifyAccessToken(accessToken: string): Promise<AccessTokenPayload> {
     try {
       // 실제 JWT 서명과 만료 검증을 JwtService에 요청한다.
