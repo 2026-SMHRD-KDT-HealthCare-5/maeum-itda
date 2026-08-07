@@ -1,6 +1,6 @@
 /*
 역할: Access Token 검증과 인증·회원가입 업무 규칙을 처리한다.
-전체 흐름: ChatsGateway → AuthService → JwtService
+전체 흐름: ChatAuthHandler → AuthService → JwtService
  */
 import {
   BadRequestException,
@@ -34,13 +34,12 @@ export class AuthService {
   }
 
   // Gateway에서 전달받은 Access Token을 검증하고 인증된 사용자 정보를 반환한다.
-  // 호출 흐름: ChatsGateway → verifyAccessToken() → JwtService.verifyAsync()
-  async verifyAccessToken(
-    accessToken: string,
-  ): Promise<AccessTokenPayload> {
+  // 호출 흐름: ChatAuthHandler → verifyAccessToken() → JwtService.verifyAsync()
+  async verifyAccessToken(accessToken: string): Promise<AccessTokenPayload> {
     try {
       // 실제 JWT 서명과 만료 검증을 JwtService에 요청한다.
-      const payload =await this.jwtService.verifyAsync<AccessTokenPayload>(accessToken);
+      const payload =
+        await this.jwtService.verifyAsync<AccessTokenPayload>(accessToken);
 
       // 서명 검증 후에도 사용자 ID와 역할 구분 확인한다.
       if (
@@ -51,9 +50,7 @@ export class AuthService {
       }
       return payload;
     } catch {
-      throw new UnauthorizedException(
-        '유효하지 않거나 만료된 토큰입니다.',
-      );
+      throw new UnauthorizedException('유효하지 않거나 만료된 토큰입니다.');
     }
   }
 
@@ -74,7 +71,6 @@ export class AuthService {
 
   // 회원가입 입력값 확인, 비밀번호 해시, 사용자 저장을 순서대로 처리한다.
   async signUp(dto: SignUpDto) {
-
     // 비밀번호 확인값은 입력 실수 검사에만 사용하고 DB에는 저장하지 않는다.
     if (dto.password !== dto.passwordConfirm) {
       throw new BadRequestException(

@@ -1,0 +1,28 @@
+/*
+역할: 서버가 보내는 모든 WebSocket JSON 이벤트에 공통 전송 형식 적용
+연결 객체: WebSocket 연결 객체
+전체 흐름: Handler → sendWsEvent() → 브라우저
+*/
+import type WebSocket from 'ws';
+
+// 모든 WebSocket JSON 이벤트가 공유하는 event/payload/ts 형식
+interface WsEvent<TEvent extends string, TPayload> {
+  event: TEvent;
+  payload: TPayload;
+  ts: string;
+}
+
+// 역할: 응답 데이터에 이벤트 이름과 서버 전송 시각을 추가하여 브라우저로 전송
+export function sendWsEvent<TEvent extends string, TPayload>(
+  client: WebSocket,
+  event: TEvent,
+  payload: TPayload,
+): void {
+  const responseEvent: WsEvent<TEvent, TPayload> = {
+    event,
+    payload,
+    ts: new Date().toISOString(),
+  };
+
+  client.send(JSON.stringify(responseEvent));
+}
