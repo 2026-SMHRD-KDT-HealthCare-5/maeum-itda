@@ -13,19 +13,19 @@
 
 ## 2. 핵심 결정 요약
 
-| 구분 | 결정 내용 | 상태 |
-|---|---|---|
-| 브라우저 통신 | 순수 WebSocket, NestJS `WsAdapter` 사용 | 확정 |
-| AI 서버 통신 | NestJS에서 FastAPI로 REST API 요청 | 확정 |
-| 이벤트 형식 | `event / payload / ts` | 프론트 최종 확인 필요 |
-| 음성 전송 | metadata JSON 다음에 바이너리 프레임 전송 | 확정 |
-| 원본 음성 | 분석에만 사용하고 DB에 저장하지 않음 | 확정 |
-| 대화 저장 | AI 질문과 시니어 답변을 각각 메시지 행으로 저장 | 확정 |
-| 대화 세션 | 시작·종료 시각으로 메시지를 묶는 세션 개념 사용 안 함 | 확정 |
-| 일간 리포트 | 시니어 답변 메시지의 생성 시각을 기준으로 집계 | 정확한 일간 범위 확인 필요 |
-| 추가 발화 | 질문 생성 중이면 재요청, TTS 출력 중이면 다음 생성에 반영 | 확정 |
-| 처리 화면 | 응답 대기·응답 듣기·질문 생성의 세 상태 | 확정 |
-| 재연결 | 미확인 음성 재전송 및 마지막 질문 TTS 재생 | 프론트 최종 확인 필요 |
+| 구분          | 결정 내용                                                 | 상태                       |
+| ------------- | --------------------------------------------------------- | -------------------------- |
+| 브라우저 통신 | 순수 WebSocket, NestJS `WsAdapter` 사용                   | 확정                       |
+| AI 서버 통신  | NestJS에서 FastAPI로 REST API 요청                        | 확정                       |
+| 이벤트 형식   | `event / payload / ts`                                    | 프론트 최종 확인 필요      |
+| 음성 전송     | metadata JSON 다음에 바이너리 프레임 전송                 | 확정                       |
+| 원본 음성     | 분석에만 사용하고 DB에 저장하지 않음                      | 확정                       |
+| 대화 저장     | AI 질문과 시니어 답변을 각각 메시지 행으로 저장           | 확정                       |
+| 대화 세션     | 시작·종료 시각으로 메시지를 묶는 세션 개념 사용 안 함     | 확정                       |
+| 일간 리포트   | 시니어 답변 메시지의 생성 시각을 기준으로 집계            | 정확한 일간 범위 확인 필요 |
+| 추가 발화     | 질문 생성 중이면 재요청, TTS 출력 중이면 다음 생성에 반영 | 확정                       |
+| 처리 화면     | 응답 대기·응답 듣기·질문 생성의 세 상태                   | 확정                       |
+| 재연결        | 미확인 음성 재전송 및 마지막 질문 TTS 재생                | 프론트 최종 확인 필요      |
 
 ## 3. 전체 구조
 
@@ -42,14 +42,14 @@
 
 ## 4. 식별자
 
-| 이름 | 구분 대상 | 생성 주체 | DB 저장 |
-|---|---|---|---|
-| `messageId` | DB에 저장된 개별 메시지 행 | MySQL | 저장 |
-| `aiQuestionMessageId` | `messageId` 중 현재 AI 질문을 가리키는 WS 필드 | MySQL·NestJS | 별도 컬럼 없음 |
-| `generationId` | 현재 유효한 AI 질문 단위 | NestJS | 저장하지 않음 |
-| `captureId` | 시니어 발화 한 건 | 프론트엔드 | 현재 저장하지 않음 |
-| `seniorId` | 인증된 시니어 사용자 | MySQL | 저장 |
-| `capturedAt` | 클라이언트에서 발화 녹음이 끝난 시각 | 프론트엔드 | 현재 저장하지 않음 |
+| 이름                  | 구분 대상                                      | 생성 주체    | DB 저장            |
+| --------------------- | ---------------------------------------------- | ------------ | ------------------ |
+| `messageId`           | DB에 저장된 개별 메시지 행                     | MySQL        | 저장               |
+| `aiQuestionMessageId` | `messageId` 중 현재 AI 질문을 가리키는 WS 필드 | MySQL·NestJS | 별도 컬럼 없음     |
+| `generationId`        | 현재 유효한 AI 질문 단위                       | NestJS       | 저장하지 않음      |
+| `captureId`           | 시니어 발화 한 건                              | 프론트엔드   | 현재 저장하지 않음 |
+| `seniorId`            | 인증된 시니어 사용자                           | MySQL        | 저장               |
+| `capturedAt`          | 클라이언트에서 발화 녹음이 끝난 시각           | 프론트엔드   | 현재 저장하지 않음 |
 
 ### 4.1 messageId와 aiQuestionMessageId
 
@@ -161,28 +161,28 @@ DB 저장 후 생성된 시니어 답변 messageId
 
 ### 프론트엔드에서 NestJS로 전송
 
-| 이벤트 | 목적 |
-|---|---|
-| `auth` | JWT 인증 |
-| `chat:start` | 실시간 대화 시작 |
-| `chat:resume` | 연결 복구 요청 |
-| `audio:metadata` | 발화 정보 전송 |
-| 바이너리 프레임 | 실제 시니어 음성 전송 |
+| 이벤트               | 목적                    |
+| -------------------- | ----------------------- |
+| `auth`               | JWT 인증                |
+| `chat:start`         | 실시간 대화 시작        |
+| `chat:resume`        | 연결 복구 요청          |
+| `audio:metadata`     | 발화 정보 전송          |
+| 바이너리 프레임      | 실제 시니어 음성 전송   |
 | `tts:playback-ended` | TTS 실제 재생 완료 알림 |
-| `chat:end` | 대화 화면 종료 요청 |
+| `chat:end`           | 대화 화면 종료 요청     |
 
 ### NestJS에서 프론트엔드로 전송
 
-| 이벤트 | 목적 |
-|---|---|
-| `auth:success`, `auth:error` | 인증 결과 |
-| `chat:started`, `chat:resumed` | 시작·복구 결과 |
-| `audio:ack` | 음성 수신 확인 |
-| `analysis:processing` | 답변 처리 중 안내 |
-| `ai:question` | AI 질문 텍스트 전송 |
-| `tts:start`, 바이너리, `tts:end` | TTS 음성 전송 |
-| `chat:ended` | 종료 완료 |
-| `error` | 백엔드 오류 |
+| 이벤트                           | 목적                |
+| -------------------------------- | ------------------- |
+| `auth:success`, `auth:error`     | 인증 결과           |
+| `chat:started`, `chat:resumed`   | 시작·복구 결과      |
+| `audio:ack`                      | 음성 수신 확인      |
+| `analysis:processing`            | 답변 처리 중 안내   |
+| `ai:question`                    | AI 질문 텍스트 전송 |
+| `tts:start`, 바이너리, `tts:end` | TTS 음성 전송       |
+| `chat:ended`                     | 종료 완료           |
+| `error`                          | 백엔드 오류         |
 
 ## 7. 정상 대화 흐름
 
@@ -215,10 +215,10 @@ WebSocket 연결
 
 ### 프론트 화면 상태
 
-| 상태 | 실제 상황 | 표시 예시 |
-|---|---|---|
-| `AWAITING_ANSWER` | AI 질문 후 답변 대기 | 편하게 말씀해 주세요 |
-| `LISTENING_ANSWER` | 시니어 발화 녹음 중 | 듣고 있어요 |
+| 상태                  | 실제 상황                 | 표시 예시              |
+| --------------------- | ------------------------- | ---------------------- |
+| `AWAITING_ANSWER`     | AI 질문 후 답변 대기      | 편하게 말씀해 주세요   |
+| `LISTENING_ANSWER`    | 시니어 발화 녹음 중       | 듣고 있어요            |
 | `GENERATING_QUESTION` | 답변 분석 및 질문 생성 중 | 답변을 분석하고 있어요 |
 
 ```text
@@ -237,9 +237,9 @@ AWAITING_ANSWER
 
 ```typescript
 interface RealtimeChatState {
-  status: 'AWAITING_ANSWER' | 'GENERATING_QUESTION';
-  isTtsPlaying: boolean;
-  currentGenerationId: string | null;
+  status: 'AWAITING_ANSWER' | 'GENERATING_QUESTION'
+  isTtsPlaying: boolean
+  currentGenerationId: string | null
 }
 ```
 
@@ -388,18 +388,19 @@ MVP 제안은 음성 수신 직후 시니어 답변 메시지 행을 만들고 �
 
 ## 14. 현재 구현 상태
 
-| 항목 | 상태 |
-|---|---|
-| `WsAdapter`와 `/ws/chats` 경로 | 구현 완료 |
-| WebSocket 연결·종료 감지 | 구현 완료 |
-| 첫 메시지 JWT 인증 및 SENIOR 역할 확인 | 구현 완료 |
-| `AnalysisService -> AiClient` 호출 구조 | 구현 완료 |
-| `event / payload / ts` 공통 형식 | 구현 완료 |
-| `chat:start`와 최초 고정 질문 저장·전송 | 구현 완료 |
-| 음성 metadata·바이너리 페어링 | 구현 전 |
-| DB 메시지·관계 저장 | 구현 전 |
-| FastAPI 실제 HTTP 요청 | DTO 합의 전 |
-| 추가 발화·재연결·TTS 캐시 | 구현 전 |
+| 항목                                           | 상태                  |
+| ---------------------------------------------- | --------------------- |
+| `WsAdapter`와 `/ws/chats` 경로                 | 구현 완료             |
+| WebSocket 연결·종료 감지                       | 구현 완료             |
+| 첫 메시지 JWT 인증 및 SENIOR 역할 확인         | 구현 완료             |
+| `AnalysisService -> AiClient` 호출 구조        | 구현 완료             |
+| `event / payload / ts` 공통 형식               | 구현 완료             |
+| `chat:start`와 최초 고정 질문 저장·전송        | 구현 완료             |
+| `audio:metadata` 검증·현재 질문 확인·임시 보관 | 구현 완료             |
+| 음성 metadata·바이너리 페어링                  | 바이너리 처리 구현 전 |
+| DB 메시지·관계 저장                            | 구현 전               |
+| FastAPI 실제 HTTP 요청                         | DTO 합의 전           |
+| 추가 발화·재연결·TTS 캐시                      | 구현 전               |
 
 현재 Gateway는 `event / payload / ts` 공통 형식을 사용한다.
 
