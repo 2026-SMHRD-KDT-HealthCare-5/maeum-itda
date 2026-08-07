@@ -112,7 +112,7 @@ export class ChatsModule {}
 다른 NestJS 모듈이 `exports`로 공개한 Provider를 현재 모듈에서 사용하도록 연결합니다.
 
 ```typescript
-imports: [AuthModule]
+imports: [AuthModule];
 ```
 
 TypeScript의 `import`와 역할이 다릅니다.
@@ -129,7 +129,7 @@ import { AuthModule } from '../auth/auth.module';
 HTTP REST API 요청을 받을 Controller를 등록합니다.
 
 ```typescript
-controllers: [ChatsController]
+controllers: [ChatsController];
 ```
 
 #### `providers`
@@ -137,7 +137,7 @@ controllers: [ChatsController]
 NestJS DI 컨테이너가 객체를 생성·주입·관리할 클래스를 등록합니다.
 
 ```typescript
-providers: [ChatsGateway, ChatsService]
+providers: [ChatsGateway, ChatsService];
 ```
 
 개발자가 직접 `new ChatsService()`를 작성하지 않아도 DI 컨테이너가 생성자를 확인해 필요한 객체를 주입합니다.
@@ -147,7 +147,7 @@ providers: [ChatsGateway, ChatsService]
 현재 모듈의 Provider를 다른 NestJS 모듈에서도 주입받을 수 있게 공개합니다.
 
 ```typescript
-exports: [ChatsService]
+exports: [ChatsService];
 ```
 
 TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
@@ -188,21 +188,39 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 
 ### `chats.module.ts`
 
-- 역할: 채팅 기능의 Gateway·Service·Repository 등록
-- 연결: `AuthModule`, `AnalysisModule`, `ChatsGateway`, `ChatsService`
-- 이후 흐름: Gateway 생성자에 인증·대화 객체 주입
+- 역할: 채팅 기능의 Gateway·Handler·Service·Repository 등록
+- 연결: `AuthModule`, `AnalysisModule`, `ChatsGateway`, `ChatAuthHandler`, `ChatStartHandler`, `ChatsService`
+- 이후 흐름: Gateway에 Handler를 주입하고 Handler에 업무 Service 주입
 
 ### `chats.gateway.ts`
 
 - 역할: `/ws/chats` 연결·종료 및 WebSocket 이벤트 수신
-- 연결: `AuthService`, `ChatsService`
-- 이후 흐름: 인증은 `AuthService`, 대화는 `ChatsService` 호출
+- 연결: `ChatAuthHandler`, `ChatStartHandler`
+- 이후 흐름: 첫 메시지는 인증 Handler, 인증 이후 메시지는 대화 시작 Handler 호출
+
+### `chat-auth.handler.ts`
+
+- 역할: `auth` 이벤트 형식 확인과 JWT 인증
+- 연결: `AuthService`, WebSocket 연결 객체
+- 이후 흐름: `AuthService.verifyAccessToken()` 호출 후 `auth:success` 또는 `auth:error` 전송
+
+### `chat-start.handler.ts`
+
+- 역할: `chat:start` 검증과 최초 질문 응답
+- 연결: `ChatsService`, 인증된 사용자 정보
+- 이후 흐름: 고정 질문 저장 후 `chat:started`, `ai:question` 순서로 전송
 
 ### `chats.service.ts`
 
 - 역할: 대화 업무 처리 순서 관리
-- 연결: Repository, `AnalysisService`
-- 이후 흐름: DB 저장 또는 AI 분석 요청
+- 연결: `ConversationMessageRepository`, `AnalysisService`
+- 이후 흐름: Repository에 DB 저장 또는 `AnalysisService`에 AI 분석 요청
+
+### `conversation-message.repository.ts`
+
+- 역할: 대화 메시지 Entity 생성과 `CONVERSATION_MESSAGE` 저장
+- 연결: TypeORM `Repository<ConversationMessage>`
+- 이후 흐름: TypeORM의 `create()`와 `save()`를 거쳐 MySQL 처리
 
 ### `auth.module.ts`
 
@@ -233,9 +251,9 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 ### WebSocket과 AI 분석
 
 ```text
-브라우저 ↔ ChatsGateway → ChatsService
-                         ├→ Repository → MySQL
-                         └→ AnalysisService → AiClient → FastAPI
+브라우저 ↔ ChatsGateway → ChatStartHandler → ChatsService
+                                             ├→ ConversationMessageRepository → TypeORM → MySQL
+                                             └→ AnalysisService → AiClient → FastAPI
 ```
 
 ### JWT 인증
@@ -243,6 +261,7 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 ```text
 브라우저
 → ChatsGateway
+→ ChatAuthHandler
 → AuthService.verifyAccessToken()
 → JwtService.verifyAsync()
 → 검증 결과 반환
@@ -264,16 +283,15 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - WebSocket 연결·종료 감지 메서드 작성
 - `AuthModule` JWT 설정
 - `AuthService.verifyAccessToken()` 작성
-- `ChatsGateway`에 `AuthService`, `ChatsService` 의존성 주입
+- `ChatsGateway`에 `ChatAuthHandler`, `ChatStartHandler` 의존성 주입
+- `ChatAuthHandler → AuthService → JwtService` 인증 흐름 구현
+- `ChatStartHandler → ChatsService → ConversationMessageRepository` 최초 질문 저장 흐름 구현
+- `auth:success`, `auth:error`, `chat:started`, `ai:question` 전송
 - `ChatsService → AnalysisService → AiClient` 의존성 주입
 - 대화 메시지에서 대화 세션 ID 제거
 
 ### 다음 구현
 
-- `senior:authenticate` 이벤트 수신
-- 연결별 인증 사용자 상태 관리
-- 인증 성공 이벤트 전송
-- 인증 성공 후 AI 최초 질문 요청
 - WebSocket 단일 연결의 텍스트 이벤트·음성 바이너리 구분 규칙 정의
 - 시니어 음성 답변 수신과 ACK 처리
 - Repository를 통한 메시지 저장
