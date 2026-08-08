@@ -1,0 +1,159 @@
+.page {
+  position: relative;
+  min-height: 100svh;
+  padding-bottom: 92px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 100% 3%, rgba(220, 234, 225, 0.6), transparent 26%),
+    linear-gradient(180deg, #faf8f3 0%, #f8f6f0 100%);
+}
+
+.page::before,
+.page::after {
+  position: absolute;
+  z-index: 0;
+  right: -70px;
+  bottom: 480px;
+  width: 210px;
+  height: 125px;
+  border-radius: 55% 55% 0 0;
+  background: rgba(202, 226, 212, 0.32);
+  content: '';
+  transform: rotate(-9deg);
+}
+
+.page::after {
+  right: auto;
+  bottom: 500px;
+  left: -85px;
+  background: rgba(187, 216, 199, 0.25);
+  transform: rotate(9deg);
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  padding: 24px 20px 28px;
+  gap: 18px;
+}
+
+.reminder,
+.connection {
+  display: grid;
+  min-height: 72px;
+  padding: 12px 15px;
+  box-sizing: border-box;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid rgba(47, 75, 63, 0.05);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(63, 71, 66, 0.07);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+}
+
+.reminderIcon,
+.connectionIcon {
+  display: grid;
+  width: 45px;
+  height: 45px;
+  place-items: center;
+  border-radius: 14px;
+  background: #eaf5ef;
+  color: var(--primary);
+}
+
+.reminderIcon svg,
+.connectionIcon svg {
+  width: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.reminder > span:nth-child(2),
+.connection > span:nth-child(2) {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reminder strong,
+.connection strong {
+  color: #283a32;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.reminder small,
+.connection small {
+  overflow: hidden;
+  color: #8d9591;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  color: #a3aaa6;
+  font-size: 28px;
+  font-weight: 200;
+}
+
+.connection:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.18);
+  outline-offset: 3px;
+}
+
+.greeting {
+  padding: 10px 12px 0;
+}
+
+.greeting h1 {
+  margin: 0;
+  color: var(--primary);
+  font-size: 31px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+}
+
+.greeting p {
+  margin: 4px 0 0;
+  color: #33453d;
+  font-size: 22px;
+  line-height: 1.45;
+  letter-spacing: -0.035em;
+}
+
+@media (max-width: 370px) {
+  .content {
+    padding-inline: 15px;
+  }
+
+  .greeting h1 {
+    font-size: 28px;
+  }
+
+  .greeting p {
+    font-size: 19px;
+  }
+
+  .reminder,
+  .connection {
+    padding-inline: 12px;
+    gap: 9px;
+  }
+
+  .reminder strong,
+  .connection strong {
+    font-size: 12px;
+  }
+}

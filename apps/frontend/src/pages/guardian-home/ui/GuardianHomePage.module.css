@@ -1,0 +1,22 @@
+.page {
+  padding: 20px 20px 100px;
+  display: grid;
+  gap: 14px;
+}
+
+.greeting {
+  margin: 0 0 4px;
+}
+
+.greeting h1 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.greeting p {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 13px;
+}

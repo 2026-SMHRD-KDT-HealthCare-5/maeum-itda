@@ -1,0 +1,52 @@
+.nav {
+  position: fixed;
+  z-index: 20;
+  right: max(0px, calc((100vw - 480px) / 2));
+  bottom: 0;
+  left: max(0px, calc((100vw - 480px) / 2));
+  display: grid;
+  min-height: 72px;
+  padding: 7px 12px max(7px, env(safe-area-inset-bottom));
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  border-top: 1px solid rgba(39, 67, 56, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 -8px 28px rgba(42, 65, 56, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+.link {
+  display: flex;
+  min-width: 0;
+  min-height: 54px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 3px;
+  border-radius: 14px;
+  color: #87918c;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.link:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.18);
+  outline-offset: 1px;
+}
+
+.active {
+  background: #edf6f1;
+  color: var(--primary);
+  font-weight: 800;
+}

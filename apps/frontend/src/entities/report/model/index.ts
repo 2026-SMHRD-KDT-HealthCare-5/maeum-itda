@@ -6,10 +6,17 @@
 //   "TextScore×0.7 + VoiceScore×0.3" 공식은 폐기됐으니 그대로 구현하지 말 것.
 export type EmotionLevel = '좋음' | '보통' | '나쁨'
 
+// sentimentLabel: 결정사항 로그 §2-4/§7 — 척도 태그가 없어도 실시간 감성분석
+// 결과(sentiment_label)가 있으면 그 라벨과 함께 노출해야 하므로 추가된 필드.
+// isRiskEvidence와는 독립적이다(위험 근거이면서 라벨이 없을 수도, 위험 근거가
+// 아니면서 라벨만 있을 수도 있음).
+export type SentimentLabel = '긍정' | '보통' | '부정'
+
 export interface EvidenceSentence {
   question: string
   answer: string
   isRiskEvidence: boolean
+  sentimentLabel: SentimentLabel | null
 }
 
 export interface DailyReport {
@@ -34,7 +41,15 @@ export interface WeeklyReport {
     date: string
     emotionScore: number | null
     emotionLevel: EmotionLevel | null
+    // 결정사항 로그 §7 — Figma '보호자 주간 리포트 조회' 화면의 "일별 요약"
+    // 카드(요일별 짧은 코멘트)를 채우기 위해 추가. 데이터 부족일은 null.
+    comment: string | null
   }>
   averageScore: number | null
+  // maxScore/minScore: 결정사항 로그 §7 — 주간 리포트 화면의 통계 카드(평균/
+  // 최고/최저)를 채우기 위해 추가. '데이터 부족' 날짜는 평균과 동일하게
+  // 산정에서 제외한다(§1 척도 데이터 부족 시 처리 규칙과 동일한 원칙).
+  maxScore: number | null
+  minScore: number | null
   recommendedAction: string | null
 }

@@ -5,8 +5,6 @@ build/
 coverage/
 .pnpm-store/
 pnpm-lock.yaml
-docs/page-html/
-docs/page-pdf/
 docs/*.pdf
 apps/frontend/public/
 apps/frontend/src/**/*.png

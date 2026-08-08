@@ -1,0 +1,48 @@
+.transcript {
+  min-height: 0;
+  padding: 4px 6px 12px 0;
+  flex: 1 1 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: #b8c9c0 transparent;
+  scrollbar-width: thin;
+}
+
+.transcript::-webkit-scrollbar {
+  width: 5px;
+}
+
+.transcript::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #b8c9c0;
+}
+
+.messages {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.messages p {
+  max-width: 82%;
+  padding: 13px 16px;
+  box-sizing: border-box;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.seniorMessage {
+  align-self: flex-end;
+  border-radius: 18px 18px 5px;
+  background: #dfece5;
+  color: #33473e;
+}
+
+.assistantMessage {
+  align-self: flex-start;
+  border-radius: 18px 18px 18px 5px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(61, 75, 67, 0.06);
+  color: #283a31;
+}

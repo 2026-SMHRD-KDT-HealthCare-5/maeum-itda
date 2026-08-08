@@ -1,12 +1,36 @@
-// TODO(entities/conversation): actual display UI. Placeholder only — see apps/frontend/CLAUDE.md.
-// SENIOR_CONVERSATION_01의 "이전 대화 이력 무한 스크롤"(결정사항 로그 §5) 자리.
-// 실제 구현 시 TanStack Query의 useInfiniteQuery + entities/conversation/api의
-// fetchConversationHistory(계약은 packages/shared-types 참고)로 turn 목록을 그리고,
-// 위로 스크롤하면 nextCursor로 과거 페이지를 이어붙일 것. 후속 구현이 챙겨야 할
-// 상태: 최초 로딩(isPending), 추가 페이지 로딩(isFetchingNextPage), 빈 이력(turns
-// 전체가 0건), 오류(에러 메시지 위치), 마지막 페이지(nextCursor === null이면 더
-// 불러올 것 없음을 표시). 실시간 WebSocket으로 들어오는 새 turn과 이 REST 이력을
-// id 기준으로 병합·중복 제거하는 처리도 필요하다.
+import { Fragment } from 'react'
+import type { ConversationTurn } from '../model'
+import styles from './ConversationHistoryList.module.css'
+
+// UC-14 — 시니어 이전 대화 기록 조회 화면에서 특정 날짜의 turn 목록을 보여줄
+// 때 쓴다. 실시간 대화 화면(ConversationHistoryList)과 말풍선 스타일은
+// 공유하지만, turn 데이터를 매개변수로 받는다는 점이 다르다.
+export function DailyConversationList({ turns }: { turns: ConversationTurn[] }) {
+  return (
+    <section className={styles.transcript} aria-label="선택한 날짜의 대화 내용">
+      <div className={styles.messages}>
+        {turns.map((turn) => (
+          <Fragment key={turn.id}>
+            <p className={styles.assistantMessage}>{turn.question}</p>
+            {turn.answer && <p className={styles.seniorMessage}>{turn.answer}</p>}
+          </Fragment>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function ConversationHistoryList() {
-  return <div>entities/conversation ConversationHistoryList placeholder</div>
+  return (
+    <section className={styles.transcript} aria-label="안부 대화 내용">
+      <div className={styles.messages} role="feed" aria-label="대화 이력 미리보기">
+        <p className={styles.assistantMessage}>어르신, 오늘 아침은 잘 보내셨어요?</p>
+        <p className={styles.seniorMessage}>응, 아침을 먹고 화분에 물도 줬어.</p>
+        <p className={styles.assistantMessage}>화분을 돌보셨군요. 어떤 꽃을 키우고 계세요?</p>
+        <p className={styles.seniorMessage}>분홍색 제라늄인데 요즘 꽃이 많이 피었어.</p>
+        <p className={styles.seniorMessage}>그리고 동네를 한 바퀴 걷고 왔어.</p>
+        <p className={styles.assistantMessage}>산책도 다녀오셨군요. 오늘 날씨는 어떠셨어요?</p>
+      </div>
+    </section>
+  )
 }

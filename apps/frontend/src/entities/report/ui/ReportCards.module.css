@@ -1,0 +1,183 @@
+.scoreCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.scoreCircle {
+  display: grid;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 800;
+  font-size: 20px;
+}
+
+.levelGood {
+  background: var(--primary-tint);
+  color: var(--primary);
+}
+
+.levelNormal {
+  background: #fff4e0;
+  color: #b9770e;
+}
+
+.levelBad {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.levelUnknown {
+  background: var(--code-bg);
+  color: var(--text);
+}
+
+.scoreTitle {
+  margin: 0 0 4px;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.scoreComment {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.actionCard {
+  display: flex;
+  gap: 10px;
+}
+
+.actionIcon {
+  flex-shrink: 0;
+  font-size: 22px;
+}
+
+.actionTitle {
+  margin: 0 0 4px;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.actionText {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.actionText.collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.actionToggle {
+  margin-top: 4px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.summaryTitle {
+  margin: 0 0 6px;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.summaryText {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: 14px;
+  background: var(--code-bg);
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.statLabel {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.statValue {
+  color: var(--text-h);
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.dailyList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dailyRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  border-radius: 14px;
+  background: var(--bg);
+  padding: 10px 12px;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dailyDate {
+  flex-shrink: 0;
+  width: 44px;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.dailyScore {
+  flex-shrink: 0;
+  width: 32px;
+  color: var(--text-h);
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.dailyComment {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dailyHint {
+  margin: 6px 0 0;
+  color: var(--text);
+  font-size: 11px;
+  text-align: center;
+}
