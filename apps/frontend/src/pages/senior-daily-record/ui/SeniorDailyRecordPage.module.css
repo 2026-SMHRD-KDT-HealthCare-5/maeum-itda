@@ -1,0 +1,68 @@
+.page {
+  padding-bottom: 92px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 20px 16px;
+}
+
+/* entities/conversation의 .transcript는 실시간 대화 화면(고정 뷰포트
+   높이 + 내부 스크롤)을 기준으로 flex:1과 overflow-y:auto가 박혀 있다 —
+   이 화면은 고정 높이 셸이 아니라 페이지 전체가 스크롤되므로, 그 flex-grow가
+   나머지 형제(요약 카드)를 화면 밖으로 밀어내지 않도록 여기서 무효화한다. */
+.content > section:first-child {
+  flex: 0 1 auto;
+  min-height: auto;
+  overflow-y: visible;
+}
+
+.summaryCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 16px;
+  background: var(--primary-tint);
+  padding: 14px;
+}
+
+.summaryIcon {
+  font-size: 20px;
+}
+
+.summaryText {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.emptyState {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 32px;
+}
+
+.emptyTitle {
+  margin: 0;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.emptyHint {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}

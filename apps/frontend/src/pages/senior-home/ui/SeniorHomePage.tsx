@@ -38,7 +38,7 @@ export function SeniorHomePage() {
 
           <ViewAttendanceCalendarAction />
 
-          <button className={styles.reminder} type="button" disabled>
+          <Link className={styles.reminder} to="/senior/my-info">
             <span className={styles.reminderIcon} aria-hidden="true">
               <svg viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="8" />
@@ -47,12 +47,12 @@ export function SeniorHomePage() {
             </span>
             <span>
               <strong>안부 알림 시간을 설정해 보세요</strong>
-              <small>서비스 연결 후 원하는 시간으로 바꿀 수 있어요</small>
+              <small>내 정보에서 원하는 시간으로 바꿀 수 있어요</small>
             </span>
             <span className={styles.chevron} aria-hidden="true">
               ›
             </span>
-          </button>
+          </Link>
         </section>
       </main>
       <BottomTabBar items={SENIOR_TAB_ITEMS} />

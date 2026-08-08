@@ -1,0 +1,85 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 10px;
+}
+
+.title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.editButton {
+  border: none;
+  background: none;
+  padding: 4px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.editButton svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.rowLabel {
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.rowValue {
+  color: var(--text-h);
+  font-weight: 600;
+  text-align: right;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 14px;
+  text-align: right;
+}
+
+.error {
+  margin: 2px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  text-align: right;
+}
+
+.doneButton {
+  align-self: flex-end;
+  margin-top: 4px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 14px;
+  cursor: pointer;
+}

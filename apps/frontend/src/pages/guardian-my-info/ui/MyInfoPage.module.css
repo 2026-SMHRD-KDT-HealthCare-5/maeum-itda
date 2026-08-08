@@ -1,0 +1,102 @@
+.page {
+  padding: 20px 20px 100px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.avatar {
+  display: grid;
+  width: 64px;
+  height: 64px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary-tint);
+  font-size: 32px;
+}
+
+.name {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cardTitle {
+  margin: 0 0 10px;
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.cards {
+  display: grid;
+  gap: 14px;
+}
+
+.emptyConnection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+.emptyConnectionText {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.connectedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.connectedInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.connectedAvatar {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--code-bg);
+  font-size: 20px;
+}
+
+.connectedName {
+  margin: 0;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.connectedMeta {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.logoutButton {
+  justify-self: center;
+  margin-top: 4px;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
