@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import characterImage from './character-daseul-greeting.webp'
+import characterImage from './character-daseul-greeting.png'
 import styles from './StartConversationAction.module.css'
 
 export function StartConversationAction() {

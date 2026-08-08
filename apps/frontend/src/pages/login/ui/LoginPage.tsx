@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button, Card } from '../../../shared/ui'
 import { LoginForm } from '../../../features/login-with-credentials'
-import brandImage from './mascot-granddaughter-greeting.png'
+import brandImage from './logo-daseul.png'
 import styles from './LoginPage.module.css'
 
 // LOGIN_01 (UC-00)
