@@ -82,8 +82,8 @@
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  /* 마음잇다 앱 전용 토큰 — page-html 소스의 배경색(#f7f4ee)은 확인된 값,
-     녹색 계열은 화면설계서 목업 근사치(정확한 디자인 토큰 확정 전까지 임시). */
+  /* 마음잇다 앱 전용 토큰 — 배경색(#f7f4ee)은 구 page-html 목업(2026-08-08 폐기)에서 확인된 값,
+     녹색 계열은 화면설계서 목업 근사치(Figma 기준 정확한 디자인 토큰 확정 전까지 임시). */
   --app-bg: #f7f4ee;
   --primary: #1f6f54;
   --primary-pressed: #17553f;
@@ -110,7 +110,7 @@
   }
 }
 
-/* 이 앱의 화면 목업(docs/page-pdf)은 전부 라이트 테마 고정이고 다크 테마는
+/* 이 앱의 화면 목업(Figma, 구 docs/page-pdf)은 전부 라이트 테마 고정이고 다크 테마는
    아직 디자인된 적이 없다. 예전엔 여기 @media (prefers-color-scheme: dark)
    오버라이드가 있었는데, 그게 --text/--text-h만 밝은 색으로 바꾸고
    Card/TextField 같은 컴포넌트의 고정 흰 배경(#fff)은 그대로 둬서, OS가
