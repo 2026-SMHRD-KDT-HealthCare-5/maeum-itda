@@ -181,7 +181,7 @@ export function RegisterAccountAction() {
         type="password"
         value={values.password}
         onChange={(event) => updateValue('password', event.target.value)}
-        placeholder="8자 이상 입력해주세요"
+        placeholder="4자 이상 입력해주세요"
         autoComplete="new-password"
         error={errors.password}
       />

@@ -1,4 +1,24 @@
+import { Fragment } from 'react'
+import type { ConversationTurn } from '../model'
 import styles from './ConversationHistoryList.module.css'
+
+// UC-14 — 시니어 이전 대화 기록 조회 화면에서 특정 날짜의 turn 목록을 보여줄
+// 때 쓴다. 실시간 대화 화면(ConversationHistoryList)과 말풍선 스타일은
+// 공유하지만, turn 데이터를 매개변수로 받는다는 점이 다르다.
+export function DailyConversationList({ turns }: { turns: ConversationTurn[] }) {
+  return (
+    <section className={styles.transcript} aria-label="선택한 날짜의 대화 내용">
+      <div className={styles.messages}>
+        {turns.map((turn) => (
+          <Fragment key={turn.id}>
+            <p className={styles.assistantMessage}>{turn.question}</p>
+            {turn.answer && <p className={styles.seniorMessage}>{turn.answer}</p>}
+          </Fragment>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 export function ConversationHistoryList() {
   return (

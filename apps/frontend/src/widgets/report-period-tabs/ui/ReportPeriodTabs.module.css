@@ -1,0 +1,29 @@
+.tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  border-radius: 999px;
+  background: var(--code-bg);
+  padding: 4px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  border: none;
+  border-radius: 999px;
+  background: none;
+  padding: 8px 0;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.active {
+  background: var(--bg);
+  color: var(--primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
