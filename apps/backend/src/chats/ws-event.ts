@@ -4,6 +4,17 @@
 전체 흐름: Handler → sendWsEvent() → 브라우저
 */
 import type WebSocket from 'ws';
+import type { RawData } from 'ws';
+
+// 역할: ws 수신 데이터(Buffer | ArrayBuffer | Buffer[])를 UTF-8 문자열로 변환
+// Buffer.prototype.toString은 위 세 형태 모두 처리하지만, ArrayBuffer.prototype.toString은
+// 기본 Object 문자열화("[object ArrayBuffer]")라 그대로 호출하면 안 된다.
+export function rawDataToString(data: RawData): string {
+  if (Array.isArray(data)) {
+    return Buffer.concat(data).toString('utf8');
+  }
+  return Buffer.from(data).toString('utf8');
+}
 
 // 모든 WebSocket JSON 이벤트가 공유하는 event/payload/ts 형식
 interface WsEvent<TEvent extends string, TPayload> {

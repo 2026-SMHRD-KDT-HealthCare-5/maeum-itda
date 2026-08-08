@@ -8,7 +8,7 @@ import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { AccessTokenPayload, AuthService } from '../../auth/auth.service';
 import { UserRole } from '../../users/entities/user.entity';
-import { sendWsEvent } from '../ws-event';
+import { rawDataToString, sendWsEvent } from '../ws-event';
 
 // 프론트가 WebSocket 연결 후 첫 메시지로 보내는 JWT 인증 형식
 interface AuthEvent {
@@ -41,7 +41,7 @@ export class ChatAuthHandler {
         throw new Error('인증 이벤트는 JSON 형식이어야 합니다.');
       }
 
-      const authEvent = this.parseAuthEvent(data.toString());
+      const authEvent = this.parseAuthEvent(rawDataToString(data));
       const authenticatedUser = await this.authService.verifyAccessToken(
         authEvent.payload.accessToken,
       );

@@ -7,7 +7,7 @@ import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
-import { sendWsEvent } from '../ws-event';
+import { rawDataToString, sendWsEvent } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 
 export type AudioEndType = 'auto' | 'manual';
@@ -63,7 +63,7 @@ export class AudioMetadataHandler {
         return;
       }
 
-      const metadataEvent = this.parseAudioMetadataEvent(data.toString());
+      const metadataEvent = this.parseAudioMetadataEvent(rawDataToString(data));
 
       // 서버가 현재 연결에 전송한 AI 질문과 식별정보가 일치하는지 확인
       if (

@@ -43,7 +43,3 @@ pnpm-debug.log*
 # ===== 로컬 DB/업로드(있을 경우) =====
 *.sqlite
 uploads/
-
-# ===== docs (로컬 작업용, 용량이 커서 커밋 제외) =====
-# docs/page-pdf/는 팀 공유용으로 커밋함 — page-html은 개인 로컬 참고용이라 제외
-docs/page-html/

@@ -14,7 +14,7 @@ import { AccessTokenPayload } from '../auth/auth.service';
 import { ChatAuthHandler } from './handlers/chat-auth.handler';
 import { ChatStartHandler } from './handlers/chat-start.handler';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
-import { sendWsEvent } from './ws-event';
+import { rawDataToString, sendWsEvent } from './ws-event';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 
 // WebSocket 연결 경로: ws://서버주소/ws/chats
@@ -106,7 +106,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const parsedEvent: unknown = JSON.parse(data.toString());
+      const parsedEvent: unknown = JSON.parse(rawDataToString(data));
       if (
         typeof parsedEvent !== 'object' ||
         parsedEvent === null ||

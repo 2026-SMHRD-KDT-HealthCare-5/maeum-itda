@@ -8,7 +8,7 @@ import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
 import { ChatsService, type StartedChat } from '../chats.service';
-import { sendWsEvent } from '../ws-event';
+import { rawDataToString, sendWsEvent } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 
 // 프론트가 인증 성공 후 보내는 대화 시작 요청 형식
@@ -45,7 +45,7 @@ export class ChatStartHandler {
       if (isBinary) {
         throw new Error('chat:start는 JSON 형식이어야 합니다.');
       }
-      this.parseChatStartEvent(data.toString());
+      this.parseChatStartEvent(rawDataToString(data));
     } catch {
       sendWsEvent(client, 'error', {
         code: 'INVALID_EVENT',
