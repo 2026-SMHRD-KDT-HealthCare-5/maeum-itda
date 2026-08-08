@@ -9,7 +9,7 @@ describe('ChatAuthHandler', () => {
     const authService = {
       verifyAccessToken: jest.fn().mockResolvedValue(user),
     };
-    const client = { send: jest.fn(), close: jest.fn() };
+    const client = { send: jest.fn<void, [string]>(), close: jest.fn() };
     const handler = new ChatAuthHandler(authService as unknown as AuthService);
 
     const result = await handler.authenticate(
@@ -26,7 +26,7 @@ describe('ChatAuthHandler', () => {
 
     expect(result).toEqual(user);
     expect(authService.verifyAccessToken).toHaveBeenCalledWith('token');
-    expect(JSON.parse(client.send.mock.calls[0][0] as string)).toEqual(
+    expect(JSON.parse(client.send.mock.calls[0][0])).toEqual(
       expect.objectContaining({
         event: 'auth:success',
         payload: { userId: 1, role: UserRole.SENIOR },
@@ -38,7 +38,7 @@ describe('ChatAuthHandler', () => {
     const authService = {
       verifyAccessToken: jest.fn().mockRejectedValue(new Error()),
     };
-    const client = { send: jest.fn(), close: jest.fn() };
+    const client = { send: jest.fn<void, [string]>(), close: jest.fn() };
     const handler = new ChatAuthHandler(authService as unknown as AuthService);
 
     const result = await handler.authenticate(
@@ -54,7 +54,7 @@ describe('ChatAuthHandler', () => {
     );
 
     expect(result).toBeNull();
-    expect(JSON.parse(client.send.mock.calls[0][0] as string)).toEqual(
+    expect(JSON.parse(client.send.mock.calls[0][0])).toEqual(
       expect.objectContaining({
         event: 'auth:error',
         payload: {

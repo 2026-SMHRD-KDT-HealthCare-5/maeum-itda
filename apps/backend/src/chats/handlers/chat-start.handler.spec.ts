@@ -13,7 +13,7 @@ describe('ChatStartHandler', () => {
         content: '오늘 하루는 어땠나요?',
       }),
     };
-    const client = { send: jest.fn() };
+    const client = { send: jest.fn<void, [string]>() };
     const chatConnectionStateService = { setCurrentQuestion: jest.fn() };
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
@@ -39,11 +39,13 @@ describe('ChatStartHandler', () => {
       expect.objectContaining({ aiQuestionMessageId: 101 }),
     );
     expect(
-      client.send.mock.calls.map(([message]) => JSON.parse(message as string)),
+      client.send.mock.calls.map(([message]) => JSON.parse(message) as unknown),
     ).toEqual([
       expect.objectContaining({ event: 'chat:started', payload: {} }),
       expect.objectContaining({
         event: 'ai:question',
+        // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: expect.objectContaining({ aiQuestionMessageId: 101 }),
       }),
     ]);

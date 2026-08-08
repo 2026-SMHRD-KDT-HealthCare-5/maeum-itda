@@ -17,7 +17,7 @@ describe('AudioMetadataHandler', () => {
   }
 
   function createClient() {
-    const client = { send: jest.fn() };
+    const client = { send: jest.fn<void, [string]>() };
     return {
       client: client as unknown as WebSocket,
       send: client.send,
@@ -82,9 +82,11 @@ describe('AudioMetadataHandler', () => {
       false,
     );
 
-    expect(JSON.parse(client.send.mock.calls[0][0] as string)).toEqual(
+    expect(JSON.parse(client.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'error',
+        // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: expect.objectContaining({
           code: 'INVALID_AUDIO_METADATA',
         }),
@@ -111,9 +113,11 @@ describe('AudioMetadataHandler', () => {
       false,
     );
 
-    expect(JSON.parse(client.send.mock.calls[0][0] as string)).toEqual(
+    expect(JSON.parse(client.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'error',
+        // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: expect.objectContaining({
           code: 'AUDIO_METADATA_PENDING',
         }),
@@ -132,9 +136,11 @@ describe('AudioMetadataHandler', () => {
       false,
     );
 
-    expect(JSON.parse(client.send.mock.calls[0][0] as string)).toEqual(
+    expect(JSON.parse(client.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'error',
+        // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: expect.objectContaining({ code: 'QUESTION_MISMATCH' }),
       }),
     );

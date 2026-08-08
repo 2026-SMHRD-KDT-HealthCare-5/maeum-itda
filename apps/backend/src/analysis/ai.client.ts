@@ -8,6 +8,7 @@ import { Injectable } from '@nestjs/common';
 export class AiClient {
   // AnalysisService가 호출할 FastAPI 분석 요청 메서드의 자리표시자다.
   // API 계약 확정 후 unknown 타입과 오류를 실제 HTTP 요청·응답 처리로 교체한다.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- API 계약 확정 전 placeholder
   analyzeConversation(_requestData: unknown): Promise<unknown> {
     return Promise.reject(
       new Error('FastAPI 분석 API가 아직 연결되지 않았습니다.'),
