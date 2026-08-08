@@ -6,12 +6,12 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "format": "prettier --write \"apps/frontend/src/**/*.{ts,tsx,css}\" \"packages/shared-types/src/**/*.ts\"",
-    "format:check": "prettier --check \"apps/frontend/src/**/*.{ts,tsx,css}\" \"packages/shared-types/src/**/*.ts\"",
+    "format": "prettier --write \"apps/frontend/**/*.{ts,tsx,js,css}\" \"packages/shared-types/src/**/*.ts\"",
+    "format:check": "prettier --check \"apps/frontend/**/*.{ts,tsx,js,css}\" \"packages/shared-types/src/**/*.ts\"",
     "prepare": "husky"
   },
   "lint-staged": {
-    "apps/frontend/src/**/*.{ts,tsx,css}": ["prettier --write", "eslint --fix"],
+    "apps/frontend/**/*.{ts,tsx,js,css}": ["prettier --write", "eslint --fix"],
     "packages/shared-types/src/**/*.ts": ["prettier --write"],
     "apps/backend/{src,apps,libs,test}/**/*.ts": ["eslint --fix"]
   },
