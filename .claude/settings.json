@@ -18,6 +18,7 @@
       "Bash(pnpm dev*)",
       "Bash(pnpm build*)",
       "Bash(pnpm lint*)",
+      "Bash(npx lint-staged*)",
       "Bash(pnpm --filter *)",
       "Bash(turbo run *)"
     ],
