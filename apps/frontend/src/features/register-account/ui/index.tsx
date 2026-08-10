@@ -8,8 +8,8 @@ import {
   type RegisterAccountValues,
   type RegisterRole,
 } from '../model'
-import guardianRoleImage from './btn-guardian-role.png'
-import seniorRoleImage from './btn-senior-role.png'
+import guardianRoleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import seniorRoleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import styles from './RegisterAccountAction.module.css'
 
 const initialValues: RegisterAccountValues = {
