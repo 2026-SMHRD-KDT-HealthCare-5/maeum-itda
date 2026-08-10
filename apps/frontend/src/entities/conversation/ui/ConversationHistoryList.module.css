@@ -1,6 +1,6 @@
 .transcript {
   min-height: 0;
-  padding: 4px 6px 12px 0;
+  padding: 4px 6px 16px 0;
   flex: 1 1 0;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -21,28 +21,37 @@
   display: flex;
   min-height: 100%;
   flex-direction: column;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 .messages p {
-  max-width: 82%;
-  padding: 13px 16px;
+  max-width: 86%;
+  padding: 14px 17px;
   box-sizing: border-box;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1.55;
 }
 
 .seniorMessage {
   align-self: flex-end;
   border-radius: 18px 18px 5px;
-  background: #dfece5;
+  background: #dcebe3;
   color: #33473e;
 }
 
 .assistantMessage {
   align-self: flex-start;
   border-radius: 18px 18px 18px 5px;
-  background: #fff;
+  background: #f0eee9;
   box-shadow: 0 6px 18px rgba(61, 75, 67, 0.06);
   color: #283a31;
+}
+
+.liveMessages .assistantMessage:last-child {
+  padding-block: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(61, 75, 67, 0.09);
+  color: #233c31;
+  font-weight: 700;
 }

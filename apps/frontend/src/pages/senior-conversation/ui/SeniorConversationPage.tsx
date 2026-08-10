@@ -28,28 +28,31 @@ const characterByState: Record<CharacterState, { alt: string; src: string }> = {
 // SENIOR_CONVERSATION_01 (UC-01, UC-02, UC-03)
 // 이전 대화 이력 무한 스크롤은 결정사항 로그 §5 참고.
 export function SeniorConversationPage() {
-  const characterState: CharacterState = 'listening'
+  const characterState: CharacterState = 'question'
   const character = characterByState[characterState]
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
+  const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
   const navigate = useNavigate()
 
   return (
     <main className={styles.page}>
       <header className={styles.header}>
-        <button
-          className={styles.endCall}
-          type="button"
-          aria-label="통화 종료"
-          onClick={() => setIsEndDialogOpen(true)}
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 5l14 14M19 5 5 19" />
-          </svg>
+        <div>
+          <p className={styles.eyebrow}>오늘의 안부 대화</p>
+          <h1>
+            <span aria-hidden="true" /> 다슬이와 대화하고 있어요
+          </h1>
+        </div>
+        <button className={styles.endCall} type="button" onClick={() => setIsEndDialogOpen(true)}>
+          대화 종료
         </button>
       </header>
 
       <div className={styles.content}>
-        <ConversationHistoryList />
+        {hasScrollableHistory && (
+          <p className={styles.historyHint}>위로 올려 지난 대화를 볼 수 있어요</p>
+        )}
+        <ConversationHistoryList onOverflowChange={setHasScrollableHistory} />
         <RecordVoiceAnswerAction
           characterImageAlt={character.alt}
           characterImageSrc={character.src}
