@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useEffect, useRef } from 'react'
 import type { ConversationTurn } from '../model'
 import styles from './ConversationHistoryList.module.css'
 
@@ -20,10 +20,46 @@ export function DailyConversationList({ turns }: { turns: ConversationTurn[] }) 
   )
 }
 
-export function ConversationHistoryList() {
+export function ConversationHistoryList({
+  onOverflowChange,
+}: {
+  onOverflowChange?: (hasOverflow: boolean) => void
+}) {
+  const transcriptRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    const transcript = transcriptRef.current
+    if (!transcript) return
+
+    const updateOverflow = () => {
+      onOverflowChange?.(transcript.scrollHeight > transcript.clientHeight + 1)
+    }
+
+    const scrollToLatestMessage = () => {
+      transcript.scrollTo({ top: transcript.scrollHeight, behavior: 'smooth' })
+      updateOverflow()
+    }
+
+    transcript.scrollTo({ top: transcript.scrollHeight })
+    updateOverflow()
+    const observer = new MutationObserver(scrollToLatestMessage)
+    observer.observe(transcript, { childList: true, characterData: true, subtree: true })
+    const resizeObserver = new ResizeObserver(updateOverflow)
+    resizeObserver.observe(transcript)
+
+    return () => {
+      observer.disconnect()
+      resizeObserver.disconnect()
+    }
+  }, [onOverflowChange])
+
   return (
-    <section className={styles.transcript} aria-label="안부 대화 내용">
-      <div className={styles.messages} role="feed" aria-label="대화 이력 미리보기">
+    <section ref={transcriptRef} className={styles.transcript} aria-label="안부 대화 내용">
+      <div
+        className={`${styles.messages} ${styles.liveMessages}`}
+        role="feed"
+        aria-label="대화 이력 미리보기"
+      >
         <p className={styles.assistantMessage}>어르신, 오늘 아침은 잘 보내셨어요?</p>
         <p className={styles.seniorMessage}>응, 아침을 먹고 화분에 물도 줬어.</p>
         <p className={styles.assistantMessage}>화분을 돌보셨군요. 어떤 꽃을 키우고 계세요?</p>
