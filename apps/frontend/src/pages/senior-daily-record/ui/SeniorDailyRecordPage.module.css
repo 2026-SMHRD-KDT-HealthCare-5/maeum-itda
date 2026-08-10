@@ -1,42 +1,100 @@
 .page {
-  padding-bottom: 92px;
+  min-height: 100svh;
+  padding-bottom: 104px;
+  background:
+    radial-gradient(circle at 100% 0, rgba(220, 235, 225, 0.55), transparent 18rem), var(--app-bg);
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 0 20px 16px;
+  gap: 22px;
+  padding: 8px 20px 24px;
 }
 
 /* entities/conversation의 .transcript는 실시간 대화 화면(고정 뷰포트
    높이 + 내부 스크롤)을 기준으로 flex:1과 overflow-y:auto가 박혀 있다 —
    이 화면은 고정 높이 셸이 아니라 페이지 전체가 스크롤되므로, 그 flex-grow가
    나머지 형제(요약 카드)를 화면 밖으로 밀어내지 않도록 여기서 무효화한다. */
-.content > section:first-child {
+.content > section:not(.summary) {
   flex: 0 1 auto;
   min-height: auto;
   overflow-y: visible;
 }
 
-.summaryCard {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  border-radius: 16px;
-  background: var(--primary-tint);
-  padding: 14px;
+.summary {
+  display: grid;
+  min-height: 170px;
+  margin-bottom: 4px;
+  padding: 22px 18px 0;
+  grid-template-columns: minmax(0, 1fr) 116px;
+  align-items: end;
+  gap: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(43, 69, 58, 0.07);
+  border-radius: 26px;
+  background: #eef3ef;
 }
 
-.summaryIcon {
-  font-size: 20px;
+.summaryCard {
+  margin-bottom: 22px;
+  padding: 0 4px;
+}
+
+.summaryCharacter {
+  width: 140px;
+  max-width: none;
+  justify-self: center;
+  transform: translateX(-6px);
+}
+
+.summaryLabel {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .summaryText {
-  margin: 0;
-  color: var(--text-h);
-  font-size: 14px;
-  line-height: 1.5;
+  margin: 6px 0 0;
+  color: #304038;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.55;
+  letter-spacing: -0.025em;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.summaryTextExpanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+
+.summaryToggle {
+  min-width: 64px;
+  min-height: 38px;
+  margin-top: 10px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: #dfece5;
+  color: var(--primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.summaryToggle:hover {
+  background: #d3e4db;
+}
+
+.summaryToggle:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.22);
+  outline-offset: 2px;
 }
 
 .emptyState {
@@ -45,24 +103,60 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 40px 20px;
+  min-height: calc(100svh - 240px);
+  gap: 10px;
+  padding: 48px 20px;
   text-align: center;
 }
 
-.emptyIcon {
-  font-size: 32px;
+.emptyCharacter {
+  width: 190px;
+  height: 190px;
+  margin-bottom: 12px;
+  object-fit: contain;
+}
+
+.emptyDate {
+  color: #304038;
+  font-size: 20px;
+  font-weight: 800;
 }
 
 .emptyTitle {
   margin: 0;
   color: var(--text-h);
   font-weight: 700;
-  font-size: 15px;
+  font-size: 17px;
 }
 
 .emptyHint {
   margin: 0;
   color: var(--text);
-  font-size: 13px;
+  max-width: 310px;
+  margin-top: 10px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(238, 237, 232, 0.8);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@media (max-width: 350px) {
+  .content {
+    padding-inline: 15px;
+  }
+
+  .summaryText {
+    font-size: 17px;
+  }
+
+  .summary {
+    padding-inline: 12px;
+    grid-template-columns: minmax(0, 1fr) 88px;
+  }
+
+  .summaryCharacter {
+    width: 112px;
+    transform: translateX(-7px);
+  }
 }

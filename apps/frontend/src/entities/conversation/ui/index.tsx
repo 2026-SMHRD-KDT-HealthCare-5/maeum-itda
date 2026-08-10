@@ -8,7 +8,7 @@ import styles from './ConversationHistoryList.module.css'
 export function DailyConversationList({ turns }: { turns: ConversationTurn[] }) {
   return (
     <section className={styles.transcript} aria-label="선택한 날짜의 대화 내용">
-      <div className={styles.messages}>
+      <div className={`${styles.messages} ${styles.dailyMessages}`}>
         {turns.map((turn) => (
           <Fragment key={turn.id}>
             <p className={styles.assistantMessage}>{turn.question}</p>
