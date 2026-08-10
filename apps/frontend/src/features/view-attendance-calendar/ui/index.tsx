@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import styles from './ViewAttendanceCalendarAction.module.css'
 
 const weekDays = ['일', '월', '화', '수', '목', '금', '토']
@@ -28,6 +28,7 @@ function isSameDate(left: Date, right: Date) {
 }
 
 export function ViewAttendanceCalendarAction() {
+  const navigate = useNavigate()
   const today = new Date()
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(today.getFullYear(), today.getMonth(), 1),
@@ -44,7 +45,6 @@ export function ViewAttendanceCalendarAction() {
     <section className={styles.card} aria-labelledby="attendance-title">
       <header className={styles.header}>
         <h2 id="attendance-title">출석 캘린더</h2>
-        <Link to="/senior/daily-record">더보기</Link>
       </header>
 
       <div className={styles.monthNavigation}>
@@ -70,16 +70,25 @@ export function ViewAttendanceCalendarAction() {
           const isOutsideMonth = date.getMonth() !== month
 
           return (
-            <span
+            <button
+              type="button"
               className={`${styles.date} ${isToday ? styles.today : ''} ${
                 isOutsideMonth ? styles.outsideMonth : ''
               }`}
               key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
               aria-current={isToday ? 'date' : undefined}
-              aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${isToday ? ', 오늘' : ''}`}
+              aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${isToday ? ', 오늘' : ''} 대화 기록 보기`}
+              onClick={() => {
+                const dateKey = [
+                  date.getFullYear(),
+                  String(date.getMonth() + 1).padStart(2, '0'),
+                  String(date.getDate()).padStart(2, '0'),
+                ].join('-')
+                navigate(`/senior/daily-record?date=${dateKey}`)
+              }}
             >
               {date.getDate()}
-            </span>
+            </button>
           )
         })}
       </div>

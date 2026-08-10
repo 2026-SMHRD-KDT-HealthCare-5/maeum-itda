@@ -7,6 +7,7 @@ export type Role = 'senior' | 'guardian'
 
 export interface Session {
   userId: string
+  name: string
   role: Role
 }
 

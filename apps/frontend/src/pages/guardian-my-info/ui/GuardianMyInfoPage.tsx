@@ -23,7 +23,7 @@ export function GuardianMyInfoPage() {
 
   const [basicInfo, setBasicInfo] = useState({
     username: session?.userId ?? 'guardian01',
-    name: '김민준',
+    name: session?.name ?? '김민준',
     phone: '010-9876-5432',
   })
   const [connection, setConnection] = useState<Connection>({

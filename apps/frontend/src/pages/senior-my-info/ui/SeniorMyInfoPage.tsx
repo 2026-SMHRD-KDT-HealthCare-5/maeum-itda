@@ -23,7 +23,7 @@ export function SeniorMyInfoPage() {
 
   const [basicInfo, setBasicInfo] = useState({
     username: session?.userId ?? 'senior01',
-    name: '김순자',
+    name: session?.name ?? '김순자',
     phone: '010-1234-5678',
   })
   const [connection, setConnection] = useState<Connection>({
