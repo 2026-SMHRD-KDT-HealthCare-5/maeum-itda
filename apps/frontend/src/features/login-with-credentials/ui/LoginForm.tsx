@@ -25,7 +25,7 @@ export function LoginForm() {
     if (nextErrors.id || nextErrors.password) return
 
     const role = mockResolveRole(values)
-    login({ userId: values.id, role })
+    login({ userId: values.id, name: role === 'senior' ? '김순자' : '김민준', role })
     navigate(role === 'senior' ? '/senior' : '/guardian')
   }
 

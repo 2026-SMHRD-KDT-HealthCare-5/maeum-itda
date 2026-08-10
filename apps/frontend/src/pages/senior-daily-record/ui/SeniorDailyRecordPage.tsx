@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { ConversationTurn } from '../../../entities/conversation'
 import { DailyConversationList } from '../../../entities/conversation'
 import { SelectDailyRecordDateAction } from '../../../features/select-daily-record-date'
@@ -37,16 +38,29 @@ const mockRecordsByDate: Record<string, { turns: ConversationTurn[]; comment: st
 }
 
 export function SeniorDailyRecordPage() {
-  const [selectedDate, setSelectedDate] = useState(() => new Date('2025-06-12T00:00:00'))
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const dateParam = searchParams.get('date')
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+      const date = new Date(`${dateParam}T00:00:00`)
+      if (!Number.isNaN(date.getTime()) && toDateKey(date) === dateParam) return date
+    }
+    return new Date('2025-06-12T00:00:00')
+  })
   const datesWithConversation = new Set(Object.keys(mockRecordsByDate))
   const record = mockRecordsByDate[toDateKey(selectedDate)]
+
+  function selectDate(date: Date) {
+    setSelectedDate(date)
+    setSearchParams({ date: toDateKey(date) }, { replace: true })
+  }
 
   return (
     <>
       <main className={styles.page}>
         <SelectDailyRecordDateAction
           selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
+          onSelectDate={selectDate}
           datesWithConversation={datesWithConversation}
         />
 
