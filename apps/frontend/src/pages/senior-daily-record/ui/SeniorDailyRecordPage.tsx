@@ -5,6 +5,8 @@ import { DailyConversationList } from '../../../entities/conversation'
 import { SelectDailyRecordDateAction } from '../../../features/select-daily-record-date'
 import { toDateKey } from '../../../features/select-daily-record-date/model'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
+import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
+import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.png'
 import styles from './SeniorDailyRecordPage.module.css'
 
 // UC-14/FR-01-09 — 결정사항 로그 §5/§7. 실제 API 연결 전이라 날짜별 turn과
@@ -33,7 +35,8 @@ const mockRecordsByDate: Record<string, { turns: ConversationTurn[]; comment: st
         sentimentNote: null,
       },
     ],
-    comment: '저희 이날은 어르신의 하루 일과에 대한 이야기를 나눴었네요!',
+    comment:
+      '저희 이날은 어르신의 하루 일과에 대한 이야기를 나눴었네요! 아침도 드시고, 키우고 계시는 분홍색 제라늄엔 꽃이 많이 피었댔어요.',
   },
 }
 
@@ -47,12 +50,15 @@ export function SeniorDailyRecordPage() {
     }
     return new Date('2025-06-12T00:00:00')
   })
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false)
   const datesWithConversation = new Set(Object.keys(mockRecordsByDate))
   const record = mockRecordsByDate[toDateKey(selectedDate)]
 
   function selectDate(date: Date) {
     setSelectedDate(date)
+    setIsSummaryExpanded(false)
     setSearchParams({ date: toDateKey(date) }, { replace: true })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -67,20 +73,43 @@ export function SeniorDailyRecordPage() {
         <div className={styles.content}>
           {record ? (
             <>
+              <section className={styles.summary} aria-labelledby="daily-summary-title">
+                <div className={styles.summaryCard}>
+                  <p className={styles.summaryLabel}>요약해 드릴게요!</p>
+                  <h2
+                    id="daily-summary-title"
+                    className={`${styles.summaryText} ${
+                      isSummaryExpanded ? styles.summaryTextExpanded : ''
+                    }`}
+                  >
+                    {record.comment}
+                  </h2>
+                  <button
+                    type="button"
+                    className={styles.summaryToggle}
+                    aria-expanded={isSummaryExpanded}
+                    aria-controls="daily-summary-title"
+                    onClick={() => setIsSummaryExpanded((current) => !current)}
+                  >
+                    {isSummaryExpanded ? '접기' : '더보기'}
+                  </button>
+                </div>
+                <img
+                  className={styles.summaryCharacter}
+                  src={daseulSummaryImage}
+                  alt="지난 대화를 요약해 주는 다슬"
+                />
+              </section>
               <DailyConversationList turns={record.turns} />
-              <div className={styles.summaryCard}>
-                <span className={styles.summaryIcon} aria-hidden="true">
-                  🐾
-                </span>
-                <p className={styles.summaryText}>{record.comment}</p>
-              </div>
             </>
           ) : (
             <div className={styles.emptyState}>
-              <span className={styles.emptyIcon} aria-hidden="true">
-                💬
-              </span>
-              <p className={styles.emptyTitle}>이 날은 다슬이와 대화를 나누지 않았어요.</p>
+              <img
+                className={styles.emptyCharacter}
+                src={daseulNoDataImage}
+                alt="대화 기록이 없어 아쉬워하는 다슬"
+              />
+              <p className={styles.emptyTitle}>이 날은 다슬이와 대화를 나누지 않았어요</p>
               <p className={styles.emptyHint}>
                 다른 날의 대화 기록을 확인하시려면 상단의 날짜를 눌러 선택해 주세요.
               </p>
