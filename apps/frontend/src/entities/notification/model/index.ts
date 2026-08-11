@@ -3,11 +3,13 @@
 // 3종 이상(정서지수 하락/안부 대화 미완료/일간 리포트 도착) 보이지만 API
 // 명세는 dailyReport 하나만 정의되어 있음. 유형별 target 확장 시 이 타입도
 // 갱신해야 함.
+// 2026-08-11: Figma 목업에 "주간 리포트 도착" 알림도 있어 weeklyReport를
+// 추가했다 — 정서지수 하락/안부 대화 미완료 알림의 target 구조는 여전히 미결.
 export interface Notification {
   id: string
   title: string
   content: string
   isRead: boolean
   createdAt: string
-  target: { type: 'dailyReport'; reportId: string }
+  target: { type: 'dailyReport'; reportId: string } | { type: 'weeklyReport'; weekStart: string }
 }

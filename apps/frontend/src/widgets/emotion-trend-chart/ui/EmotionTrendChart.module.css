@@ -1,0 +1,61 @@
+.chart {
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+.title {
+  margin: 0 0 10px;
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.thresholdLine {
+  stroke: var(--danger);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+.line {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.point {
+  fill: var(--bg);
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+
+.pointLast {
+  fill: var(--primary);
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.dayLabel {
+  color: var(--text);
+  font-size: 11px;
+}

@@ -1,0 +1,140 @@
+.pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+
+.arrowButton {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.arrowButton:hover {
+  background: #e7f1ec;
+}
+
+.dateButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: #e9f2ed;
+  padding: 8px 16px;
+  color: #2d4138;
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.dateButton svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(38, 48, 43, 0.48);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  width: min(390px, 100%);
+  padding: 24px 20px 22px;
+  border-radius: 28px;
+  background: var(--bg);
+  box-shadow: 0 24px 60px rgba(24, 35, 29, 0.24);
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.monthNav button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary);
+  font-size: 27px;
+  cursor: pointer;
+}
+
+.monthNav strong {
+  color: #2e4138;
+  font-size: 20px;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 7px 4px;
+  text-align: center;
+}
+
+.weekDay {
+  padding-bottom: 6px;
+  color: #84908a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dateCell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-h);
+  width: 40px;
+  max-width: 100%;
+  justify-self: center;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.dateCell:hover {
+  background: #edf4f0;
+}
+
+.outsideMonth {
+  color: var(--border);
+}
+
+.selected {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}

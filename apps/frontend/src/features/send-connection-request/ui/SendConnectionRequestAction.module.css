@@ -1,0 +1,107 @@
+.card {
+  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+.title {
+  margin: 0 0 10px;
+  color: var(--text-h);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 15px;
+  color: var(--text-h);
+}
+
+.input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.submitButton {
+  min-height: 44px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary-tint);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hint {
+  margin: 10px 0 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.error {
+  margin: 10px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.sentCard {
+  margin-top: 16px;
+}
+
+.sentTitle {
+  margin: 0 0 8px;
+  color: var(--text-h);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 14px;
+  background: var(--code-bg);
+  padding: 12px 14px;
+}
+
+.sentUsername {
+  margin: 0;
+  color: var(--text-h);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.sentDate {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.cancelButton {
+  min-height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
