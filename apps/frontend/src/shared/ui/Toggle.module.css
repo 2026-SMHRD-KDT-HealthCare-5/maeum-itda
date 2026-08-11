@@ -7,6 +7,12 @@
   width: fit-content;
 }
 
+.wrapper[data-control-position='end'] {
+  width: 100%;
+  justify-content: space-between;
+  flex-direction: row-reverse;
+}
+
 .input {
   position: absolute;
   width: 1px;
