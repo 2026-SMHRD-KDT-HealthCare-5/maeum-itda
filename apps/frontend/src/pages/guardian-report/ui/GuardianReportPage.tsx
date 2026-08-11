@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { SelectReportDateAction } from '../../../features/select-report-date'
 import { ViewEvidenceSentenceAction } from '../../../features/view-evidence-sentence'
 import {
@@ -25,13 +26,14 @@ const mockDailyReport = {
 
 export function GuardianReportPage() {
   const weekStart = new Date().toISOString().slice(0, 10)
+  const [selectedDate, setSelectedDate] = useState(new Date('2025-07-08T00:00:00'))
 
   return (
     <>
       <main className={styles.page}>
         <ReportPeriodTabs active="daily" weekStart={weekStart} />
 
-        <SelectReportDateAction />
+        <SelectReportDateAction selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
         <Card>
           <EmotionScoreCard
