@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { SelectReportDateAction } from '../../../features/select-report-date'
-import { ViewEvidenceSentenceAction } from '../../../features/view-evidence-sentence'
 import {
   ConversationSummaryCard,
   EmotionScoreCard,
@@ -45,7 +44,6 @@ export function GuardianReportPage() {
         </Card>
 
         <ConversationTimeline />
-        <ViewEvidenceSentenceAction />
 
         <Card>
           <ConversationSummaryCard summary={mockDailyReport.conversationSummary} />
