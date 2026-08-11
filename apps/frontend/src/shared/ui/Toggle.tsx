@@ -4,12 +4,13 @@ interface ToggleProps {
   checked: boolean
   onChange: (checked: boolean) => void
   label: string
+  controlPosition?: 'start' | 'end'
 }
 
 // 자동 로그인 스위치(로그인 화면 목업 D 컴포넌트) 기준 — ON/OFF 두 상태.
-export function Toggle({ checked, onChange, label }: ToggleProps) {
+export function Toggle({ checked, onChange, label, controlPosition = 'start' }: ToggleProps) {
   return (
-    <label className={styles.wrapper}>
+    <label className={styles.wrapper} data-control-position={controlPosition}>
       <input
         type="checkbox"
         checked={checked}

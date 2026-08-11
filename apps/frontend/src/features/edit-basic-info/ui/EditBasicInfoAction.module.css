@@ -2,27 +2,32 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 0 0 10px;
+  margin: 0 0 16px;
 }
 
 .title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-h);
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 800;
 }
 
 .editButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
   border: none;
-  background: none;
-  padding: 4px;
+  border-radius: 50%;
+  background: #f0f0ec;
   color: var(--text);
   cursor: pointer;
 }
 
 .editButton svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
@@ -33,15 +38,23 @@
 .rows {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
 }
 
 .row {
   display: flex;
-  align-items: baseline;
+  min-height: 58px;
+  padding: 10px 0;
+  box-sizing: border-box;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 14px;
+  border-bottom: 1px solid #eceae4;
+  font-size: 16px;
+}
+
+.row:last-of-type {
+  border-bottom: 0;
 }
 
 .rowLabel {
@@ -57,10 +70,15 @@
 
 .field {
   width: 100%;
+  max-width: 210px;
+  min-height: 42px;
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 14px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  background: #f7f6f2;
+  font: inherit;
+  font-size: 16px;
   text-align: right;
 }
 
@@ -72,14 +90,22 @@
 }
 
 .doneButton {
-  align-self: flex-end;
-  margin-top: 4px;
+  min-width: 82px;
+  min-height: 44px;
+  margin-top: 14px;
   border: none;
-  border-radius: 8px;
+  border-radius: 14px;
   background: var(--primary);
   color: #fff;
   font-weight: 700;
-  font-size: 13px;
-  padding: 6px 14px;
+  font-size: 15px;
+  padding: 8px 16px;
   cursor: pointer;
+}
+
+.editButton:focus-visible,
+.doneButton:focus-visible,
+.field:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 2px;
 }
