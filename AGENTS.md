@@ -44,7 +44,7 @@ When the user asks for an ongoing working preference with phrases such as "앞�
 
 ## Platform Scope
 
-The current MVP is a responsive web app. Do not add PWA manifests, service workers, Push API code, native bridges, or app-specific UI unless explicitly requested; notifications currently use the in-app REST-backed inbox. PWA support and a possible Flutter client are later phases. Keep REST/WebSocket contracts platform-neutral and defined in shared types so future clients can reuse the backend, but do not build speculative abstractions for them now.
+The current MVP is a responsive web app now being extended with a PWA shell and real web push notifications, per the 2026-08-11 team decision (see `docs/마음잇다_결정사항_및_이슈로그.md` §1 "웹 푸시 알림" and `docs/sprint-plan.md`). PWA manifest, service worker, and Push API code (VAPID keys, `PushSubscription` storage, actual push delivery on risk alerts) are explicitly in scope for this sprint — build them to the scope and schedule in `docs/sprint-plan.md` rather than speculatively. Do not add native bridges or app-specific UI beyond that PWA scope unless explicitly requested; a possible Flutter client remains a later phase. Keep REST/WebSocket contracts platform-neutral and defined in shared types so future clients can reuse the backend, but do not build speculative abstractions beyond what the sprint plan calls for.
 
 ## Commits and Pull Requests
 
