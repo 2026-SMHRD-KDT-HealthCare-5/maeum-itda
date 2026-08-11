@@ -43,3 +43,6 @@ pnpm-debug.log*
 # ===== 로컬 DB/업로드(있을 경우) =====
 *.sqlite
 uploads/
+
+# ===== Claude Code superpowers 세션 로컬 실행 아티팩트 =====
+.superpowers/
