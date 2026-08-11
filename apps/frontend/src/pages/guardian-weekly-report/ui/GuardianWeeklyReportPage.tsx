@@ -67,7 +67,7 @@ export function GuardianWeeklyReportPage() {
           weekStart={weekStart ?? new Date().toISOString().slice(0, 10)}
         />
 
-        <EmotionTrendChart dailyScores={mockWeeklyReport.dailyScores} />
+        <EmotionTrendChart dailyScores={mockWeeklyReport.dailyScores} highlightToday={false} />
 
         <Card>
           <WeeklyStatsCards

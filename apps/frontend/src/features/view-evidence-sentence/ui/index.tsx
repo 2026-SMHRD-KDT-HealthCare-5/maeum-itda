@@ -1,7 +1,7 @@
-import type { EvidenceSentence } from '../../../entities/report'
+import type { EvidenceSentence, SentimentLabel } from '../../../entities/report'
 import styles from './ViewEvidenceSentenceAction.module.css'
 
-const sentimentClassName: Record<'긍정' | '보통' | '부정', string> = {
+const sentimentClassName: Record<SentimentLabel, string> = {
   긍정: styles.sentimentPositive,
   보통: styles.sentimentNeutral,
   부정: styles.sentimentNegative,

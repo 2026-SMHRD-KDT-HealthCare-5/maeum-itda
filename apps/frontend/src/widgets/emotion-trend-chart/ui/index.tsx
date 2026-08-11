@@ -33,8 +33,10 @@ function pointX(index: number, count: number): number {
 // 넘기지 않으면 단독 렌더링(guardian-home)을 위한 기본 mock을 쓴다.
 export function EmotionTrendChart({
   dailyScores = defaultMockScores,
+  highlightToday = true,
 }: {
   dailyScores?: DailyScorePoint[]
+  highlightToday?: boolean
 }) {
   const count = dailyScores.length
   const points = dailyScores.map((day, index) =>
@@ -104,7 +106,9 @@ export function EmotionTrendChart({
       <div className={styles.labels}>
         {dailyScores.map((day, index) => (
           <span key={day.date} className={styles.dayLabel}>
-            {index === dailyScores.length - 1 ? '오늘' : day.date.slice(5).replace('-', '/')}
+            {highlightToday && index === dailyScores.length - 1
+              ? '오늘'
+              : day.date.slice(5).replace('-', '/')}
           </span>
         ))}
       </div>

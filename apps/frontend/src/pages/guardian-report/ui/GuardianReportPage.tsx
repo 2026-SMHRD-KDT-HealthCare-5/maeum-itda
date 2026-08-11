@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SelectReportDateAction } from '../../../features/select-report-date'
+import { SelectReportDateAction, toDateKey } from '../../../features/select-report-date'
 import {
   ConversationSummaryCard,
   EmotionScoreCard,
@@ -24,8 +24,8 @@ const mockDailyReport = {
 }
 
 export function GuardianReportPage() {
-  const weekStart = new Date().toISOString().slice(0, 10)
   const [selectedDate, setSelectedDate] = useState(new Date('2025-07-08T00:00:00'))
+  const weekStart = toDateKey(selectedDate)
 
   return (
     <>
