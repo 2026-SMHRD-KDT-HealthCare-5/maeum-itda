@@ -82,7 +82,7 @@ async def run(url: str, audio_path: Path) -> None:
             "session_id": session_id,
             "user_id": "test-user-1",
             "prev_session_summary": "지난주엔 무릎이 아프다고 하셨고, 전반적으로 기분은 안정적이었음.",
-            "pending_scale_items": {"SGDS-K": ["Q3"], "GAD-7": [], "LSNS-6": ["Q2"]},
+            "pending_scale_items": {"SGDS_K": ["Q3"], "GAD_7": [], "LSNS_6": ["Q2"]},
         }))
 
         utterance_id = str(uuid.uuid4())

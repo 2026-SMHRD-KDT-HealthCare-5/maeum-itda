@@ -14,7 +14,7 @@
   (현재 두 모델이 아직 하나로 합쳐지지 않은 상태라 가중평균으로 "합쳤다고 가정"하고
   구성했습니다. 실제 융합 로직이 나오면 `app/services/emotion.py`의 `fuse_emotions()`만
   교체하면 됩니다.)
-- **LLM**: OpenAI Chat Completions(JSON 모드)로 SGDS-K/GAD-7/LSNS-6 문항을 유도하는
+- **LLM**: OpenAI Chat Completions(JSON 모드)로 SGDS_K/GAD_7/LSNS_6 문항을 유도하는
   공감형 꼬리질문 생성.
 - **TTS**: Typecast 스트리밍 API(`/v1/text-to-speech/stream`). 진짜 HTTP chunked transfer로
   오디오가 생성되는 대로 바이트가 그대로 내려옴 → 도착하는 대로 즉시 백엔드에 릴레이(TTFB 최소화).
@@ -36,7 +36,7 @@ app/
   services/
     stt.py             # OpenAI STT + 로컬 whisper 폴백
     emotion.py         # 텍스트/음성 감정분류 + 융합
-    llm.py             # LLM 꼬리질문 생성 (SGDS-K/GAD-7/LSNS-6 유도)
+    llm.py             # LLM 꼬리질문 생성 (SGDS_K/GAD_7/LSNS_6 유도)
     tts.py             # Typecast 스트리밍 TTS
 input_sound/            # (검증용) STT 테스트 오디오 입력 폴더
 output_text/            # (검증용) STT 테스트 결과(.txt/.json) 출력 폴더
@@ -58,7 +58,7 @@ requirements.txt
 [연결 수립]
 백엔드 -> AI서버 : {"type":"session_init", "session_id":"...", "user_id":"...",
                     "prev_session_summary":"...",
-                    "pending_scale_items":{"SGDS-K":["Q3"],"GAD-7":[],"LSNS-6":["Q2"]}}
+                    "pending_scale_items":{"SGDS_K":["Q3"],"GAD_7":[],"LSNS_6":["Q2"]}}
 
 [발화 1턴]
 백엔드 -> AI서버 : {"type":"utterance_start","utterance_id":"u1","audio_format":"webm","sample_rate":16000}
@@ -67,7 +67,7 @@ requirements.txt
 AI서버 -> 백엔드 : {"type":"turn_result","utterance_id":"u1",
                     "user_text":"...", "emotion":{"happy":0.1,...},
                     "dominant_emotion":"sad",
-                    "ai_question":"...", "target_scale":"SGDS-K","target_item":"Q3"}
+                    "ai_question":"...", "target_scale":"SGDS_K","target_item":"Q3"}
 AI서버 -> 백엔드 : {"type":"tts_chunk_meta","utterance_id":"u1","chunk_index":0}
 AI서버 -> 백엔드 : <binary: TTS 오디오 바이트 조각 0 (mp3, Typecast가 생성하는 대로 내려온 실제 스트림 조각)>
 AI서버 -> 백엔드 : {"type":"tts_chunk_meta","utterance_id":"u1","chunk_index":1}
@@ -167,7 +167,7 @@ python scripts/test_emotion.py --text "요즘 잠을 잘 못 자요" --audio inp
 # LLM: 발화(+감정+미채점 척도문항)로 다음 꼬리질문 생성 확인
 python scripts/test_llm.py --text "요즘 밤에 잠을 잘 못 자요" \
     --emotion "sad:0.6,anxious:0.25,neutral:0.15" \
-    --pending "SGDS-K:Q3,Q7;GAD-7:Q2"
+    --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
 ```
 
 STT 테스트용 샘플 오디오가 없다면 예전에 STT만 따로 검증했던 프로젝트의 파일을 `input_sound/`에

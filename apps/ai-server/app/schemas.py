@@ -17,7 +17,7 @@ class SessionInit(BaseModel):
     user_id: str
     prev_session_summary: str = ""          # 이전 세션들 요약 (백엔드가 최초 1회 제공)
     pending_scale_items: dict[str, list[str]] = Field(default_factory=dict)
-    # 예: {"SGDS-K": ["Q3","Q7"], "GAD-7": ["Q2"], "LSNS-6": []}
+    # 예: {"SGDS_K": ["Q3","Q7"], "GAD_7": ["Q2"], "LSNS_6": []}
     # 오늘 아직 채점되지 않은 문항 목록. LLM이 꼬리질문 유도 시 참고.
 
 
@@ -52,7 +52,7 @@ class TurnResult(BaseModel):
     emotion: dict[str, float]           # 예: {"happy":0.1, "sad":0.6, ...}
     dominant_emotion: str
     ai_question: str
-    target_scale: Optional[str] = None  # 예: "SGDS-K", "GAD-7", "LSNS-6", 없으면 None
+    target_scale: Optional[str] = None  # 예: "SGDS_K", "GAD_7", "LSNS_6", 없으면 None
     target_item: Optional[str] = None   # 예: "Q3"
 
 
