@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 환경변수 (실제 API 키 포함, 절대 커밋 금지)
+.env
+
+# 로컬 모듈 검증용 입출력 (실제 파일은 각자 로컬 환경에만 둔다)
+input_sound/*
+!input_sound/.gitkeep
+input_text/*
+!input_text/.gitkeep
+output_sound/*
+!output_sound/.gitkeep
+output_text/*
+!output_text/.gitkeep
+
+# 감정분류 모델 체크포인트 (용량이 커서 git으로 관리하지 않음, 필요 시 git-lfs 등 별도 전략)
+models/text_emotion/*
+!models/text_emotion/.gitkeep
+models/voice_emotion/*
+!models/voice_emotion/.gitkeep
+
+# 목업 테스트 산출물
+scripts/output_tts.wav
