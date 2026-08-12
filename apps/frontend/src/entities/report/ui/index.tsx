@@ -139,7 +139,7 @@ export function RecommendedActionCard({
   variant = 'default',
 }: {
   action: string | null
-  variant?: 'default' | 'dashboard'
+  variant?: 'default' | 'dashboard' | 'report'
 }) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [hasOverflow, setHasOverflow] = useState(false)
@@ -168,6 +168,7 @@ export function RecommendedActionCard({
       className={[
         styles.actionCard,
         variant === 'dashboard' ? styles.dashboardActionCard : '',
+        variant === 'report' ? styles.reportActionCard : '',
         isExpanded ? styles.actionCardExpanded : '',
       ]
         .filter(Boolean)
@@ -184,6 +185,7 @@ export function RecommendedActionCard({
             styles.actionText,
             !isExpanded ? styles.collapsed : '',
             variant === 'dashboard' ? styles.dashboardActionText : '',
+            variant === 'report' ? styles.reportActionText : '',
             hasOverflow && !isExpanded ? styles.actionTextWithToggle : '',
           ]
             .filter(Boolean)
@@ -207,12 +209,43 @@ export function RecommendedActionCard({
 
 // GUARDIAN_REPORT_01 "이날의 대화 요약" — UC-06-4 보호자용 일간 요약.
 export function ConversationSummaryCard({ summary }: { summary: string | null }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [hasOverflow, setHasOverflow] = useState(false)
+  const textRef = useRef<HTMLParagraphElement>(null)
+
+  useEffect(() => {
+    const text = textRef.current
+    if (!text || isExpanded) return
+
+    const checkOverflow = () => setHasOverflow(text.scrollHeight > text.clientHeight + 1)
+    checkOverflow()
+    const resizeObserver = new ResizeObserver(checkOverflow)
+    resizeObserver.observe(text)
+    return () => resizeObserver.disconnect()
+  }, [summary, isExpanded])
+
   if (!summary) return null
 
   return (
-    <div>
+    <div className={styles.summaryContent}>
       <p className={styles.summaryTitle}>이날의 대화 요약</p>
-      <p className={styles.summaryText}>{summary}</p>
+      <p
+        ref={textRef}
+        className={[styles.summaryText, !isExpanded ? styles.summaryCollapsed : '']
+          .filter(Boolean)
+          .join(' ')}
+      >
+        {summary}
+      </p>
+      {(hasOverflow || isExpanded) && (
+        <button
+          type="button"
+          className={styles.summaryToggle}
+          onClick={() => setIsExpanded((current) => !current)}
+        >
+          {isExpanded ? '접기 ▲' : '더보기 ▼'}
+        </button>
+      )}
     </div>
   )
 }

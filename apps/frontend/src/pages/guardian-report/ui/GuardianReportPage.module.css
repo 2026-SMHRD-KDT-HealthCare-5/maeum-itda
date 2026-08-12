@@ -1,5 +1,125 @@
 .page {
-  padding: 20px 20px 100px;
+  padding: 24px 20px 110px;
   display: grid;
-  gap: 14px;
+  gap: 16px;
+}
+
+.scoreCard {
+  border-radius: 24px;
+  padding: 18px 20px;
+}
+
+.summarySection,
+.recommendationSection {
+  display: grid;
+  align-items: start;
+}
+
+.summarySection {
+  grid-template-columns: minmax(0, 1fr) 94px;
+  gap: 8px;
+}
+
+.recommendationSection {
+  grid-template-columns: 94px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.summaryCard,
+.recommendationCard {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 148px;
+  border-radius: 22px;
+  padding: 20px;
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.07);
+}
+
+.summaryCard {
+  border: 1px solid #dce7ef;
+  background: #f8fafc;
+}
+
+.recommendationCard {
+  border: 1px solid #eee3d4;
+  background: #fffaf3;
+}
+
+.summaryCharacter,
+.recommendationCharacter {
+  width: 112px;
+  height: 150px;
+  object-fit: contain;
+  object-position: center top;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 310px);
+  padding: 38px 20px 54px;
+  text-align: center;
+}
+
+.emptyCharacter {
+  width: 190px;
+  height: 190px;
+  margin-bottom: 12px;
+  object-fit: contain;
+}
+
+.emptyTitle {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.emptyHint {
+  max-width: 310px;
+  margin: 18px 0 0;
+  padding: 15px 18px;
+  border-radius: 18px;
+  background: rgba(238, 237, 232, 0.8);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.summaryCharacter {
+  justify-self: end;
+  transform: translateX(8px);
+}
+
+.recommendationCharacter {
+  justify-self: start;
+  transform: translateX(-8px);
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding-inline: 14px;
+  }
+
+  .summarySection {
+    grid-template-columns: minmax(0, 1fr) 76px;
+  }
+
+  .recommendationSection {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  .summaryCharacter,
+  .recommendationCharacter {
+    width: 88px;
+    height: 120px;
+  }
+
+  .summaryCard,
+  .recommendationCard {
+    padding: 17px;
+  }
 }

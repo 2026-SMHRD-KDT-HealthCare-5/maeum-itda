@@ -327,6 +327,41 @@
   font-size: 13px;
 }
 
+.reportActionCard {
+  width: 100%;
+  gap: 8px;
+}
+
+.reportActionCard > div {
+  width: 100%;
+}
+
+.reportActionCard .actionIcon {
+  color: #f0b43c;
+  font-size: 16px;
+}
+
+.reportActionCard .actionTitle {
+  margin-bottom: 12px;
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.reportActionCard .actionText {
+  color: #536075;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.reportActionCard .reportActionText.collapsed {
+  -webkit-line-clamp: 3;
+}
+
+.reportActionCard .actionToggle {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
 .actionIcon {
   flex-shrink: 0;
   font-size: 22px;
@@ -364,18 +399,47 @@
   cursor: pointer;
 }
 
+.summaryContent {
+  width: 100%;
+}
+
 .summaryTitle {
-  margin: 0 0 6px;
+  margin: 0 0 12px;
   color: var(--text-h);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .summaryText {
   margin: 0;
-  color: var(--text);
+  color: #536075;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.summaryCollapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.summaryToggle {
+  margin-top: 8px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary);
   font-size: 13px;
-  line-height: 1.5;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.summaryToggle:focus-visible,
+.reportActionCard .actionToggle:focus-visible {
+  outline: 2px solid rgba(67, 143, 107, 0.28);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .statsRow {
