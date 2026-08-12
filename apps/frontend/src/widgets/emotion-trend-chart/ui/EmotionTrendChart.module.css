@@ -1,61 +1,130 @@
 .chart {
-  border-radius: 16px;
+  border-radius: 24px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  padding: 16px;
+  padding: 22px 20px 18px;
+  box-shadow: 0 5px 18px rgba(43, 58, 51, 0.06);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
 .title {
-  margin: 0 0 10px;
-  color: var(--text-h);
-  font-size: 15px;
-  font-weight: 700;
+  margin: 0;
+  color: #2b3a33;
+  font-size: 19px;
+  font-weight: 800;
 }
 
-.svg {
+.detailsLink {
+  color: #8a918a;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.detailsLink span {
+  font-size: 20px;
+  vertical-align: -1px;
+}
+
+.detailsLink:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 3px;
+}
+
+.chartCanvas {
+  position: relative;
   width: 100%;
-  height: auto;
-  overflow: visible;
+  height: 230px;
 }
 
-.gridLine {
-  stroke: var(--border);
-  stroke-width: 1;
+.chartCanvas > :global(.recharts-responsive-container) {
+  position: relative;
+  z-index: 1;
 }
 
-.thresholdLine {
-  stroke: var(--danger);
-  stroke-width: 1;
-  stroke-dasharray: 4 4;
+.missingBands {
+  position: absolute;
+  z-index: 0;
+  top: 20px;
+  right: 12px;
+  bottom: 24px;
+  left: 36px;
+  display: grid;
+  pointer-events: none;
 }
 
-.line {
-  fill: none;
-  stroke: var(--primary);
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.missingBand {
+  margin-inline: 2px;
+  border-radius: 10px;
+  background: linear-gradient(
+    180deg,
+    rgba(184, 190, 186, 0.28) 0%,
+    rgba(151, 160, 154, 0.68) 50%,
+    rgba(184, 190, 186, 0.28) 100%
+  );
+  box-shadow: inset 0 0 0 1px rgba(125, 134, 128, 0.08);
+}
+
+.grid line {
+  stroke: #e1e6e2;
+  stroke-dasharray: 3 4;
 }
 
 .point {
-  fill: var(--bg);
-  stroke: var(--primary);
-  stroke-width: 2;
+  fill: #fffdf9;
+  stroke: #526a82;
+  stroke-width: 2.75;
+  filter: drop-shadow(0 2px 3px rgba(64, 85, 107, 0.18));
 }
 
 .pointLast {
-  fill: var(--primary);
-  stroke: var(--bg);
-  stroke-width: 2;
+  fill: #334a61;
+  stroke: #fff;
+  stroke-width: 3;
+  filter: drop-shadow(0 3px 5px rgba(51, 74, 97, 0.3));
 }
 
-.labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 6px;
+.pointHalo {
+  fill: rgba(82, 106, 130, 0.2);
+  stroke: rgba(82, 106, 130, 0.16);
+  stroke-width: 1;
 }
 
-.dayLabel {
-  color: var(--text);
-  font-size: 11px;
+.clickablePoint {
+  cursor: pointer;
+  outline: none;
+}
+
+.clickablePoint:focus-visible .point,
+.clickablePoint:focus-visible .pointLast {
+  stroke: #182c3d;
+  stroke-width: 4;
+}
+
+.clickablePoint:hover .point,
+.clickablePoint:hover .pointLast {
+  filter: drop-shadow(0 3px 6px rgba(51, 74, 97, 0.36));
+}
+
+@media (max-width: 360px) {
+  .chart {
+    padding-inline: 16px;
+  }
+
+  .title {
+    font-size: 17px;
+  }
+
+  .detailsLink {
+    font-size: 11px;
+  }
+
+  .chartCanvas {
+    height: 210px;
+  }
 }

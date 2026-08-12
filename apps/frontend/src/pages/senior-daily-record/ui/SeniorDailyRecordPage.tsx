@@ -10,7 +10,7 @@ import daseulSummaryImage from '../../../shared/assets/character/character-daseu
 import styles from './SeniorDailyRecordPage.module.css'
 
 // UC-14/FR-01-09 — 결정사항 로그 §5/§7. 실제 API 연결 전이라 날짜별 turn과
-// 다솔이의 하루 요약 코멘트는 페이지 로컬 mock 데이터로 둔다.
+// 다슬이의 하루 요약 코멘트는 페이지 로컬 mock 데이터로 둔다.
 const mockRecordsByDate: Record<string, { turns: ConversationTurn[]; comment: string }> = {
   '2025-06-12': {
     turns: [

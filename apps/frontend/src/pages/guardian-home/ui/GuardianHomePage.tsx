@@ -1,11 +1,12 @@
 import { daysSinceConnected } from '../../../entities/connection'
 import { EmotionScoreCard, RecommendedActionCard } from '../../../entities/report'
 import { Card } from '../../../shared/ui'
+import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.png'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import styles from './GuardianHomePage.module.css'
 
-// GUARDIAN_HOME_01 (UC-08) — 결정사항 로그 §7에서 "오늘의 정서 지수"/"다솔이의
+// GUARDIAN_HOME_01 (UC-08) — 결정사항 로그 §7에서 "오늘의 정서 지수"/"다슬이의
 // 한마디" 카드를 추가했다. 실제 API 연결 전이라 시니어/보호자 이름, 연결일,
 // 오늘의 리포트는 페이지 로컬 mock 데이터로 둔다.
 const mockGuardianName = '홍길동'
@@ -26,26 +27,31 @@ export function GuardianHomePage() {
     <>
       <main className={styles.page}>
         <header className={styles.greeting}>
-          <h1>{mockGuardianName}님 안녕하세요</h1>
+          <h1>{mockGuardianName}님 안녕하세요.</h1>
           <p>
-            {mockSeniorName} 어르신과 함께한 지 {daysTogether}일
+            {mockSeniorName} 어르신과 함께한 지 {daysTogether}일 되었어요!
           </p>
         </header>
 
-        <Card>
-          <RecommendedActionCard action={mockTodayReport.recommendedAction} />
-        </Card>
+        <section className={styles.recommendation} aria-label="다솔이의 한마디">
+          <img className={styles.guideCharacter} src={daseulGuideImage} alt="" />
+          <Card className={styles.recommendationCard}>
+            <RecommendedActionCard action={mockTodayReport.recommendedAction} variant="dashboard" />
+          </Card>
+        </section>
 
-        <Card>
+        <Card className={styles.scoreCard}>
           <EmotionScoreCard
+            detailsHref="/guardian/report"
             title="오늘의 정서 지수"
             score={mockTodayReport.emotionScore}
             level={mockTodayReport.emotionLevel}
             comment={mockTodayReport.comment}
+            variant="dashboard"
           />
         </Card>
 
-        <EmotionTrendChart />
+        <EmotionTrendChart detailsHref="/guardian/report/weekly/2025-06-01" />
       </main>
       <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
     </>
