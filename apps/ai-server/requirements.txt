@@ -1,0 +1,18 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+websockets==13.1
+pydantic==2.9.2
+pydantic-settings==2.5.2
+httpx==0.27.2
+python-dotenv==1.0.1
+openai==1.51.0
+
+# 로컬 STT 폴백용 (선택 설치 - CPU에서도 동작)
+faster-whisper==1.0.3
+
+# 감정 분류 모델 추론용 (실제 체크포인트 로딩 방식에 맞춰 조정 필요)
+numpy==1.26.4
+torch==2.4.1
+transformers==4.44.2
+librosa==0.10.2.post1
+soundfile==0.12.1

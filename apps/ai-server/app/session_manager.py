@@ -1,0 +1,66 @@
+"""
+세션(통화) 단위 대화 문맥을 메모리에 들고 있는 매니저.
+
+- 이번 통화(세션) 동안의 turn 히스토리는 이 AI 서버가 관리한다.
+- 과거 세션들의 요약(prev_session_summary)은 연결 시작 시 백엔드가 1회 제공한다.
+- 연결이 끊기면(session_end 수신 또는 WS disconnect) 해당 세션 상태는 폐기한다.
+  (영속 저장이 필요하면 여기서 DB/Redis 등에 flush하는 훅을 추가하면 됨)
+"""
+from dataclasses import dataclass, field
+from typing import Optional
+
+
+@dataclass
+class Turn:
+    utterance_id: str
+    user_text: str
+    emotion: dict[str, float]
+    ai_question: str
+
+
+@dataclass
+class SessionState:
+    session_id: str
+    user_id: str
+    prev_session_summary: str = ""
+    pending_scale_items: dict[str, list[str]] = field(default_factory=dict)
+    turns: list[Turn] = field(default_factory=list)
+
+    def add_turn(self, turn: Turn) -> None:
+        self.turns.append(turn)
+
+    def history_as_text(self, max_turns: int = 8) -> str:
+        """LLM 프롬프트에 넣을 최근 대화 히스토리 텍스트."""
+        recent = self.turns[-max_turns:]
+        lines = []
+        for t in recent:
+            lines.append(f"시니어: {t.user_text}")
+            lines.append(f"AI: {t.ai_question}")
+        return "\n".join(lines)
+
+
+class SessionManager:
+    def __init__(self) -> None:
+        self._sessions: dict[str, SessionState] = {}
+
+    def create(self, session_id: str, user_id: str, prev_summary: str,
+               pending_scale_items: dict[str, list[str]]) -> SessionState:
+        state = SessionState(
+            session_id=session_id,
+            user_id=user_id,
+            prev_session_summary=prev_summary,
+            pending_scale_items=pending_scale_items,
+        )
+        self._sessions[session_id] = state
+        return state
+
+    def get(self, session_id: str) -> Optional[SessionState]:
+        return self._sessions.get(session_id)
+
+    def remove(self, session_id: str) -> None:
+        self._sessions.pop(session_id, None)
+
+
+# 프로세스 전역 싱글턴 (AI 서버가 단일 워커로 뜬다는 전제.
+# 멀티 워커/프로세스로 스케일링하려면 Redis 등 외부 스토어로 교체 필요)
+session_manager = SessionManager()
