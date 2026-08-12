@@ -6,6 +6,8 @@ import type { ChatAuthHandler } from './handlers/chat-auth.handler';
 import type { ChatStartHandler } from './handlers/chat-start.handler';
 import type { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import type { ChatConnectionStateService } from './chat-connection-state.service';
+import type { AudioBinaryHandler } from './handlers/audio-binary.handler';
+import type { ChatEndHandler } from './handlers/chat-end.handler';
 
 describe('ChatsGateway', () => {
   function createClient() {
@@ -33,6 +35,9 @@ describe('ChatsGateway', () => {
       receiveAuthenticatedMessage(data: string) {
         authenticatedMessageHandler?.(Buffer.from(data), false);
       },
+      receiveAuthenticatedBinary(data: Buffer) {
+        authenticatedMessageHandler?.(data, true);
+      },
     };
   }
 
@@ -42,15 +47,22 @@ describe('ChatsGateway', () => {
       authenticate: jest.fn().mockResolvedValue(authenticatedUser),
     };
     const chatStartHandler = { handleChatStart: jest.fn() };
+    const chatEndHandler = { handleChatEnd: jest.fn() };
     const audioMetadataHandler = {
       handleAudioMetadata: jest.fn(),
+      clearClient: jest.fn(),
+    };
+    const audioBinaryHandler = {
+      handleAudioBinary: jest.fn(),
       clearClient: jest.fn(),
     };
     const chatConnectionStateService = { clearClient: jest.fn() };
     const gateway = new ChatsGateway(
       chatAuthHandler as unknown as ChatAuthHandler,
       chatStartHandler as unknown as ChatStartHandler,
+      chatEndHandler as unknown as ChatEndHandler,
       audioMetadataHandler as unknown as AudioMetadataHandler,
+      audioBinaryHandler as unknown as AudioBinaryHandler,
       chatConnectionStateService as unknown as ChatConnectionStateService,
     );
     const client = createClient();
@@ -72,15 +84,22 @@ describe('ChatsGateway', () => {
   it('인증 실패 시 이후 메시지 수신을 등록하지 않는다', async () => {
     const chatAuthHandler = { authenticate: jest.fn().mockResolvedValue(null) };
     const chatStartHandler = { handleChatStart: jest.fn() };
+    const chatEndHandler = { handleChatEnd: jest.fn() };
     const audioMetadataHandler = {
       handleAudioMetadata: jest.fn(),
+      clearClient: jest.fn(),
+    };
+    const audioBinaryHandler = {
+      handleAudioBinary: jest.fn(),
       clearClient: jest.fn(),
     };
     const chatConnectionStateService = { clearClient: jest.fn() };
     const gateway = new ChatsGateway(
       chatAuthHandler as unknown as ChatAuthHandler,
       chatStartHandler as unknown as ChatStartHandler,
+      chatEndHandler as unknown as ChatEndHandler,
       audioMetadataHandler as unknown as AudioMetadataHandler,
+      audioBinaryHandler as unknown as AudioBinaryHandler,
       chatConnectionStateService as unknown as ChatConnectionStateService,
     );
     const client = createClient();
@@ -99,15 +118,22 @@ describe('ChatsGateway', () => {
       authenticate: jest.fn().mockResolvedValue(authenticatedUser),
     };
     const chatStartHandler = { handleChatStart: jest.fn() };
+    const chatEndHandler = { handleChatEnd: jest.fn() };
     const audioMetadataHandler = {
       handleAudioMetadata: jest.fn(),
+      clearClient: jest.fn(),
+    };
+    const audioBinaryHandler = {
+      handleAudioBinary: jest.fn(),
       clearClient: jest.fn(),
     };
     const chatConnectionStateService = { clearClient: jest.fn() };
     const gateway = new ChatsGateway(
       chatAuthHandler as unknown as ChatAuthHandler,
       chatStartHandler as unknown as ChatStartHandler,
+      chatEndHandler as unknown as ChatEndHandler,
       audioMetadataHandler as unknown as AudioMetadataHandler,
+      audioBinaryHandler as unknown as AudioBinaryHandler,
       chatConnectionStateService as unknown as ChatConnectionStateService,
     );
     const client = createClient();
@@ -122,6 +148,44 @@ describe('ChatsGateway', () => {
       authenticatedUser,
       expect.any(Buffer),
       false,
+    );
+  });
+
+  it('인증 이후 바이너리 프레임을 AudioBinaryHandler로 전달한다', async () => {
+    const authenticatedUser = { sub: 1, role: UserRole.SENIOR };
+    const chatAuthHandler = {
+      authenticate: jest.fn().mockResolvedValue(authenticatedUser),
+    };
+    const chatStartHandler = { handleChatStart: jest.fn() };
+    const chatEndHandler = { handleChatEnd: jest.fn() };
+    const audioMetadataHandler = {
+      handleAudioMetadata: jest.fn(),
+      clearClient: jest.fn(),
+    };
+    const audioBinaryHandler = {
+      handleAudioBinary: jest.fn().mockResolvedValue(undefined),
+      clearClient: jest.fn(),
+    };
+    const chatConnectionStateService = { clearClient: jest.fn() };
+    const gateway = new ChatsGateway(
+      chatAuthHandler as unknown as ChatAuthHandler,
+      chatStartHandler as unknown as ChatStartHandler,
+      chatEndHandler as unknown as ChatEndHandler,
+      audioMetadataHandler as unknown as AudioMetadataHandler,
+      audioBinaryHandler as unknown as AudioBinaryHandler,
+      chatConnectionStateService as unknown as ChatConnectionStateService,
+    );
+    const client = createClient();
+    const binary = Buffer.from([1, 2, 3]);
+
+    gateway.handleConnection(client.client);
+    client.receiveFirstMessage('{"event":"auth"}');
+    await Promise.resolve();
+    client.receiveAuthenticatedBinary(binary);
+
+    expect(audioBinaryHandler.handleAudioBinary).toHaveBeenCalledWith(
+      client.client,
+      binary,
     );
   });
 });

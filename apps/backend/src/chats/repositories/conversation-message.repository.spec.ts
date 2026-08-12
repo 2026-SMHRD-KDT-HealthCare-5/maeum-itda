@@ -1,7 +1,6 @@
 import type { Repository } from 'typeorm';
 import {
   ConversationMessage,
-  MessageType,
   SpeakerType,
   SttStatus,
 } from '../entities/conversation-message.entity';
@@ -30,9 +29,7 @@ describe('ConversationMessageRepository', () => {
 
     expect(typeOrmRepository.create).toHaveBeenCalledWith({
       seniorId: 7,
-      reportId: null,
       speakerType: SpeakerType.AI,
-      messageType: MessageType.MESSAGE,
       content: '오늘 하루는 어땠나요?',
       sttStatus: SttStatus.NOT_REQUIRED,
       sttErrorMessage: null,

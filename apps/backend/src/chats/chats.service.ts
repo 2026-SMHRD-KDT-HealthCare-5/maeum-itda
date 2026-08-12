@@ -12,7 +12,7 @@ const INITIAL_AI_QUESTION = '오늘 하루는 어땠나요?'; // 대화 시작 �
 
 // ChatsService가 ChatStartHandler에 반환하는 최초 질문 결과 형식
 export interface StartedChat {
-  aiQuestionMessageId: number;
+  messageId: number;
   generationId: string;
   content: string;
 }
@@ -47,9 +47,33 @@ export class ChatsService {
 
     // DB MESSAGE_ID를 AI 질문임이 드러나는 WS 필드명으로 Handler에 전달
     return {
-      aiQuestionMessageId: savedQuestion.messageId,
+      messageId: savedQuestion.messageId,
       generationId,
       content: savedQuestion.content ?? INITIAL_AI_QUESTION,
+    };
+  }
+
+  // 역할: 스크롤 복원용 메시지를 cursor 방식으로 조회하고 다음 조회 cursor를 계산한다.
+  async getMessageHistory(
+    seniorId: number,
+    cursor: number | undefined,
+    limit: number,
+  ) {
+    const messages = await this.conversationMessageRepository.findHistory(
+      seniorId,
+      cursor,
+      limit,
+    );
+    return {
+      messages: messages.map((message) => ({
+        messageId: message.messageId,
+        speakerType: message.speakerType,
+        content: message.content,
+        sttStatus: message.sttStatus,
+        createdAt: message.createdAt,
+      })),
+      nextCursor:
+        messages.length === limit ? (messages[0]?.messageId ?? null) : null,
     };
   }
 }

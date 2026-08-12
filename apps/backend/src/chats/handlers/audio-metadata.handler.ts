@@ -7,15 +7,16 @@ import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
-import { rawDataToString, sendWsEvent } from '../ws-event';
+import { rawDataToString, sendWsError } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 
+// 대화 종료 방식
 export type AudioEndType = 'auto' | 'manual';
 
 // 프론트가 음성 바이너리보다 먼저 보내는 발화 정보 형식
 export interface AudioMetadata {
-  captureId: string;
-  aiQuestionMessageId: number;
+  audioTransferId: string;
+  questionMessageId: number;
   generationId: string;
   mimeType: string;
   capturedAt: string;
@@ -48,7 +49,7 @@ export class AudioMetadataHandler {
     authenticatedUser: AccessTokenPayload,
     data: RawData,
     isBinary: boolean,
-  ): void {
+  ): boolean {
     try {
       if (isBinary) {
         throw new Error('audio:metadata는 JSON 형식이어야 합니다.');
@@ -56,39 +57,47 @@ export class AudioMetadataHandler {
 
       // 이전 metadata에 해당하는 바이너리를 받기 전에는 새 metadata 수신 거부
       if (this.pendingMetadataByClient.has(client)) {
-        sendWsEvent(client, 'error', {
+        sendWsError(client, {
           code: 'AUDIO_METADATA_PENDING',
           message: '이전 음성 메타데이터의 바이너리 수신을 기다리고 있습니다.',
+          requestEvent: 'audio:metadata',
+          retryable: false,
         });
-        return;
+        return false;
       }
 
       const metadataEvent = this.parseAudioMetadataEvent(rawDataToString(data));
 
       // 서버가 현재 연결에 전송한 AI 질문과 식별정보가 일치하는지 확인
       if (
-        !this.chatConnectionStateService.matchesCurrentQuestion(
+        !this.chatConnectionStateService.matchesKnownQuestion(
           client,
-          metadataEvent.payload.aiQuestionMessageId,
+          metadataEvent.payload.questionMessageId,
           metadataEvent.payload.generationId,
         )
       ) {
-        sendWsEvent(client, 'error', {
+        sendWsError(client, {
           code: 'QUESTION_MISMATCH',
           message: '현재 AI 질문과 일치하지 않는 음성 메타데이터입니다.',
+          requestEvent: 'audio:metadata',
+          retryable: false,
         });
-        return;
+        return false;
       }
 
       this.pendingMetadataByClient.set(client, {
         ...metadataEvent.payload,
         seniorId: authenticatedUser.sub,
       });
+      return true;
     } catch {
-      sendWsEvent(client, 'error', {
+      sendWsError(client, {
         code: 'INVALID_AUDIO_METADATA',
         message: '음성 메타데이터 형식이 올바르지 않습니다.',
+        requestEvent: 'audio:metadata',
+        retryable: false,
       });
+      return false;
     }
   }
 
@@ -96,6 +105,13 @@ export class AudioMetadataHandler {
   // 다음 호출: 바이너리 처리 Handler 구현 시 사용
   getPendingMetadata(client: WebSocket): AudioMetadata | undefined {
     return this.pendingMetadataByClient.get(client);
+  }
+
+  // 역할: 바이너리와 연결할 metadata를 한 번만 꺼내고 pending 상태에서 제거
+  takePendingMetadata(client: WebSocket): AudioMetadata | undefined {
+    const metadata = this.pendingMetadataByClient.get(client);
+    if (metadata !== undefined) this.pendingMetadataByClient.delete(client);
+    return metadata;
   }
 
   // 역할: WebSocket 종료 시 연결별 pending metadata 제거
@@ -116,12 +132,12 @@ export class AudioMetadataHandler {
       !('payload' in parsedEvent) ||
       typeof parsedEvent.payload !== 'object' ||
       parsedEvent.payload === null ||
-      !('captureId' in parsedEvent.payload) ||
-      typeof parsedEvent.payload.captureId !== 'string' ||
-      parsedEvent.payload.captureId.length === 0 ||
-      !('aiQuestionMessageId' in parsedEvent.payload) ||
-      !Number.isInteger(parsedEvent.payload.aiQuestionMessageId) ||
-      Number(parsedEvent.payload.aiQuestionMessageId) <= 0 ||
+      !('audioTransferId' in parsedEvent.payload) ||
+      typeof parsedEvent.payload.audioTransferId !== 'string' ||
+      parsedEvent.payload.audioTransferId.length === 0 ||
+      !('questionMessageId' in parsedEvent.payload) ||
+      !Number.isInteger(parsedEvent.payload.questionMessageId) ||
+      Number(parsedEvent.payload.questionMessageId) <= 0 ||
       !('generationId' in parsedEvent.payload) ||
       typeof parsedEvent.payload.generationId !== 'string' ||
       parsedEvent.payload.generationId.length === 0 ||
@@ -144,8 +160,8 @@ export class AudioMetadataHandler {
     return {
       event: 'audio:metadata',
       payload: {
-        captureId: parsedEvent.payload.captureId,
-        aiQuestionMessageId: Number(parsedEvent.payload.aiQuestionMessageId),
+        audioTransferId: parsedEvent.payload.audioTransferId,
+        questionMessageId: Number(parsedEvent.payload.questionMessageId),
         generationId: parsedEvent.payload.generationId,
         mimeType: parsedEvent.payload.mimeType,
         capturedAt: parsedEvent.payload.capturedAt,

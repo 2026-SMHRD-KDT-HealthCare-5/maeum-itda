@@ -8,8 +8,9 @@ import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
 import { ChatsService, type StartedChat } from '../chats.service';
-import { rawDataToString, sendWsEvent } from '../ws-event';
+import { rawDataToString, sendWsError, sendWsEvent } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
+import { ChatInactivityService } from '../chat-inactivity.service';
 
 // 프론트가 인증 성공 후 보내는 대화 시작 요청 형식
 interface ChatStartEvent {
@@ -27,6 +28,7 @@ export class ChatStartHandler {
   constructor(
     chatsService: ChatsService,
     chatConnectionStateService: ChatConnectionStateService,
+    private readonly chatInactivityService?: ChatInactivityService,
   ) {
     this.chatsService = chatsService;
     this.chatConnectionStateService = chatConnectionStateService;
@@ -47,9 +49,24 @@ export class ChatStartHandler {
       }
       this.parseChatStartEvent(rawDataToString(data));
     } catch {
-      sendWsEvent(client, 'error', {
+      sendWsError(client, {
         code: 'INVALID_EVENT',
         message: '요청한 WebSocket 이벤트를 처리할 수 없습니다.',
+        requestEvent: 'chat:start',
+        retryable: false,
+      });
+      return;
+    }
+
+    // 활성 질문이 남아 있으면 기존 대화를 종료하지 않은 중복 시작 요청으로 판단한다.
+    if (
+      this.chatConnectionStateService.getCurrentQuestion(client) !== undefined
+    ) {
+      sendWsError(client, {
+        code: 'CHAT_ALREADY_STARTED',
+        message: '이미 진행 중인 대화가 있습니다.',
+        requestEvent: 'chat:start',
+        retryable: false,
       });
       return;
     }
@@ -60,15 +77,22 @@ export class ChatStartHandler {
       );
 
       // 이후 audio:metadata가 현재 질문의 답변인지 확인할 식별정보 보관
-      this.chatConnectionStateService.setCurrentQuestion(client, startedChat);
+      this.chatConnectionStateService.setCurrentQuestion(
+        client,
+        startedChat,
+        authenticatedUser.sub,
+      );
 
       // DB 저장이 끝난 경우에만 시작 완료와 AI 질문을 순서대로 전송
       this.handleChatStarted(client);
       this.handleAiQuestion(client, startedChat);
+      this.chatInactivityService?.startWaitingForAnswer(client);
     } catch {
-      sendWsEvent(client, 'error', {
+      sendWsError(client, {
         code: 'INTERNAL_ERROR',
         message: '대화를 시작하는 중 서버 오류가 발생했습니다.',
+        requestEvent: 'chat:start',
+        retryable: true,
       });
     }
   }

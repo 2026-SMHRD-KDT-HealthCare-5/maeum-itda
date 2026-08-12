@@ -1,5 +1,5 @@
 /*
-역할: FastAPI 주소·제한 시간 같은 AI 연동 설정을 분리할 자리표시자 파일이다.
-전체 흐름: 현재 등록된 설정 없음
+역할: FastAPI 음성 분석 REST API 주소를 환경변수에서 읽는 기준을 설명한다.
+사용 환경변수: AI_BASE_URL (예: http://localhost:8000)
 */
-export {};
+export const AI_BASE_URL_ENV = 'AI_BASE_URL';

@@ -5,12 +5,20 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DailyEmotionReport } from './entities/daily-emotion-report.entity';
+import { DailyReportEvidence } from './entities/daily-report-evidence.entity';
+import { WeeklyEmotionReport } from './entities/weekly-emotion-report.entity';
 import { ReportsController } from './reports.controller';
 import { ReportsService } from './reports.service';
 
 // DailyEmotionReport Repository와 리포트 요청 처리 객체를 등록한다.
 @Module({
-  imports: [TypeOrmModule.forFeature([DailyEmotionReport])],
+  imports: [
+    TypeOrmModule.forFeature([
+      DailyEmotionReport,
+      DailyReportEvidence,
+      WeeklyEmotionReport,
+    ]),
+  ],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

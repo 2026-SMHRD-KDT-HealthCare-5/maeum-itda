@@ -1,7 +1,3 @@
-/*
-역할: 보호자·시니어 연결 관계 객체와 GUARDIAN_SENIOR_RELATIONSHIP 테이블을 연결한다.
-전체 흐름: 관계 Service → Repository<GuardianSeniorRelationship> → MySQL
-*/
 import {
   Check,
   Column,
@@ -18,23 +14,40 @@ export enum ConnectionStatus {
   DISCONNECTED = 'DISCONNECTED',
 }
 
-// Entity는 테이블·컬럼을, Index와 Check는 DB 중복·유효성 제약조건을 정의한다.
 @Entity({ name: 'GUARDIAN_SENIOR_RELATIONSHIP' })
-@Index('UK_GSR_PAIR', ['guardianId', 'seniorId'], { unique: true })
-@Check('CK_GSR_DIFFERENT_USERS', 'GUARDIAN_ID <> SENIOR_ID')
+@Index('UK_RELATIONSHIP_ACTIVE_GUARDIAN', ['activeGuardianId'], {
+  unique: true,
+})
+@Index('UK_RELATIONSHIP_ACTIVE_SENIOR', ['activeSeniorId'], { unique: true })
+@Index('IX_RELATIONSHIP_GUARDIAN_HISTORY', [
+  'guardianId',
+  'requestedAt',
+  'relationshipId',
+])
+@Index('IX_RELATIONSHIP_SENIOR_HISTORY', [
+  'seniorId',
+  'requestedAt',
+  'relationshipId',
+])
+@Check('CK_RELATIONSHIP_DIFFERENT_USERS', 'GUARDIAN_ID <> SENIOR_ID')
 @Check(
-  'CK_GSR_APPROVED_AT',
-  'APPROVED_AT IS NULL OR APPROVED_AT >= REQUESTED_AT',
+  'CK_RELATIONSHIP_STATUS_TIME',
+  "(CONNECTION_STATUS IN ('REQUESTED', 'REJECTED') AND APPROVED_AT IS NULL AND DISCONNECTED_AT IS NULL) OR (CONNECTION_STATUS = 'CONNECTED' AND APPROVED_AT IS NOT NULL AND DISCONNECTED_AT IS NULL) OR (CONNECTION_STATUS = 'DISCONNECTED' AND APPROVED_AT IS NOT NULL AND DISCONNECTED_AT IS NOT NULL)",
 )
 @Check(
-  'CK_GSR_DISCONNECTED_AT',
-  'DISCONNECTED_AT IS NULL OR DISCONNECTED_AT >= REQUESTED_AT',
+  'CK_RELATIONSHIP_TIME_ORDER',
+  '(APPROVED_AT IS NULL OR REQUESTED_AT <= APPROVED_AT) AND (DISCONNECTED_AT IS NULL OR APPROVED_AT <= DISCONNECTED_AT)',
 )
 export class GuardianSeniorRelationship {
   @PrimaryGeneratedColumn({ name: 'RELATIONSHIP_ID', type: 'int' })
   relationshipId: number;
-  @Column({ name: 'GUARDIAN_ID', type: 'int' }) guardianId: number;
-  @Column({ name: 'SENIOR_ID', type: 'int' }) seniorId: number;
+
+  @Column({ name: 'GUARDIAN_ID', type: 'int' })
+  guardianId: number;
+
+  @Column({ name: 'SENIOR_ID', type: 'int' })
+  seniorId: number;
+
   @Column({
     name: 'CONNECTION_STATUS',
     type: 'enum',
@@ -42,10 +55,41 @@ export class GuardianSeniorRelationship {
     default: ConnectionStatus.REQUESTED,
   })
   connectionStatus: ConnectionStatus;
-  @CreateDateColumn({ name: 'REQUESTED_AT', type: 'datetime' })
+
+  @CreateDateColumn({ name: 'REQUESTED_AT', type: 'datetime', precision: 3 })
   requestedAt: Date;
-  @Column({ name: 'APPROVED_AT', type: 'datetime', nullable: true })
+
+  @Column({
+    name: 'APPROVED_AT',
+    type: 'datetime',
+    precision: 3,
+    nullable: true,
+  })
   approvedAt: Date | null;
-  @Column({ name: 'DISCONNECTED_AT', type: 'datetime', nullable: true })
+
+  @Column({
+    name: 'DISCONNECTED_AT',
+    type: 'datetime',
+    precision: 3,
+    nullable: true,
+  })
   disconnectedAt: Date | null;
+
+  @Column({
+    name: 'ACTIVE_GUARDIAN_ID',
+    type: 'int',
+    nullable: true,
+    insert: false,
+    update: false,
+  })
+  activeGuardianId: number | null;
+
+  @Column({
+    name: 'ACTIVE_SENIOR_ID',
+    type: 'int',
+    nullable: true,
+    insert: false,
+    update: false,
+  })
+  activeSeniorId: number | null;
 }
