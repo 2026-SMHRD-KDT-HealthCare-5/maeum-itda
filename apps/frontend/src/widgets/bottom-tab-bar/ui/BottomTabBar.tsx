@@ -4,7 +4,7 @@ import styles from './BottomTabBar.module.css'
 export interface TabItem {
   label: string
   to: string
-  icon: 'home' | 'chat' | 'report' | 'notification' | 'user'
+  icon: 'home' | 'chat' | 'history' | 'report' | 'notification' | 'user'
 }
 
 function TabIcon({ icon }: { icon: TabItem['icon'] }) {
@@ -19,6 +19,13 @@ function TabIcon({ icon }: { icon: TabItem['icon'] }) {
       <>
         <path d="M5 17.5 3.5 21l4-1.5A9 9 0 1 0 5 17.5Z" />
         <path d="M8 12h.01M12 12h.01M16 12h.01" />
+      </>
+    ),
+    history: (
+      <>
+        <path d="M4.5 8.5V4.5h4" />
+        <path d="M5 5a8.5 8.5 0 1 1-1.2 9.5" />
+        <path d="M12 7.5V12l3 1.8" />
       </>
     ),
     report: (

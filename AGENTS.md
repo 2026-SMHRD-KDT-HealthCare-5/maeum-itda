@@ -32,6 +32,10 @@ Before starting any new screen or feature, verify the Git context before editing
 
 Before continuing another tool's work, inspect the current diff and identify state, events, API/Query connections, disabled conditions, and logic to preserve. UI work must not invent data or alter API contracts, authentication, sessions, routing, or state management. Report the reason and impact before expanding scope or changing functional contracts. Do not install UI libraries or broadly refactor unrelated screens.
 
+Do not choose, move, rename, or repurpose image assets without the user's explicit direction. When the user provides a specific image or filename pattern for a UI location or state, use only that identified asset and preserve its path and filename unless the user separately approves an asset move or rename.
+
+All actual conversation chat bubbles should show a small timestamp in `오전/오후 h:mm` format using the `Asia/Seoul` timezone. Align Dasol/question timestamps to the left and senior/answer timestamps to the right. Reuse the shared conversation bubble renderer rather than creating screen-specific timestamp markup; non-conversation guidance bubbles do not need timestamps.
+
 `docs/page-pdf` and `docs/page-html` (the old draft per-screen mockups) were retired on 2026-08-08 — the team finalized per-screen designs in Figma instead, so Figma is now the design reference for screens, not those folders. Figma exports will land in `docs/screens/` as they become available; until then, fall back to 화면설계서's overview wireframes and the decision log. Treat whatever design reference you use (Figma, `docs/screens/`, 화면설계서) as something to reconcile with current requirements, decisions, working code, shared components, senior accessibility, and the service's warm but trustworthy healthcare tone — not a final spec to copy blindly. Use the Dasol character only for welcome, guidance, feedback, empty states, or restrained emotional emphasis. Do not use a penguin mascot anywhere in new or reconciled UI — some guardian-facing mockups (e.g. `GUARDIAN_HOME_01`, `GUARDIAN_REPORT_01`) still show a penguin illustration from an earlier design pass; treat it as stale and drop it when implementing or revising those screens.
 
 UI work is complete when behavior is preserved, the diff is scoped, shared components are reused, loading/error/empty/disabled and keyboard-focus states are reviewed where applicable, and frontend lint/build pass. Report changed files, verification, and unresolved dependencies.
@@ -40,7 +44,7 @@ When the user asks for an ongoing working preference with phrases such as "앞�
 
 ## Platform Scope
 
-The current MVP is a responsive web app. Do not add PWA manifests, service workers, Push API code, native bridges, or app-specific UI unless explicitly requested; notifications currently use the in-app REST-backed inbox. PWA support and a possible Flutter client are later phases. Keep REST/WebSocket contracts platform-neutral and defined in shared types so future clients can reuse the backend, but do not build speculative abstractions for them now.
+The current MVP is a responsive web app now being extended with a PWA shell and real web push notifications, per the 2026-08-11 team decision (see `docs/마음잇다_결정사항_및_이슈로그.md` §1 "웹 푸시 알림" and `docs/sprint-plan.md`). PWA manifest, service worker, and Push API code (VAPID keys, `PushSubscription` storage, actual push delivery on risk alerts) are explicitly in scope for this sprint — build them to the scope and schedule in `docs/sprint-plan.md` rather than speculatively. Do not add native bridges or app-specific UI beyond that PWA scope unless explicitly requested; a possible Flutter client remains a later phase. Keep REST/WebSocket contracts platform-neutral and defined in shared types so future clients can reuse the backend, but do not build speculative abstractions beyond what the sprint plan calls for.
 
 ## Commits and Pull Requests
 

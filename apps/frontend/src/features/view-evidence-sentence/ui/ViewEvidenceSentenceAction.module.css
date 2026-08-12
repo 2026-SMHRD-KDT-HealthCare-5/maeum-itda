@@ -1,0 +1,47 @@
+.row {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.risk {
+  background: var(--danger-bg);
+}
+
+.qa {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.qLabel,
+.aLabel {
+  font-weight: 800;
+  color: var(--text);
+}
+
+.pill {
+  justify-self: end;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sentimentPositive {
+  background: var(--primary-tint);
+  color: var(--primary);
+}
+
+.sentimentNeutral {
+  background: #fff4e0;
+  color: #b9770e;
+}
+
+.sentimentNegative {
+  background: var(--danger-bg);
+  color: var(--danger);
+}

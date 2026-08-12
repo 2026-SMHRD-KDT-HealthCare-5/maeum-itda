@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useSession } from '../../../entities/user'
 import { StartConversationAction } from '../../../features/start-conversation'
 import { ViewAttendanceCalendarAction } from '../../../features/view-attendance-calendar'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
@@ -6,15 +7,20 @@ import styles from './SeniorHomePage.module.css'
 
 // SENIOR_HOME_01 (UC-01, UC-13)
 export function SeniorHomePage() {
+  const { session } = useSession()
+
   return (
     <>
       <main className={styles.page}>
         <section className={styles.content}>
           <header className={styles.greeting}>
-            <h1>어르신,</h1>
-            <p>
-              오늘도 좋은 하루 보내세요! <span aria-hidden="true">🌿</span>
-            </p>
+            <p className={styles.eyebrow}>마음잇다가 오늘도 함께할게요</p>
+            <h1>
+              {session?.name} 어르신,
+              <span>
+                오늘도 좋은 하루 <span className={styles.noBreak}>보내세요! 🌿</span>
+              </span>
+            </h1>
           </header>
 
           <StartConversationAction />
@@ -29,7 +35,7 @@ export function SeniorHomePage() {
             </span>
             <span>
               <strong>보호자 연결 상태를 확인해 주세요</strong>
-              <small>연결된 보호자 정보는 서비스 연동 후 표시돼요</small>
+              <small>연결된 보호자 정보는 서비스 연동 후 보여드려요</small>
             </span>
             <span className={styles.chevron} aria-hidden="true">
               ›
@@ -37,22 +43,6 @@ export function SeniorHomePage() {
           </Link>
 
           <ViewAttendanceCalendarAction />
-
-          <Link className={styles.reminder} to="/senior/my-info">
-            <span className={styles.reminderIcon} aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="8" />
-                <path d="M12 7v5l3 2" />
-              </svg>
-            </span>
-            <span>
-              <strong>안부 알림 시간을 설정해 보세요</strong>
-              <small>내 정보에서 원하는 시간으로 바꿀 수 있어요</small>
-            </span>
-            <span className={styles.chevron} aria-hidden="true">
-              ›
-            </span>
-          </Link>
         </section>
       </main>
       <BottomTabBar items={SENIOR_TAB_ITEMS} />

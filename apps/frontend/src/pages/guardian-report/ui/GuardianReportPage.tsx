@@ -1,5 +1,5 @@
-import { SelectReportDateAction } from '../../../features/select-report-date'
-import { ViewEvidenceSentenceAction } from '../../../features/view-evidence-sentence'
+import { useState } from 'react'
+import { SelectReportDateAction, toDateKey } from '../../../features/select-report-date'
 import {
   ConversationSummaryCard,
   EmotionScoreCard,
@@ -24,14 +24,15 @@ const mockDailyReport = {
 }
 
 export function GuardianReportPage() {
-  const weekStart = new Date().toISOString().slice(0, 10)
+  const [selectedDate, setSelectedDate] = useState(new Date('2025-07-08T00:00:00'))
+  const weekStart = toDateKey(selectedDate)
 
   return (
     <>
       <main className={styles.page}>
         <ReportPeriodTabs active="daily" weekStart={weekStart} />
 
-        <SelectReportDateAction />
+        <SelectReportDateAction selectedDate={selectedDate} onSelectDate={setSelectedDate} />
 
         <Card>
           <EmotionScoreCard
@@ -43,7 +44,6 @@ export function GuardianReportPage() {
         </Card>
 
         <ConversationTimeline />
-        <ViewEvidenceSentenceAction />
 
         <Card>
           <ConversationSummaryCard summary={mockDailyReport.conversationSummary} />

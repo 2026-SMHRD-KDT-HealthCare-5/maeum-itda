@@ -4,8 +4,8 @@
   padding-bottom: 92px;
   overflow: hidden;
   background:
-    radial-gradient(circle at 100% 3%, rgba(220, 234, 225, 0.6), transparent 26%),
-    linear-gradient(180deg, #faf8f3 0%, #f8f6f0 100%);
+    radial-gradient(circle at 96% 4%, rgba(207, 230, 216, 0.72), transparent 23rem),
+    linear-gradient(180deg, #fffaf2 0 33rem, #f5f2ec 43rem 100%);
 }
 
 .page::before,
@@ -13,7 +13,8 @@
   position: absolute;
   z-index: 0;
   right: -70px;
-  bottom: 480px;
+  top: 145px;
+  bottom: auto;
   width: 210px;
   height: 125px;
   border-radius: 55% 55% 0 0;
@@ -24,7 +25,8 @@
 
 .page::after {
   right: auto;
-  bottom: 500px;
+  top: 180px;
+  bottom: auto;
   left: -85px;
   background: rgba(187, 216, 199, 0.25);
   transform: rotate(9deg);
@@ -34,21 +36,20 @@
   position: relative;
   z-index: 1;
   display: grid;
-  padding: 24px 20px 28px;
-  gap: 18px;
+  padding: 30px 20px 36px;
+  gap: 20px;
 }
 
-.reminder,
 .connection {
   display: grid;
-  min-height: 72px;
-  padding: 12px 15px;
+  min-height: 92px;
+  padding: 16px;
   box-sizing: border-box;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   border: 1px solid rgba(47, 75, 63, 0.05);
-  border-radius: 20px;
+  border-radius: 24px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 12px 30px rgba(63, 71, 66, 0.07);
   color: inherit;
@@ -57,20 +58,18 @@
   text-decoration: none;
 }
 
-.reminderIcon,
 .connectionIcon {
   display: grid;
-  width: 45px;
-  height: 45px;
+  width: 54px;
+  height: 54px;
   place-items: center;
-  border-radius: 14px;
+  border-radius: 17px;
   background: #eaf5ef;
   color: var(--primary);
 }
 
-.reminderIcon svg,
 .connectionIcon svg {
-  width: 26px;
+  width: 29px;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
@@ -78,28 +77,23 @@
   stroke-width: 1.8;
 }
 
-.reminder > span:nth-child(2),
 .connection > span:nth-child(2) {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
 }
 
-.reminder strong,
 .connection strong {
   color: #283a32;
-  font-size: 14px;
+  font-size: 17px;
   line-height: 1.35;
 }
 
-.reminder small,
 .connection small {
-  overflow: hidden;
   color: #8d9591;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .chevron {
@@ -114,23 +108,34 @@
 }
 
 .greeting {
-  padding: 10px 12px 0;
+  position: relative;
+  padding: 10px 12px 2px;
 }
 
 .greeting h1 {
-  margin: 0;
-  color: var(--primary);
-  font-size: 31px;
+  margin: 5px 0 0;
+  color: #1f2937;
+  font-size: clamp(32px, 9vw, 42px);
   font-weight: 800;
-  letter-spacing: -0.045em;
+  line-height: 1.22;
+  letter-spacing: -0.05em;
 }
 
-.greeting p {
-  margin: 4px 0 0;
-  color: #33453d;
-  font-size: 22px;
-  line-height: 1.45;
-  letter-spacing: -0.035em;
+.greeting h1 span {
+  display: block;
+}
+
+.greeting h1 .noBreak {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 @media (max-width: 370px) {
@@ -139,21 +144,11 @@
   }
 
   .greeting h1 {
-    font-size: 28px;
+    font-size: 30px;
   }
 
-  .greeting p {
-    font-size: 19px;
-  }
-
-  .reminder,
   .connection {
     padding-inline: 12px;
     gap: 9px;
-  }
-
-  .reminder strong,
-  .connection strong {
-    font-size: 12px;
   }
 }

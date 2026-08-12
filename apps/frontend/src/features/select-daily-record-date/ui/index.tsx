@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatKoreanDate, getCalendarDates, isSameDate, toDateKey } from '../model'
 import styles from './SelectDailyRecordDateAction.module.css'
 
@@ -40,6 +40,16 @@ export function SelectDailyRecordDateAction({
   const month = visibleMonth.getMonth()
   const calendarDates = getCalendarDates(year, month)
 
+  useEffect(() => {
+    if (!isCalendarOpen) return
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsCalendarOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [isCalendarOpen])
+
   return (
     <>
       <div className={styles.pill}>
@@ -56,7 +66,7 @@ export function SelectDailyRecordDateAction({
             <rect x="4" y="5" width="16" height="16" rx="3" />
             <path d="M4 9.5h16M8 3v3.5M16 3v3.5" />
           </svg>
-          {formatKoreanDate(selectedDate)} 대화 기록
+          {formatKoreanDate(selectedDate)}
         </button>
         <button
           type="button"
@@ -107,11 +117,15 @@ export function SelectDailyRecordDateAction({
                     className={[
                       styles.dateCell,
                       isOutsideMonth ? styles.outsideMonth : '',
+                      date.getDay() === 0 ? styles.sunday : '',
+                      date.getDay() === 6 ? styles.saturday : '',
                       hasConversation ? styles.hasConversation : '',
                       isSelected ? styles.selected : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    aria-label={`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일${hasConversation ? ', 대화 기록 있음' : ', 대화 기록 없음'}`}
+                    aria-pressed={isSelected}
                     onClick={() => {
                       onSelectDate(date)
                       setIsCalendarOpen(false)
