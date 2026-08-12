@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { ConversationTurn } from '../../../entities/conversation'
+import type { ChatMessage } from '../../../entities/conversation'
 import { DailyConversationList } from '../../../entities/conversation'
 import { SelectDailyRecordDateAction } from '../../../features/select-daily-record-date'
 import { toDateKey } from '../../../features/select-daily-record-date/model'
@@ -9,30 +9,40 @@ import daseulNoDataImage from '../../../shared/assets/character/character-daseul
 import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.png'
 import styles from './SeniorDailyRecordPage.module.css'
 
-// UC-14/FR-01-09 — 결정사항 로그 §5/§7. 실제 API 연결 전이라 날짜별 turn과
-// 다슬이의 하루 요약 코멘트는 페이지 로컬 mock 데이터로 둔다.
-const mockRecordsByDate: Record<string, { turns: ConversationTurn[]; comment: string }> = {
+// UC-14/FR-01-09 — 결정사항 로그 §5/§7. 날짜별로 특정 날짜의 메시지만 모아
+// 조회하는 REST 엔드포인트는 아직 없다(docs/ws-protocol.md는 cursor 기반
+// 전체 이력 조회만 정의) — 그 계약이 생기기 전까지는 페이지 로컬 mock
+// 데이터로 둔다. 데이터 모양 자체는 실제 ChatMessage 행 모델과 동일하다.
+const mockRecordsByDate: Record<string, { messages: ChatMessage[]; comment: string }> = {
   '2025-06-12': {
-    turns: [
+    messages: [
       {
-        id: 'turn-1',
-        seniorId: 'senior-1',
+        messageId: 1,
+        speakerType: 'AI',
+        content: '어르신, 오늘 아침은 잘 보내셨어요?',
+        sttStatus: 'NOT_REQUIRED',
         createdAt: '2025-06-12T00:30:00.000Z',
-        question: '어르신, 오늘 아침은 잘 보내셨어요?',
-        answer: '응, 아침을 먹고 화분에 물도 줬어.',
-        answeredAt: '2025-06-12T00:31:00.000Z',
-        sentimentLabel: null,
-        sentimentNote: null,
       },
       {
-        id: 'turn-2',
-        seniorId: 'senior-1',
+        messageId: 2,
+        speakerType: 'SENIOR',
+        content: '응, 아침을 먹고 화분에 물도 줬어.',
+        sttStatus: 'COMPLETED',
+        createdAt: '2025-06-12T00:31:00.000Z',
+      },
+      {
+        messageId: 3,
+        speakerType: 'AI',
+        content: '화분을 돌보셨군요. 어떤 꽃을 키우고 계세요?',
+        sttStatus: 'NOT_REQUIRED',
         createdAt: '2025-06-12T00:32:00.000Z',
-        question: '화분을 돌보셨군요. 어떤 꽃을 키우고 계세요?',
-        answer: '분홍색 제라늄인데 요즘 꽃이 많이 피었어.',
-        answeredAt: '2025-06-12T00:33:00.000Z',
-        sentimentLabel: null,
-        sentimentNote: null,
+      },
+      {
+        messageId: 4,
+        speakerType: 'SENIOR',
+        content: '분홍색 제라늄인데 요즘 꽃이 많이 피었어.',
+        sttStatus: 'COMPLETED',
+        createdAt: '2025-06-12T00:33:00.000Z',
       },
     ],
     comment:
@@ -100,7 +110,7 @@ export function SeniorDailyRecordPage() {
                   alt="지난 대화를 요약해 주는 다슬"
                 />
               </section>
-              <DailyConversationList turns={record.turns} />
+              <DailyConversationList messages={record.messages} />
             </>
           ) : (
             <div className={styles.emptyState}>
