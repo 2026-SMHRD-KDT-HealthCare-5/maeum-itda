@@ -9,18 +9,27 @@ const mockEvidenceSentences: EvidenceSentence[] = [
     answer: '조금 외롭네요. 가족들이 보고 싶어요.',
     isRiskEvidence: true,
     sentimentLabel: '부정',
+    scaleLabel: '고립',
+    questionCreatedAt: '2026-08-12T00:10:00.000Z',
+    answerCreatedAt: '2026-08-12T00:11:00.000Z',
   },
   {
     question: '무릎은 괜찮으세요?',
     answer: '무릎이 조금 아파요. 오래 걷기는 힘들어요.',
     isRiskEvidence: true,
     sentimentLabel: '부정',
+    scaleLabel: '우울',
+    questionCreatedAt: '2026-08-12T00:14:00.000Z',
+    answerCreatedAt: '2026-08-12T00:15:00.000Z',
   },
   {
     question: '점심은 맛있게 드셨나요?',
     answer: '네, 잘 먹었어요. 된장찌개가 맛있었어요.',
     isRiskEvidence: false,
     sentimentLabel: '보통',
+    scaleLabel: '불안',
+    questionCreatedAt: '2026-08-12T00:18:00.000Z',
+    answerCreatedAt: '2026-08-12T00:19:00.000Z',
   },
 ]
 
