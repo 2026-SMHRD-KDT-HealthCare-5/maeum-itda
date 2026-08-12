@@ -5,6 +5,9 @@
 */
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
+import type { WsErrorPayload, WsEvent } from '@maeum-itda/shared-types';
+
+export type { WsErrorPayload } from '@maeum-itda/shared-types';
 
 // 역할: ws 수신 데이터(Buffer | ArrayBuffer | Buffer[])를 UTF-8 문자열로 변환
 // Buffer.prototype.toString은 위 세 형태 모두 처리하지만, ArrayBuffer.prototype.toString은
@@ -20,12 +23,6 @@ export function rawDataToString(data: RawData): string {
 }
 
 // 모든 WebSocket JSON 이벤트가 공유하는 event/payload/ts 형식
-interface WsEvent<TEvent extends string, TPayload> {
-  event: TEvent;
-  payload: TPayload;
-  ts: string;
-}
-
 // 역할: 응답 데이터에 이벤트 이름과 서버 전송 시각을 추가하여 브라우저로 전송
 export function sendWsEvent<TEvent extends string, TPayload>(
   client: WebSocket,
@@ -39,4 +36,10 @@ export function sendWsEvent<TEvent extends string, TPayload>(
   };
 
   client.send(JSON.stringify(responseEvent));
+}
+
+// 역할: 모든 일반 오류에 발생 요청과 재시도 가능 여부를 빠짐없이 포함해 전송한다.
+// 연결 흐름: Gateway/Handler → sendWsError() → sendWsEvent() → 브라우저
+export function sendWsError(client: WebSocket, payload: WsErrorPayload): void {
+  sendWsEvent(client, 'error', payload);
 }

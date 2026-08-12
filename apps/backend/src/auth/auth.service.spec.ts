@@ -3,6 +3,7 @@
 전체 흐름: Jest → AuthService → 가짜 UsersService
 */
 import { BadRequestException, ConflictException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { compare } from 'bcryptjs';
 import { User, UserRole } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
@@ -15,7 +16,11 @@ describe('AuthService', () => {
     findByLoginId: jest.fn(),
     create: jest.fn(),
   };
-  const authService = new AuthService(usersService as unknown as UsersService);
+  const jwtService = { verifyAsync: jest.fn() };
+  const authService = new AuthService(
+    usersService as unknown as UsersService,
+    jwtService as unknown as JwtService,
+  );
 
   const dto: SignUpDto = {
     loginId: 'user1234',

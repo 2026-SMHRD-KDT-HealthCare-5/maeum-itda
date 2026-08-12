@@ -1,0 +1,184 @@
+.request {
+  display: flex;
+  width: 100%;
+  max-width: 440px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 92px 24px max(28px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  align-items: center;
+  flex-direction: column;
+}
+
+.guardianVisual {
+  width: 168px;
+  height: 132px;
+  overflow: hidden;
+  border-radius: 50% 50% 42% 42%;
+  background: #eaf4ef;
+}
+
+.guardianVisual img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.heading {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.heading > p:first-child {
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.heading h1 {
+  margin: 7px 0 0;
+  color: #26352e;
+  font-size: clamp(27px, 8vw, 35px);
+  font-weight: 800;
+  line-height: 1.3;
+  letter-spacing: -0.045em;
+}
+
+.heading h1 strong {
+  color: var(--primary);
+}
+
+.heading h1 span {
+  display: block;
+}
+
+.description {
+  max-width: 340px;
+  margin: 14px auto 0;
+  color: #737d77;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.permissions {
+  display: grid;
+  width: 100%;
+  margin-top: 28px;
+  padding: 19px 18px;
+  box-sizing: border-box;
+  gap: 14px;
+  border: 1px solid rgba(39, 72, 58, 0.06);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(52, 67, 59, 0.07);
+}
+
+.permissions p {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  color: #34463e;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.permissions span {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf4ef;
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.actions {
+  display: grid;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 28px;
+  gap: 12px;
+}
+
+.actions button {
+  min-height: 62px;
+  border-radius: 20px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.accept {
+  border: 0;
+  background: var(--primary);
+  box-shadow: 0 10px 24px rgba(31, 111, 84, 0.2);
+  color: #fff;
+}
+
+.accept:hover {
+  background: var(--primary-pressed);
+}
+
+.reject {
+  border: 1px solid #d9dedb;
+  background: #fff;
+  color: #657068;
+}
+
+.reject:hover {
+  background: #f4f5f3;
+}
+
+.actions button:focus-visible {
+  outline: 4px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 3px;
+}
+
+.actions > p {
+  color: #929a95;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+@media (max-height: 760px) {
+  .request {
+    padding-top: 50px;
+  }
+
+  .guardianVisual {
+    width: 132px;
+    height: 102px;
+  }
+
+  .heading,
+  .permissions {
+    margin-top: 18px;
+  }
+
+  .permissions {
+    gap: 9px;
+  }
+
+  .actions {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 350px) {
+  .request {
+    padding-inline: 17px;
+  }
+
+  .permissions {
+    padding-inline: 14px;
+  }
+
+  .permissions p {
+    font-size: 13px;
+  }
+}

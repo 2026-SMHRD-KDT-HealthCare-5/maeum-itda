@@ -10,6 +10,8 @@ import { formatConnectionDuration, type Connection } from '../../../entities/con
 import { Button, Card } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { useSession } from '../../../entities/user'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import styles from './MyInfoPage.module.css'
 
 // 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 실제 API 연결
@@ -23,7 +25,7 @@ export function SeniorMyInfoPage() {
 
   const [basicInfo, setBasicInfo] = useState({
     username: session?.userId ?? 'senior01',
-    name: '김순자',
+    name: session?.name ?? '김순자',
     phone: '010-1234-5678',
   })
   const [connection, setConnection] = useState<Connection>({
@@ -50,10 +52,11 @@ export function SeniorMyInfoPage() {
     <>
       <main className={styles.page}>
         <header className={styles.header}>
+          <h1>내 정보</h1>
           <span className={styles.avatar} aria-hidden="true">
-            👵
+            <img src={seniorCoupleImage} alt="" />
           </span>
-          <h1 className={styles.name}>{basicInfo.name} 어르신</h1>
+          <p className={styles.name}>{basicInfo.name} 어르신</p>
         </header>
 
         <div className={styles.cards}>
@@ -70,7 +73,7 @@ export function SeniorMyInfoPage() {
               <div className={styles.connectedRow}>
                 <div className={styles.connectedInfo}>
                   <span className={styles.connectedAvatar} aria-hidden="true">
-                    🧑
+                    <img src={guardianCoupleImage} alt="" />
                   </span>
                   <div>
                     <p className={styles.connectedName}>{mockGuardianName}</p>

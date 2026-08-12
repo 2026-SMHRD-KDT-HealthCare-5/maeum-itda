@@ -1,11 +1,20 @@
 .trigger {
-  border: none;
-  background: none;
-  padding: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--danger-bg);
   color: var(--danger);
   font-weight: 700;
   font-size: 14px;
   cursor: pointer;
+}
+
+.trigger:focus-visible,
+.cancelButton:focus-visible,
+.confirmButton:focus-visible {
+  outline: 3px solid rgba(214, 69, 69, 0.2);
+  outline-offset: 2px;
 }
 
 .confirm {

@@ -38,7 +38,7 @@ pnpm --filter <pkg-name> <script>   # 특정 워크스페이스 패키지 하나
 - **packages/config** — 공유 lint config (`@maeum-itda/config`). `apps/frontend`가 사용하는 실제 ESLint flat config가 있습니다(위 Monorepo tooling 참고); 공유 tsconfig는 아직 없습니다.
 - **infra** — 배포/인프라 설정. 폴더는 존재하지만(`.gitkeep`만 있음) 아직 채워지지 않았습니다.
 
-실시간 대화는 WebSocket 기반입니다: 응답(turn) 하나가 들어올 때마다 STT 변환 → SGDS-K/GAD-7/LSNS-6 실시간 채점(UC-06-1) → 같은 LLM 호출에서 감성분석과 함께 꼬리 질문 생성(UC-04)이 즉시 일어납니다. 대화가 하나 끝날 때마다(또는 같은 날 재접속 시) 그 시점까지 해당 날짜에 귀속된 모든 turn을 다시 모아 정서지수(TextScore 단일값, UC-06-2)를 산출·갱신합니다 — `Conversation`처럼 여러 turn을 묶는 컨테이너 개념은 없으며, 음성 톤·피치는 별도 점수화되지 않고 감성분석의 입력 재료로만 쓰입니다(자세한 내용은 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) 참고). 그 외 나머지(로그인 인증, 리포트 조회, 알림함, 대시보드 데이터)는 REST로 처리합니다. 알림 전달은 MVP에서 알림함(REST 조회)만으로 이루어지며, 실제 웹 푸시(Service Worker/Push API)는 MVP 이후 PWA를 적용하는 시점에 별도로 추가할 계획입니다 — 지금 백엔드/알림 서버에 푸시 발송 인프라를 미리 만들지 마세요.
+실시간 대화는 WebSocket 기반입니다: 응답(turn) 하나가 들어올 때마다 STT 변환 → SGDS-K/GAD-7/LSNS-6 실시간 채점(UC-06-1) → 같은 LLM 호출에서 감성분석과 함께 꼬리 질문 생성(UC-04)이 즉시 일어납니다. 대화가 하나 끝날 때마다(또는 같은 날 재접속 시) 그 시점까지 해당 날짜에 귀속된 모든 turn을 다시 모아 정서지수(TextScore 단일값, UC-06-2)를 산출·갱신합니다 — `Conversation`처럼 여러 turn을 묶는 컨테이너 개념은 없으며, 음성 톤·피치는 별도 점수화되지 않고 감성분석의 입력 재료로만 쓰입니다(자세한 내용은 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) 참고). 그 외 나머지(로그인 인증, 리포트 조회, 알림함, 대시보드 데이터)는 REST로 처리합니다. 알림 전달은 알림함(REST 조회)에 더해, 2026-08-11 팀 결정(docs/마음잇다_결정사항_및_이슈로그.md §1 "웹 푸시 알림" 행, docs/sprint-plan.md)으로 이번 스프린트부터 실제 웹 푸시(Service Worker/Push API, VAPID 키, `PushSubscription` 저장, 위험 알림 실제 발송)도 MVP 필수 범위에 포함됩니다 — 백엔드/프론트엔드 모두 docs/sprint-plan.md에 정리된 일정대로 푸시 발송 인프라를 구현하세요.
 
 ### Mobile-portability guideline (결정사항 로그 §4 참고)
 

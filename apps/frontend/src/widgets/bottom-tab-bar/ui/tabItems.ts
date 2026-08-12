@@ -8,7 +8,7 @@ import type { TabItem } from './BottomTabBar'
 // BottomTabBar.tsx만 컴포넌트를 export해야 Fast Refresh가 정상 동작함)
 export const SENIOR_TAB_ITEMS: TabItem[] = [
   { label: '홈', to: '/senior', icon: 'home' },
-  { label: '안부 대화', to: '/senior/conversation', icon: 'chat' },
+  { label: '이전 대화', to: '/senior/daily-record', icon: 'history' },
   { label: '내 정보', to: '/senior/my-info', icon: 'user' },
 ]
 

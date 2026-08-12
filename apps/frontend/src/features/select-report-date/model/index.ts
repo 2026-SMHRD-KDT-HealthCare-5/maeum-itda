@@ -1,2 +1,4 @@
-// TODO(UC-08): local state/hooks for this action. Not implemented yet.
+// UC-08: 날짜 네비게이션의 로컬 state는 ui/index.tsx가 직접 관리한다(다른
+// 화면의 캘린더 모달과 동일한 패턴). 이 파일은 실제 리포트 날짜 조회 API가
+// 붙을 때 로딩/에러 상태를 둘 자리다.
 export {}
