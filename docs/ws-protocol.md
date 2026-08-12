@@ -1,86 +1,294 @@
-## 1. 서버 전체 구조
+# 백엔드 WebSocket 및 FastAPI 통신 명세
+
+## 1. 서버 전체 구조와 객체 역할
 
 ```text
 Frontend
   │
   ├─ WebSocket /ws/chats
-  │    └→ ChatsGateway
-  │         ├→ ChatAuthHandler
-  │         ├→ ChatStartHandler
-  │         ├→ AudioMetadataHandler
-  │         ├→ AudioBinaryHandler
-  │         └→ ChatEndHandler
+  │    └→ ChatsGateway                      // WS 연결 및 이벤트 분배
+  │         ├→ ChatAuthHandler              // JWT 인증
+  │         ├→ ChatStartHandler             // 대화 시작과 최초 질문 전송
+  │         ├→ AudioMetadataHandler         // 다음 binary의 metadata 보관
+  │         ├→ AudioBinaryHandler           // binary 접수부터 분석·다음 질문까지 조정
+  │         └→ ChatEndHandler               // 수동 종료 처리
   │
   └─ REST GET /chats/messages
-       └→ ChatsController → ChatsService → ConversationMessageRepository → MySQL
+       └→ ChatsController                   // 과거 메시지 HTTP 요청 진입점
+            → ChatsService                  // 조회 업무 순서 관리
+            → ConversationMessageRepository // TypeORM 메시지 조회
+            → MySQL
 
 AudioBinaryHandler
-  → QuestionAnswerQueueService
-  → AnalysisService
-  → AiClient
-  → REST POST FastAPI /analysis/audio/batch
-  → AnalysisResultRepository → MySQL
-  → WebSocket ai:question
+  ├→ AudioMetadataHandler                  // pending metadata 조회·제거
+  ├→ AudioAnswerRepository                 // 답변 메시지와 질문·답변 관계 저장
+  ├→ AudioTransferStateService             // 중복 전송 ID와 기존 ACK 임시 보관
+  ├→ QuestionAnswerQueueService            // 질문별 추가 답변을 10초 동안 묶음
+  ├→ AnalysisService                       // 분석 요청과 결과 저장 순서 관리
+  │    ├→ TemporaryAudioRepository         // 질문별 음성 Buffer 임시 보관
+  │    ├→ AiClient                         // FastAPI REST 요청·응답 검증
+  │    └→ AnalysisResultRepository         // STT·감성·척도·다음 질문 DB 저장
+  └→ ChatConnectionStateService            // 현재 질문 교체 및 재접속 상태 관리
 ```
 
-### 책임 구분
+### 1.1 Frontend ↔ NestJS에서 주고받는 데이터
 
-- 프론트엔드: 녹음, `audio:metadata`와 binary 전송, ACK 전 Blob 보관, 화면 이벤트 처리
-- NestJS: JWT 인증, WS 이벤트 분배, 메시지·관계 저장, 답변 큐, FastAPI REST 호출, 분석 결과 저장
-- FastAPI: 메시지별 STT·감성·척도 분석, 전체 답변 통합, 다음 질문 생성
-- MySQL: 대화 메시지, 메시지 관계, 분석 결과 영속화
+| 방향              | 통신             | 주고받는 내용                                         |
+| ----------------- | ---------------- | ----------------------------------------------------- |
+| Frontend → NestJS | WebSocket JSON   | JWT, 대화 시작·종료, 음성 metadata                    |
+| Frontend → NestJS | WebSocket binary | 브라우저에서 녹음한 음성 원본                         |
+| NestJS → Frontend | WebSocket JSON   | 인증 결과, AI 질문, 음성 ACK, 무응답 안내, 종료, 오류 |
+| Frontend → NestJS | REST GET         | 과거 메시지 조회 시작 위치와 한 번에 조회할 개수      |
+| NestJS → Frontend | REST JSON        | AI·시니어의 메시지 목록과 다음 조회 시작 위치         |
 
-## 2. WebSocket 공통 JSON 규격
+### 1.2 NestJS ↔ FastAPI에서 주고받는 데이터
 
-JSON 이벤트는 모두 다음 envelope를 사용한다. 음성 binary frame에는 이 envelope를 사용하지 않는다.
+| 방향             | 통신           | 주고받는 내용                                  |
+| ---------------- | -------------- | ---------------------------------------------- |
+| NestJS → FastAPI | REST multipart | 질문 ID와 여러 답변의 음성·메시지 ID·녹음 정보 |
+| FastAPI → NestJS | REST JSON      | 메시지별 STT·감성·척도 결과와 다음 AI 질문     |
+
+`multipart/form-data`는 일반 JSON 데이터와 실제 음성 파일을 HTTP 요청 하나에 같이 담아 보내는 방식이다. NestJS는 질문 정보, 답변 메시지 ID, 녹음 정보 및 음성 파일을 하나의 HTTP 요청에 담아 FastAPI로 전송한다.
+
+시니어가 같은 질문에 두 번 답변하면 두 답변을 하나의 문장으로 합치지 않는다. 각 답변은 DB에 따로 저장하고 화면에서도 각각의 말풍선으로 보여준다. 다만 FastAPI는 두 답변을 모두 참고해 다음 AI 질문 하나를 만든다.
+
+## 2. 공통 데이터 형식
+
+### 2.1 WebSocket JSON envelope
+
+프론트와 NestJS가 주고받는 모든 JSON 이벤트는 다음 형식을 사용한다.
 
 ```json
 {
-  "event": "audio:metadata",
+  "event": "이벤트명",
   "payload": {},
   "ts": "2026-08-12T06:00:00.000Z"
 }
 ```
 
-| 변수      | 의미               |
-| --------- | ------------------ |
-| `event`   | 처리할 이벤트 이름 |
-| `payload` | 이벤트별 데이터    |
-| `ts`      | 송신 시각, UTC ISO |
+| 변수                | 의미                                                        |
+| ------------------- | ----------------------------------------------------------- |
+| `event`             | 처리할 WS 이벤트 이름                                       |
+| `payload`           | 이벤트별 데이터                                             |
+| `ts`                | 송신 시각, UTC ISO 8601                                     |
+| `messageId`         | `CONVERSATION_MESSAGE.MESSAGE_ID`, 해당 메시지 자체의 DB ID |
+| `questionMessageId` | 시니어 답변이 참조하는 AI 질문의 `messageId`                |
+| `generationId`      | AI 질문 한 건의 생성 작업 UUID                              |
+| `audioTransferId`   | metadata와 binary 한 건을 연결하고 중복 전송을 확인하는 ID  |
+| `seniorId`          | JWT에서 확인하므로 WS payload에서 제외                      |
 
-## 4. 전체 WebSocket 이벤트 흐름
+- DB 컬럼은 `MESSAGE_ID`, TypeScript 속성은 `messageId`처럼 표기한다.
 
-```text
-Frontend                                                    NestJS
-  │                                                           │
-  ├─ WS /ws/chats 연결 ───────────────────────────────────────→│
-  ├─ auth ────────────────────────────────────────────────────→│ JWT·SENIOR 검증
-  │←──────────────────────────────────────────── auth:success ┤
-  │                                                           │
-  ├─ chat:start ──────────────────────────────────────────────→│ 최초 AI 질문 DB 저장
-  │←─────────────────────────────────────────── chat:started ─┤
-  │←──────────────────────────────────────────── ai:question ─┤
-  │                                                           │
-  ├─ audio:metadata ──────────────────────────────────────────→│ metadata 임시 보관
-  ├─ Binary frame ────────────────────────────────────────────→│ 답변·관계 DB 저장 및 큐 등록
-  │←─────────────────────────────────────────────── audio:ack ┤
-  │                                                           │
-  │                마지막 답변부터 10초 추가 답변 대기         │
-  │                FastAPI REST 분석 및 메시지별 결과 저장     │
-  │←──────────────────────────────────────────── ai:question ─┤
-  │                                                           │
-  ├─ chat:end ────────────────────────────────────────────────→│ 남은 큐 확정·상태 정리
-  │←──────────────────────────────────────────── chat:ended ──┤
-  │                  WebSocket 연결은 유지                     │
+### 2.2 공통 오류 JSON
+
+```json
+{
+  "event": "error",
+  "payload": {
+    "code": "QUESTION_MISMATCH",
+    "message": "현재 질문과 일치하지 않는 음성입니다.",
+    "requestEvent": "audio:metadata",
+    "retryable": false
+  },
+  "ts": "2026-08-12T06:00:04.100Z"
+}
 ```
 
-인증부터 `chat:end`까지 전체 흐름을 포함한다. 지원하지 않는 JSON 이벤트는 공통 `error`로 응답한다.
+| 변수           | 의미                                   |
+| -------------- | -------------------------------------- |
+| `code`         | 프론트 분기용 오류 코드                |
+| `message`      | 오류 설명                              |
+| `requestEvent` | 오류가 발생한 요청 이벤트              |
+| `retryable`    | 같은 요청을 다시 시도할 수 있는지 여부 |
 
-## 5. 이벤트별 JSON 계약
+## 3. 전체 통신 흐름
 
-### 5.1 `auth`
+흐름을 대화 시작, 답변 처리, 종료의 세 구간으로 나눈다.
 
-연결 직후 첫 메시지는 반드시 인증 이벤트여야 한다.
+### 3.1 연결·인증·대화 시작
+
+```text
+[1. WebSocket 연결]
+Frontend
+  └─ WS /ws/chats 연결 요청
+       → NestJS ChatsGateway
+       → WebSocket 연결 완료
+
+[2. WebSocket 인증]
+Frontend
+  └─ auth { token }
+       → NestJS ChatAuthHandler
+       → JWT 검증
+       → SENIOR 역할 확인
+       → auth:success
+       → Frontend
+
+
+[3. 대화 시작 및 최초 질문 저장]
+Frontend
+  └─ chat:start
+       → NestJS ChatStartHandler
+       → ChatsService
+       → generationId 생성
+       → 최초 AI 질문 생성
+       → ConversationMessageRepository
+       → MySQL CONVERSATION_MESSAGE 저장
+       → 저장된 messageId 반환
+       → StartedChat 반환
+          {
+            messageId,
+            generationId,
+            content
+          }
+
+[4. 대화 시작 결과 전송]
+NestJS ChatStartHandler
+  ├─ chat:started
+  │    → Frontend
+  │    → 대화 시작 완료 알림
+  │
+  └─ ai:question
+       → Frontend
+       → 최초 AI 질문 전달
+          {
+            messageId,
+            generationId,
+            content
+          }
+```
+
+### 3.2 음성 답변·FastAPI 분석·다음 질문
+
+```text
+[1. 음성 metadata 전달]
+Frontend
+  → audio:metadata
+  → NestJS AudioMetadataHandler
+  → metadata 형식 검증
+  → 현재 질문의 questionMessageId·generationId 비교
+  → pending metadata 임시 보관
+
+
+[2. 음성 binary 전달]
+Frontend
+  → binary frame
+  → NestJS AudioBinaryHandler
+  → pending metadata 조회·제거
+  → metadata와 binary 결합
+  → 음성 크기·중복 전송 검사
+
+
+[3. 시니어 답변 저장]
+NestJS AudioBinaryHandler
+  → AudioAnswerRepository
+  → MySQL CONVERSATION_MESSAGE
+     시니어 답변 메시지 저장
+  → MySQL MESSAGE_RELATIONSHIP
+     AI 질문과 시니어 답변 관계 저장
+  → 저장된 messageId 반환
+
+
+[4. 음성 수신 결과 전송]
+NestJS AudioBinaryHandler
+  → audio:ack
+  → Frontend
+
+audio:ack payload
+{
+  "audioTransferId": "audio-uuid",
+  "messageId": 101
+}
+
+
+[5. 추가 답변 대기 및 질문별 답변 확정]
+NestJS QuestionAnswerQueueService
+  → 같은 questionMessageId의 답변을 큐에 추가
+  → 마지막 음성 수신 시점부터 10초 대기
+  → 10초 안에 추가 음성이 들어오면 같은 답변 묶음에 추가
+  → 10초 동안 추가 음성이 없으면 질문별 답변 묶음 확정
+
+
+[6. FastAPI 분석 요청]
+NestJS AnalysisService
+  → TemporaryAudioRepository에서 음성 조회
+  → AiClient
+  → POST /analysis/audio/batch
+  → FastAPI
+
+전송 데이터
+{
+  "seniorId": 1,
+  "questionMessageId": 50,
+  "generationId": "generation-uuid",
+  "answers": [
+    {
+      "messageId": 101,
+      "audioTransferId": "audio-uuid-1",
+      "audio": "binary"
+    },
+    {
+      "messageId": 102,
+      "audioTransferId": "audio-uuid-2",
+      "audio": "binary"
+    }
+  ]
+}
+
+
+[7. FastAPI 분석 응답]
+FastAPI
+  → 메시지별 STT·감성·척도 분석
+  → 전체 답변을 참고해 다음 AI 질문 생성
+  → JSON 응답
+  → NestJS AiClient
+
+
+[8. 분석 결과와 다음 질문 저장]
+NestJS AnalysisService
+  → AnalysisResultRepository
+  → MySQL에 메시지별 분석 결과 저장
+  → ConversationMessageRepository
+  → MySQL CONVERSATION_MESSAGE에 다음 AI 질문 저장
+  → 저장된 다음 질문의 messageId 반환
+
+
+[9. 다음 AI 질문 전송]
+NestJS AnalysisService
+  → ai:question
+  → Frontend
+```
+
+위 그림에서 FastAPI는 별도 서버다. 가운데 REST 화살표의 실제 방향은 `NestJS → FastAPI 요청`, `FastAPI → NestJS 응답`이다.
+
+### 3.3 수동·자동 종료
+
+```text
+수동 종료
+Frontend ── chat:end ──→ NestJS
+Frontend ←─ chat:ended ─ NestJS
+
+자동 종료
+AI 질문 후 30초 무응답
+Frontend ←─ chat:idle-warning ─ NestJS
+
+AI 질문 후 총 2분 무응답
+Frontend ←─ chat:ended(reason=INACTIVITY_TIMEOUT) ─ NestJS
+```
+
+종료 후에도 WebSocket은 유지한다. 프론트가 대화 화면을 나갈 때 연결을 닫는다.
+
+## 4. Frontend ↔ NestJS WebSocket 이벤트별 계약
+
+### 4.1 `auth` / `auth:success` / `auth:error`
+
+| 구분      | 내용                                              |
+| --------- | ------------------------------------------------- |
+| 요청 주체 | Frontend                                          |
+| 처리 주체 | NestJS `ChatAuthHandler`                          |
+| 성공 응답 | NestJS → Frontend `auth:success`                  |
+| 실패 응답 | NestJS → Frontend `auth:error`, close code `1008` |
+
+Frontend → NestJS:
 
 ```json
 {
@@ -90,7 +298,7 @@ Frontend                                                    NestJS
 }
 ```
 
-성공:
+NestJS → Frontend:
 
 ```json
 {
@@ -100,11 +308,19 @@ Frontend                                                    NestJS
 }
 ```
 
+- WS 연결 직후 첫 메시지는 반드시 `auth`이다.
 - JWT 서명·만료와 `SENIOR` 역할을 검증한다.
-- 실패하면 `auth:error` 전송 후 close code `1008`로 연결을 종료한다.
-- 단기 재접속 상태가 있으면 인증 뒤 `chat:restored`와 기존 `ai:question`을 전송한다.
+- 단기 재접속 상태가 있으면 인증 뒤 `chat:restored`와 기존 `ai:question`을 보낸다.
 
-### 5.2 `chat:start`, `chat:started`, `ai:question`
+### 4.2 `chat:start` / `chat:started` / `ai:question`
+
+| 구분      | 내용                                                                     |
+| --------- | ------------------------------------------------------------------------ |
+| 요청 주체 | Frontend                                                                 |
+| 처리 주체 | NestJS `ChatStartHandler → ChatsService → ConversationMessageRepository` |
+| 응답 주체 | NestJS                                                                   |
+
+Frontend → NestJS:
 
 ```json
 {
@@ -113,6 +329,8 @@ Frontend                                                    NestJS
   "ts": "2026-08-12T06:00:01.000Z"
 }
 ```
+
+NestJS → Frontend:
 
 ```json
 {
@@ -134,15 +352,19 @@ Frontend                                                    NestJS
 }
 ```
 
-- `chat:start`는 최초 질문 저장과 대화 시작을 요청한다.
-- DB 저장 성공 후 `chat:started`, `ai:question` 순서로 전송한다.
-- 진행 중인 질문이 있으면 `CHAT_ALREADY_STARTED`로 거부한다.
-- `chat:started.payload`는 빈 객체를 유지한다.
-- `generationId`는 대화 단위가 아니라 질문 생성 작업 단위이다.
+- 최초 질문을 DB에 저장한 뒤 `chat:started`, `ai:question` 순서로 보낸다.
+- 활성 질문이 있는데 다시 시작하면 `CHAT_ALREADY_STARTED` 오류를 보낸다.
+- `generationId`는 질문 생성 작업 단위다.
 
-### 5.3 `audio:metadata`와 binary frame
+### 4.3 `audio:metadata` / binary / `audio:ack`
 
-프론트는 metadata를 먼저 보내고 다음 WS 메시지로 해당 음성 binary를 보낸다.
+| 구분      | 내용                                                |
+| --------- | --------------------------------------------------- |
+| 요청 주체 | Frontend                                            |
+| 처리 주체 | NestJS `AudioMetadataHandler`, `AudioBinaryHandler` |
+| 응답 주체 | NestJS                                              |
+
+Frontend → NestJS metadata:
 
 ```json
 {
@@ -159,22 +381,13 @@ Frontend                                                    NestJS
 }
 ```
 
-| 필드                | 설명                                          |
-| ------------------- | --------------------------------------------- |
-| `audioTransferId`   | 음성 한 건의 전송 ID                          |
-| `questionMessageId` | 답변 대상 AI 질문 ID                          |
-| `generationId`      | 대상 질문의 생성 작업 ID                      |
-| `mimeType`          | `audio/`로 시작하는 브라우저 녹음 형식        |
-| `capturedAt`        | 녹음 시각, UTC                                |
-| `endType`           | `auto`: 묵음 감지, `manual`: 사용자 녹음 종료 |
+Frontend → NestJS 다음 프레임:
 
-- metadata 없이 binary가 오면 거부한다.
-- pending metadata의 binary를 받기 전에는 새 metadata를 받지 않는다.
-- 현재 또는 같은 연결에서 이미 전달한 질문 ID와 generation ID가 일치해야 한다.
-- binary 한 건은 빈 값이 아니어야 하며 최대 10MB이다.
-- 유효한 metadata 수신 시 30초/2분 무응답 타이머를 해제한다.
+```text
+WebSocket binary frame: 음성 원본
+```
 
-### 5.4 `audio:ack`
+NestJS → Frontend:
 
 ```json
 {
@@ -187,12 +400,21 @@ Frontend                                                    NestJS
 }
 ```
 
-- 시니어 답변 메시지와 질문·답변 관계를 DB에 저장한 직후 전송한다.
-- FastAPI 분석 완료까지 기다리지 않는다.
-- 같은 `audioTransferId`가 다시 오면 DB에 중복 저장하지 않고 기존 ACK를 다시 전송한다.
-- ACK 전까지 음성 Blob을 보관하고 재전송하는 책임은 프론트에 있다.
+- metadata 다음에 해당 binary를 전송한다.
+- metadata 없이 binary가 오거나 pending metadata가 있는데 새 metadata가 오면 거부한다.
+- 질문 ID와 `generationId`가 현재 또는 같은 연결에서 전달한 질문과 일치해야 한다.
+- 음성 한 건은 최대 10MB이다.
+- 답변 메시지와 질문·답변 관계를 DB에 저장한 직후 ACK를 보낸다.
+- 같은 `audioTransferId`를 재전송하면 중복 저장 없이 기존 ACK를 다시 보낸다.
 
-### 5.5 `chat:idle-warning`
+### 4.4 `chat:idle-warning`
+
+| 구분      | 내용                           |
+| --------- | ------------------------------ |
+| 발생 주체 | NestJS `ChatInactivityService` |
+| 수신 주체 | Frontend                       |
+
+NestJS → Frontend:
 
 ```json
 {
@@ -205,13 +427,18 @@ Frontend                                                    NestJS
 }
 ```
 
-- AI 질문 후 첫 발화가 30초 동안 없을 때 한 번 전송한다.
-- 경고보다는 시니어가 부담을 느끼지 않는 안내 문구를 사용한다.
-- metadata가 정상 접수되면 무응답 타이머를 취소한다.
+- AI 질문 후 30초 동안 첫 발화가 없으면 한 번 보낸다.
+- 유효한 metadata가 접수되면 무응답 타이머를 취소한다.
 
-### 5.6 `chat:end`, `chat:ended`
+### 4.5 `chat:end` / `chat:ended`
 
-수동 종료 요청:
+| 구분           | 내용                                                 |
+| -------------- | ---------------------------------------------------- |
+| 수동 요청 주체 | Frontend                                             |
+| 처리 주체      | NestJS `ChatEndHandler` 또는 `ChatInactivityService` |
+| 응답 주체      | NestJS                                               |
+
+Frontend → NestJS:
 
 ```json
 {
@@ -221,7 +448,7 @@ Frontend                                                    NestJS
 }
 ```
 
-종료 응답:
+NestJS → Frontend:
 
 ```json
 {
@@ -234,14 +461,16 @@ Frontend                                                    NestJS
 }
 ```
 
-- 수동 종료 사유는 `USER_REQUESTED`이다.
-- AI 질문 후 총 2분 무응답이면 서버가 `INACTIVITY_TIMEOUT`으로 자동 종료한다.
-- 종료 시 남은 답변 큐는 즉시 확정해 STT·감성·척도 결과까지 저장한다.
-- 종료 후 다음 AI 질문은 저장하거나 전송하지 않는다.
-- DB에 별도의 대화 세션 또는 종료 기록을 추가하지 않는다.
-- 종료 후에도 WS 연결은 유지하고 화면을 나갈 때 프론트가 연결을 닫는다.
+- 수동 종료는 `USER_REQUESTED`, 총 2분 무응답 종료는 `INACTIVITY_TIMEOUT`이다.
+- 남은 큐는 분석하지만 종료 후 다음 질문은 저장·전송하지 않는다.
+- 별도 대화 세션·종료 레코드는 저장하지 않는다.
 
-### 5.7 `chat:restored`
+### 4.6 `chat:restored`
+
+| 구분      | 내용                                |
+| --------- | ----------------------------------- |
+| 발생 주체 | NestJS `ChatConnectionStateService` |
+| 수신 주체 | Frontend                            |
 
 ```json
 {
@@ -254,91 +483,45 @@ Frontend                                                    NestJS
 }
 ```
 
-- 같은 NestJS 프로세스에 단기 재접속하면 마지막 현재 질문을 새 연결에 복원한다.
-- 이어서 같은 `messageId`의 `ai:question`을 다시 보내며 프론트는 ID로 중복 표시를 막는다.
-- 서버 재시작 후 진행 중 큐까지 복구하는 기능은 MVP 이후 Redis 적용 범위이다.
+- 같은 서버 프로세스에 단기 재접속하면 현재 질문을 복원한다.
+- 이어서 같은 질문의 `ai:question`을 다시 보낸다.
+- 프론트는 `messageId`를 기준으로 중복 말풍선을 만들지 않는다.
 
-### 5.8 공통 `error`
-
-```json
-{
-  "event": "error",
-  "payload": {
-    "code": "QUESTION_MISMATCH",
-    "message": "현재 질문과 일치하지 않는 음성입니다.",
-    "requestEvent": "audio:metadata",
-    "retryable": false
-  },
-  "ts": "2026-08-12T06:00:04.100Z"
-}
-```
-
-- `code`: 프론트 분기용 오류 코드
-- `message`: 사용자 또는 개발자에게 보여줄 설명
-- `requestEvent`: 오류가 발생한 요청 이벤트
-- `retryable`: 같은 요청을 다시 시도할 수 있는지 여부
-
-주요 코드: `INVALID_EVENT`, `INTERNAL_ERROR`, `AUDIO_METADATA_PENDING`, `QUESTION_MISMATCH`, `INVALID_AUDIO_METADATA`, `AUDIO_METADATA_MISSING`, `EMPTY_AUDIO_BINARY`, `AUDIO_TOO_LARGE`, `AUDIO_SAVE_FAILED`, `AUDIO_ANALYSIS_FAILED`, `CHAT_ALREADY_STARTED`, `ANSWER_SEGMENT_LIMIT_EXCEEDED`, `ANSWER_AUDIO_SIZE_LIMIT_EXCEEDED`.
-
-## 6. 질문별 추가 답변 큐 정책
+## 5. 질문별 추가 답변 큐
 
 ```text
 AI 질문 messageId=101
-  ├→ 시니어 답변 messageId=102, 관계 ANSWER
-  └→ 시니어 추가 답변 messageId=103, 관계 ADDITIONAL_ANSWER
+  ├→ 답변 messageId=102, 관계 ANSWER
+  └→ 추가 답변 messageId=103, 관계 ADDITIONAL_ANSWER
        → 마지막 음성부터 10초 대기
        → 질문별 답변 묶음 확정
-       → FastAPI에 두 음성과 두 messageId 전달
+       → FastAPI에 음성 2개와 messageId 2개 전달
 ```
 
-- 같은 질문인지 여부는 감정 결과가 아니라 `questionMessageId`로 판단한다.
-- 첫 답변은 `ANSWER`, 이후 답변은 `ADDITIONAL_ANSWER` 관계로 저장한다.
-- 각 음성은 별도 `messageId`를 가진다.
+- 답변마다 별도 DB 메시지와 별도 프론트 말풍선을 사용한다.
+- 같은 질문인지 여부는 감정이 아니라 `questionMessageId`로 판단한다.
 - 추가 답변이 올 때마다 10초 타이머를 다시 시작한다.
-- 질문 하나에 최대 5개, 음성 한 건 최대 10MB, 전체 최대 30MB이다.
-- FastAPI는 메시지별 STT·감성·척도를 반환하고 NestJS는 각 `messageId`에 저장한다.
-- 감성이 서로 달라도 복합 감정이나 감정 변화일 수 있으므로 오류로 처리하지 않는다.
-- 다음 질문은 모든 transcript와 개별 분석 결과를 통합해 한 번 생성한다.
-- 분석 시작 뒤 늦게 온 답변도 ACK·저장·분석한다.
-- 이미 다음 질문이 전송됐다면 늦은 답변으로 새 질문을 다시 생성하지 않는다.
-- 같은 질문의 분석 요청이 겹치면 `processingByQuestionMessageId`에서 순서대로 처리한다.
+- 질문 하나당 최대 5개, 음성 한 건 최대 10MB, 전체 최대 30MB이다.
+- FastAPI는 메시지별 STT·감성·척도 결과를 반환한다.
+- 감성이 서로 달라도 복합 감정 또는 감정 변화로 보고 오류로 처리하지 않는다.
+- FastAPI는 모든 답변의 맥락을 참고해 다음 질문 하나를 생성한다.
+- 분석이 시작된 뒤 늦게 온 답변도 ACK·저장·분석한다.
+- 이미 다음 질문을 보냈다면 늦은 답변으로 새 질문을 다시 만들지 않는다.
 
-### 시간 기준 구분
+### 시간 정책
 
-| 기준                  | 의미                         | 담당   |
-| --------------------- | ---------------------------- | ------ |
-| 질문 후 30초          | 첫 발화 전 생각 시간 후 안내 | NestJS |
-| 발화 중 10초 묵음     | 녹음 한 건 자동 종료         | 프론트 |
-| 음성 접수 후 10초     | 추가 답변 큐 확정            | NestJS |
-| 질문 후 총 2분 무응답 | 대화 자동 종료               | NestJS |
+| 기준                                       | 의미                                 | 담당     |
+| ------------------------------------------ | ------------------------------------ | -------- |
+| 질문 후 30초                               | 첫 발화 전 안내                      | NestJS   |
+| 말하는 중 10초 동안 묵음                   | 현재 음성 녹음 종료                  | Frontend |
+| 음성 답변 수신 후 10초 동안 추가 전송 없음 | 답변 수집을 끝내고 FastAPI 분석 시작 | NestJS   |
+| 질문 후 총 2분 무응답                      | 대화 자동 종료                       | NestJS   |
 
-## 7. NestJS에서 FastAPI REST로 전환되는 흐름
+## 6. NestJS ↔ FastAPI REST 계약
 
-```text
-[WebSocket]
-audio:metadata → binary → AudioBinaryHandler
-  → AudioAnswerRepository → MySQL → audio:ack
-  → QuestionAnswerQueueService
+이 구간에는 WebSocket 이벤트명이 없다. NestJS가 FastAPI에 HTTP 요청을 보내고 JSON 응답을 받는다.
 
-[NestJS 내부]
-10초 후 질문별 묶음 확정
-  → AnalysisService.enqueueAnswerBatch()
-  → TemporaryAudioRepository
-  → VOICE_ANALYSIS_STATUS = WAITING
-
-[REST]
-AnalysisService.processPendingAnswerBatch()
-  → AiClient
-  → POST FastAPI /analysis/audio/batch
-
-[DB 및 다시 WebSocket]
-AnalysisResultRepository → 메시지별 결과 저장
-  → 다음 질문 DB 저장
-  → ChatConnectionStateService
-  → ai:question
-```
-
-### FastAPI 요청
+### 6.1 NestJS → FastAPI 요청
 
 ```http
 POST /analysis/audio/batch
@@ -355,7 +538,21 @@ Content-Type: multipart/form-data
 | `capturedAts`       | 반복 값   | 녹음 시각                |
 | `endTypes`          | 반복 값   | `auto` 또는 `manual`     |
 
-### FastAPI 응답
+multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON이 아니라 파일을 포함한 multipart다.
+
+```json
+{
+  "questionMessageId": 101,
+  "generationId": "550e8400-e29b-41d4-a716-446655440000",
+  "audioFiles": ["<binary-1>", "<binary-2>"],
+  "messageIds": [102, 103],
+  "audioTransferIds": ["audio-transfer-001", "audio-transfer-002"],
+  "capturedAts": ["2026-08-12T06:00:03.500Z", "2026-08-12T06:00:10.500Z"],
+  "endTypes": ["auto", "manual"]
+}
+```
+
+### 6.2 FastAPI → NestJS 응답
 
 ```json
 {
@@ -368,103 +565,124 @@ Content-Type: multipart/form-data
     },
     {
       "messageId": 103,
-      "transcript": "그런데 금방 가서 서운했어요.",
+      "transcript": "그런데 금방 가버려서 서운했어요.",
       "sentimentLabel": "NEGATIVE",
-      "scaleAnalyses": []
+      "scaleAnalyses": [
+        {
+          "scaleType": "SGDS_K",
+          "questionNumber": 2,
+          "analysisScore": 1
+        }
+      ]
     }
   ],
   "nextQuestion": "아드님이 금방 돌아가셔서 많이 서운하셨군요."
 }
 ```
 
-- 요청의 모든 `messageId`와 응답의 ID가 정확히 일치해야 한다.
-- NestJS는 메시지별 transcript·감성·척도를 각각 저장한다.
-- 각 transcript는 별도 메시지로 저장되어 프론트에서 각각의 말풍선으로 표시한다.
-- FastAPI는 여러 답변의 전체 맥락을 내부적으로 함께 참고해 `nextQuestion` 하나를 생성한다.
+- `answers[]`의 각 결과를 해당 `messageId`에 개별 저장한다.
+- transcript 두 개는 합치지 않고 프론트에서 각각 말풍선으로 표시한다.
+- 요청과 응답의 `messageId` 집합이 정확히 일치해야 한다.
 - `nextQuestion`은 문자열 또는 `null`이다.
 - 네트워크·타임아웃·HTTP 502/503/504는 500ms 후 한 번 재시도한다.
-- 4xx와 응답 계약 오류는 재시도하지 않는다.
+- HTTP 4xx와 응답 계약 오류는 재시도하지 않는다.
 
-## 8. 과거 메시지 조회 REST API
+### 6.3 FastAPI 응답 이후 NestJS → Frontend
 
-과거 대화를 스크롤로 조회하는 기능은 WebSocket이 아닌 REST API로 처리한다.
+FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 기존 `ai:question` WS 형식으로 프론트에 보낸다.
+
+```json
+{
+  "event": "ai:question",
+  "payload": {
+    "messageId": 104,
+    "generationId": "8d073a92-d19b-4d70-a156-eedc204fac41",
+    "content": "아드님이 금방 돌아가셔서 많이 서운하셨군요."
+  },
+  "ts": "2026-08-12T06:00:22.000Z"
+}
+```
+
+## 7. Frontend ↔ NestJS 과거 메시지 REST API
+
+과거 대화 전체를 한 번에 불러오지 않고 cursor 기반 REST API로 일정 개수씩 나누어 조회한다.
+
+- `cursor`: 다음 조회를 어디서부터 시작할지 나타내는 메시지 ID
+- `limit`: 한 번에 조회할 메시지 개수
+- `messages`: AI·시니어 말풍선을 구성할 메시지 목록
+- `nextCursor`: 더 오래된 메시지를 다음에 조회할 때 사용할 값. 모두 조회했다면 `null`
+
+Frontend → NestJS:
 
 ```http
 GET /chats/messages?cursor=150&limit=30
 Authorization: Bearer JWT_ACCESS_TOKEN
 ```
 
+위 예시는 메시지 ID 150보다 이전에 작성된 메시지를 최대 30개 조회한다는 뜻이다.
+
+NestJS → Frontend:
+
 ```json
 {
   "messages": [
     {
       "messageId": 121,
-      "speakerType": "AI",
-      "content": "오늘 하루는 어떠셨어요?",
-      "sttStatus": "NOT_REQUIRED",
-      "createdAt": "2026-08-12T06:00:01.000Z"
+      "speakerType": "SENIOR",
+      "content": "오늘 아들이 집에 왔어요.",
+      "sttStatus": "COMPLETED",
+      "createdAt": "2026-08-12T06:00:04.000Z"
+    },
+    {
+      "messageId": 122,
+      "speakerType": "SENIOR",
+      "content": "그런데 금방 가버려서 서운했어요.",
+      "sttStatus": "COMPLETED",
+      "createdAt": "2026-08-12T06:00:11.000Z"
     }
   ],
   "nextCursor": 121
 }
 ```
 
-- JWT의 시니어 ID로 본인 메시지만 조회한다.
+- 각 메시지가 별도 배열 원소이므로 프론트는 메시지별 말풍선을 만든다.
+- JWT의 시니어 ID를 사용해 본인의 메시지만 조회한다.
 - 기본 `limit`은 30, 최대 100이다.
-- `cursor` 이전 메시지를 조회해 무한 스크롤에 사용한다.
 
-## 9. 재접속 및 상태 복원
-
-```text
-재접속 → JWT 인증
-  ├→ REST /chats/messages로 과거 메시지 복원
-  └→ 서버 메모리에 현재 질문이 있으면
-       chat:restored → ai:question 재전송
-```
-
-- DB의 과거 메시지와 연결별 진행 상태는 서로 다른 개념이다.
-- 현재 구현은 같은 서버 프로세스에 대한 단기 재접속만 지원한다.
-- 서버가 재시작되면 `Map`·`WeakMap`의 질문, metadata, 큐, ACK 상태가 사라진다.
-- ACK 전 Blob은 프론트가 보관하고 재접속 후 같은 `audioTransferId`로 재전송한다.
-- Redis 기반 다중 서버·서버 재시작 복구는 MVP 이후로 보류한다.
-
-## 10. 구현 상태
+## 8. 구현 상태와 확인할 부분
 
 ### 구현 완료
 
-- WS 연결과 JWT `SENIOR` 인증
-- `chat:start`, 최초 질문 저장, `chat:started`, `ai:question`
-- metadata 검증과 binary 결합
-- 답변 메시지·관계 트랜잭션 저장
-- `audio:ack`과 중복 전송 기존 ACK 재전송
-- 질문별 10초 추가 답변 큐와 용량·개수 제한
-- 메시지별 분석 저장과 통합 다음 질문 계약
-- FastAPI REST Client, 응답 검증, 일시 오류 1회 재시도
-- 수동 종료, 30초 안내, 2분 자동 종료
-- 늦은 답변 저장·분석과 중복 다음 질문 차단
+- JWT WS 인증과 이벤트 분배
+- 대화 시작·수동 종료·무응답 자동 종료
+- metadata와 binary 결합
+- 답변 메시지·관계 저장 및 `audio:ack`
+- 질문별 10초 추가 답변 큐
+- FastAPI multipart Client와 응답 계약 검증
+- 메시지별 분석 결과 저장과 다음 질문 WS 전송
+- 중복 전송 기존 ACK 재전송
 - 과거 메시지 cursor REST API
-- 같은 서버 내 단기 현재 질문 복원
-- 단위 테스트와 Mock FastAPI 포함 E2E 테스트
+- 같은 서버 프로세스의 단기 현재 질문 복원
+- Mock FastAPI를 사용한 단위·E2E 테스트
 
-### 외부 연동 전
+### Frontend와 맞춰야 할 부분
 
-- 실제 프론트의 녹음 포맷과 metadata/binary 전송
-- 프론트의 ACK 전 Blob 보관·재전송
-- 실제 FastAPI multipart 요청·응답 일치 확인
-- 분석 실패와 무응답 안내 화면 UX
+- 브라우저 녹음 MIME 형식
+- metadata와 binary 전송 순서
+- ACK 전 Blob 보관과 재전송
+- 메시지별 말풍선 표시
+- 30초 안내·2분 종료 UI
+- 분석 실패 UI
+
+### FastAPI와 맞춰야 할 부분
+
+- multipart 반복 필드 이름과 배열 순서
+- 메시지별 STT·감성·척도 응답 형식
+- 여러 답변을 참고한 `nextQuestion` 생성 방식
+- HTTP 오류와 분석 오류 응답 규격
 
 ### MVP 이후
 
-- Redis 기반 진행 상태·큐·ACK 복구
-- 서버 재시작 및 다중 인스턴스 환경 복구
+- Redis 기반 서버 재시작·다중 인스턴스 상태 복원
 - TTS binary 전송
-- 런타임 검증 스키마의 프론트·백엔드 완전 공유
-
-## 11. 멘토링 확인 사항
-
-- 시니어 대상 추가 답변 대기 10초와 총 2분 무응답 종료가 적절한가?
-- 늦은 답변은 저장·분석하되 이미 보낸 다음 질문은 재생성하지 않는 정책이 적절한가?
-- 메시지별 분석 저장과 전체 답변 기반 다음 질문 생성 방식이 적절한가?
-- 실시간 동작은 WS, 과거 기록은 REST로 분리한 구조가 적절한가?
-- 단기 복원은 메모리로 처리하고 완전 복구를 MVP 이후 Redis로 미루는 것이 적절한가?
-- FastAPI 일시 오류에 한 번만 자동 재시도하는 정책이 적절한가?
+- 프론트·백엔드·FastAPI 런타임 스키마 공유
