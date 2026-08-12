@@ -1120,7 +1120,7 @@ import { ReportPeriodTabs } from '../../../widgets/report-period-tabs'
 import styles from './GuardianReportPage.module.css'
 
 // GUARDIAN_REPORT_01 (UC-08, UC-09) — 결정사항 로그 §7에서 일간/주간 탭
-// 위젯과 "이날의 정서 지수"/"다솔이의 한마디"/"이날의 대화 요약" 카드를
+// 위젯과 "이날의 정서 지수"/"다슬이의 한마디"/"이날의 대화 요약" 카드를
 // 추가했다. 실제 API 연결 전이라 이날의 리포트는 페이지 로컬 mock이다.
 const mockDailyReport = {
   emotionScore: 93,
@@ -1442,7 +1442,7 @@ import { ReportPeriodTabs } from '../../../widgets/report-period-tabs'
 import styles from './GuardianReportPage.module.css'
 
 // GUARDIAN_REPORT_01 (UC-08, UC-09) — 결정사항 로그 §7에서 일간/주간 탭
-// 위젯과 "이날의 정서 지수"/"다솔이의 한마디"/"이날의 대화 요약" 카드를
+// 위젯과 "이날의 정서 지수"/"다슬이의 한마디"/"이날의 대화 요약" 카드를
 // 추가했다. 실제 API 연결 전이라 이날의 리포트는 페이지 로컬 mock이다.
 const mockDailyReport = {
   emotionScore: 93,
