@@ -6,7 +6,7 @@ import type { ChatConnectionStateService } from '../chat-connection-state.servic
 describe('AudioMetadataHandler', () => {
   function createHandler(matchesCurrentQuestion = true) {
     const stateService = {
-      matchesCurrentQuestion: jest.fn().mockReturnValue(matchesCurrentQuestion),
+      matchesKnownQuestion: jest.fn().mockReturnValue(matchesCurrentQuestion),
     };
     return {
       handler: new AudioMetadataHandler(
@@ -27,8 +27,8 @@ describe('AudioMetadataHandler', () => {
   const validMetadata = JSON.stringify({
     event: 'audio:metadata',
     payload: {
-      captureId: 'capture-001',
-      aiQuestionMessageId: 101,
+      audioTransferId: 'audio-transfer-001',
+      questionMessageId: 101,
       generationId: 'generation-001',
       mimeType: 'audio/webm;codecs=opus',
       capturedAt: '2026-08-07T10:00:03.500Z',
@@ -49,15 +49,15 @@ describe('AudioMetadataHandler', () => {
     );
 
     expect(handler.getPendingMetadata(client.client)).toEqual({
-      captureId: 'capture-001',
-      aiQuestionMessageId: 101,
+      audioTransferId: 'audio-transfer-001',
+      questionMessageId: 101,
       generationId: 'generation-001',
       mimeType: 'audio/webm;codecs=opus',
       capturedAt: '2026-08-07T10:00:03.500Z',
       endType: 'auto',
       seniorId: 7,
     });
-    expect(stateService.matchesCurrentQuestion).toHaveBeenCalledWith(
+    expect(stateService.matchesKnownQuestion).toHaveBeenCalledWith(
       client.client,
       101,
       'generation-001',
@@ -75,7 +75,7 @@ describe('AudioMetadataHandler', () => {
       Buffer.from(
         JSON.stringify({
           event: 'audio:metadata',
-          payload: { captureId: '' },
+          payload: { audioTransferId: '' },
           ts: '2026-08-07T10:00:04.000Z',
         }),
       ),
@@ -145,5 +145,22 @@ describe('AudioMetadataHandler', () => {
       }),
     );
     expect(handler.getPendingMetadata(client.client)).toBeUndefined();
+  });
+
+  it('pending metadata를 한 번 꺼낸 뒤 제거한다', () => {
+    const { handler } = createHandler();
+    const client = createClient();
+
+    handler.handleAudioMetadata(
+      client.client,
+      { sub: 7, role: UserRole.SENIOR },
+      Buffer.from(validMetadata),
+      false,
+    );
+
+    expect(handler.takePendingMetadata(client.client)).toEqual(
+      expect.objectContaining({ audioTransferId: 'audio-transfer-001' }),
+    );
+    expect(handler.takePendingMetadata(client.client)).toBeUndefined();
   });
 });

@@ -20,7 +20,7 @@ describe('ChatsService', () => {
     expect(
       conversationMessageRepository.saveInitialAiQuestion,
     ).toHaveBeenCalledWith(7, '오늘 하루는 어땠나요?');
-    expect(result.aiQuestionMessageId).toBe(101);
+    expect(result.messageId).toBe(101);
     expect(result.content).toBe('오늘 하루는 어땠나요?');
     expect(result.generationId).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,

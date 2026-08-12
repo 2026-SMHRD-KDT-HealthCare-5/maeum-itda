@@ -1,0 +1,62 @@
+/*
+역할: NestJS가 질문별 복수 음성 답변을 묶어 FastAPI에 전달하고 결과를 받는 계약을 정의한다.
+전체 흐름: AudioBinaryHandler → QuestionAnswerQueueService → AnalysisService → AiClient → FastAPI
+주의: 이 파일은 FastAPI의 분석 로직을 구현하지 않고 두 서버 사이의 데이터 경계만 정의한다.
+*/
+import { SentimentLabel } from '../entities/emotion-tag.entity';
+import { ScaleType } from '../entities/scale-question-analysis.entity';
+
+// 시니어가 한 질문에 대해 녹음한 음성 한 건이다.
+export interface QueuedAnswerSegment {
+  messageId: number;
+  seniorId: number;
+  questionMessageId: number;
+  generationId: string;
+  audioTransferId: string;
+  mimeType: string;
+  capturedAt: string;
+  endType: 'auto' | 'manual';
+  audioBuffer: Buffer;
+  // false면 저장·개별 분석은 수행하지만 이 묶음으로 새 AI 질문을 생성하지 않는다.
+  continueConversation: boolean;
+}
+
+// 같은 AI 질문에 연결된 첫 답변과 추가 답변을 순서대로 묶은 분석 단위다.
+export interface QuestionAnswerBatch {
+  questionMessageId: number;
+  seniorId: number;
+  generationId: string;
+  // false면 종료 직전 답변 분석 결과만 저장하고 다음 AI 질문은 저장·전송하지 않는다.
+  continueConversation: boolean;
+  answers: QueuedAnswerSegment[];
+}
+
+export interface ScaleAnalysisResult {
+  scaleType: ScaleType;
+  questionNumber: number;
+  analysisScore: 0 | 1;
+}
+
+// FastAPI가 음성 한 건마다 반환해야 하는 STT·감성·척도 결과다.
+export interface AnswerAnalysisResult {
+  messageId: number;
+  transcript: string;
+  sentimentLabel: SentimentLabel;
+  scaleAnalyses: ScaleAnalysisResult[];
+}
+
+// FastAPI가 질문별 음성 묶음 전체를 분석한 응답이다.
+export interface QuestionAnswerAnalysisResult {
+  answers: AnswerAnalysisResult[];
+  nextQuestion: string | null;
+}
+
+// DB 저장 완료 후 WebSocket으로 다음 질문을 보낼 때 사용하는 NestJS 내부 결과다.
+export interface CompletedAudioAnalysis {
+  answerMessageIds: number[];
+  nextQuestion: {
+    messageId: number;
+    generationId: string;
+    content: string;
+  } | null;
+}

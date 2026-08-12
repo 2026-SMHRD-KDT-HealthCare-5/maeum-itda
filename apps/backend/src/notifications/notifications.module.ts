@@ -4,13 +4,13 @@
 */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { GuardianRiskAlert } from './entities/guardian-risk-alert.entity';
+import { GuardianNotification } from './entities/guardian-notification.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
 
-// GuardianRiskAlert Repository와 알림 요청 처리 객체를 등록한다.
+// GuardianNotification Repository와 알림 요청 처리 객체를 등록한다.
 @Module({
-  imports: [TypeOrmModule.forFeature([GuardianRiskAlert])],
+  imports: [TypeOrmModule.forFeature([GuardianNotification])],
   controllers: [NotificationsController],
   providers: [NotificationsService],
 })

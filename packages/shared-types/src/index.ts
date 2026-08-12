@@ -95,3 +95,6 @@ export interface VoiceCapturedEvent {
   phase: QuestionTurnPhase
   generationId: string | null
 }
+
+// 확정된 WebSocket 계약은 ws 하위 모듈에서 관리한다.
+export * from './ws'

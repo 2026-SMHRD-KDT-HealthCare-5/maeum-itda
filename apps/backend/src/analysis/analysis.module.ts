@@ -8,8 +8,14 @@ import { AiClient } from './ai.client';
 import { AnalysisService } from './analysis.service';
 import { EmotionTag } from './entities/emotion-tag.entity';
 import { ScaleQuestionAnalysis } from './entities/scale-question-analysis.entity';
-import { VoiceEmotionAnalysis } from './entities/voice-emotion-analysis.entity';
+import { VoiceAnalysisStatus } from './entities/voice-analysis-status.entity';
+import { ConversationMessage } from '../chats/entities/conversation-message.entity';
+import { AnalysisController } from './analysis.controller';
+import { AnalysisResultRepository } from './repositories/analysis-result.repository';
+import { TemporaryAudioRepository } from './repositories/temporary-audio.repository';
 
+// 역할: 분석 REST 진입점, 업무 Service, FastAPI Client와 DB·메모리 Repository를 등록한다.
+// 연결 흐름: ChatsModule → AnalysisService → AiClient/Repository이며 외부에는 AnalysisService만 공개한다.
 // AI 분석 객체와 분석 결과 Repository를 등록한다.
 // exports의 AnalysisService는 ChatsService에서 주입받아 사용할 수 있다.
 @Module({
@@ -17,10 +23,17 @@ import { VoiceEmotionAnalysis } from './entities/voice-emotion-analysis.entity';
     TypeOrmModule.forFeature([
       ScaleQuestionAnalysis,
       EmotionTag,
-      VoiceEmotionAnalysis,
+      VoiceAnalysisStatus,
+      ConversationMessage,
     ]),
   ],
-  providers: [AnalysisService, AiClient],
+  controllers: [AnalysisController],
+  providers: [
+    AnalysisService,
+    AiClient,
+    AnalysisResultRepository,
+    TemporaryAudioRepository,
+  ],
   exports: [AnalysisService],
 })
 export class AnalysisModule {}

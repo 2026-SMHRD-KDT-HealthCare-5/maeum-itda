@@ -2,7 +2,16 @@
 역할: 과거 대화 조회처럼 WebSocket이 아닌 채팅 REST API 요청을 받는 입구다.
 전체 흐름: 브라우저 → ChatsController → ChatsService → Repository → MySQL
 */
-import { Controller } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Headers,
+  Query,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
+import { UserRole } from '../users/entities/user.entity';
 import { ChatsService } from './chats.service';
 
 // /chats 경로의 HTTP 요청을 이 Controller로 전달한다.
@@ -11,9 +20,46 @@ export class ChatsController {
   private readonly chatsService: ChatsService;
 
   // NestJS DI 컨테이너가 ChatsService 객체를 생성자에 주입한다.
-  constructor(chatsService: ChatsService) {
+  constructor(
+    chatsService: ChatsService,
+    private readonly authService: AuthService,
+  ) {
     this.chatsService = chatsService;
   }
 
-  // 과거 메시지 무한 스크롤용 cursor 기반 REST API 메서드는 이후 이 클래스에 추가한다.
+  // 역할: 인증된 시니어 본인의 과거 대화만 cursor 기반으로 조회한다.
+  @Get('messages')
+  async getMessages(
+    @Headers('authorization') authorization: string | undefined,
+    @Query('cursor') cursorValue?: string,
+    @Query('limit') limitValue?: string,
+  ) {
+    const accessToken = this.extractBearerToken(authorization);
+    const user = await this.authService.verifyAccessToken(accessToken);
+    if (user.role !== UserRole.SENIOR) {
+      throw new UnauthorizedException(
+        '시니어 계정만 대화를 조회할 수 있습니다.',
+      );
+    }
+    const cursor = cursorValue === undefined ? undefined : Number(cursorValue);
+    const limit = limitValue === undefined ? 30 : Number(limitValue);
+    if (
+      (cursor !== undefined && (!Number.isInteger(cursor) || cursor <= 0)) ||
+      !Number.isInteger(limit) ||
+      limit < 1 ||
+      limit > 100
+    ) {
+      throw new BadRequestException(
+        'cursor 또는 limit 값이 올바르지 않습니다.',
+      );
+    }
+    return this.chatsService.getMessageHistory(user.sub, cursor, limit);
+  }
+
+  private extractBearerToken(authorization: string | undefined): string {
+    if (authorization?.startsWith('Bearer ') !== true) {
+      throw new UnauthorizedException('Bearer 인증 토큰이 필요합니다.');
+    }
+    return authorization.slice('Bearer '.length);
+  }
 }

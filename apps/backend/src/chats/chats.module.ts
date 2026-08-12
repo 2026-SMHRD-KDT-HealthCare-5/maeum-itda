@@ -17,6 +17,12 @@ import { ChatStartHandler } from './handlers/chat-start.handler';
 import { ConversationMessageRepository } from './repositories/conversation-message.repository';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import { ChatConnectionStateService } from './chat-connection-state.service';
+import { AudioBinaryHandler } from './handlers/audio-binary.handler';
+import { AudioAnswerRepository } from './repositories/audio-answer.repository';
+import { QuestionAnswerQueueService } from './question-answer-queue.service';
+import { ChatEndHandler } from './handlers/chat-end.handler';
+import { AudioTransferStateService } from './audio-transfer-state.service';
+import { ChatInactivityService } from './chat-inactivity.service';
 
 // 인증·AI 분석·DB Repository를 가져오고 채팅의 입구와 업무 객체를 등록한다.
 // NestJS DI 컨테이너는 등록된 객체의 생성자를 확인해 필요한 의존성을 주입한다.
@@ -32,10 +38,16 @@ import { ChatConnectionStateService } from './chat-connection-state.service';
     ChatsGateway,
     ChatAuthHandler,
     ChatStartHandler,
+    ChatEndHandler,
     AudioMetadataHandler,
+    AudioBinaryHandler,
     ChatConnectionStateService,
     ChatsService,
     ConversationMessageRepository,
+    AudioAnswerRepository,
+    QuestionAnswerQueueService,
+    AudioTransferStateService,
+    ChatInactivityService,
   ],
 })
 export class ChatsModule {}

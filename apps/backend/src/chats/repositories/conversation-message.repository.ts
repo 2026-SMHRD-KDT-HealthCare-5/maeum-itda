@@ -8,7 +8,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {
   ConversationMessage,
-  MessageType,
   SpeakerType,
   SttStatus,
 } from '../entities/conversation-message.entity';
@@ -20,9 +19,10 @@ export class ConversationMessageRepository {
   // NestJS DI 컨테이너가 ConversationMessage Entity의 TypeORM Repository를 주입
   constructor(
     @InjectRepository(ConversationMessage)
-    typeOrmRepository: Repository<ConversationMessage>,) {
+    typeOrmRepository: Repository<ConversationMessage>,
+  ) {
     this.typeOrmRepository = typeOrmRepository;
-    }
+  }
 
   // 역할: 최초 AI 질문 객체 생성과 INSERT 실행
   // 연결 객체: TypeORM Repository<ConversationMessage>
@@ -31,13 +31,10 @@ export class ConversationMessageRepository {
     seniorId: number,
     content: string,
   ): Promise<ConversationMessage> {
-
     // Entity 형식의 AI 질문 객체 생성: 아직 INSERT가 실행되는 단계는 아님
     const initialQuestion = this.typeOrmRepository.create({
       seniorId,
-      reportId: null,
       speakerType: SpeakerType.AI,
-      messageType: MessageType.MESSAGE,
       content,
       sttStatus: SttStatus.NOT_REQUIRED,
       sttErrorMessage: null,
@@ -45,5 +42,23 @@ export class ConversationMessageRepository {
 
     // INSERT 실행 후 MySQL이 발급한 MESSAGE_ID를 포함한 객체 반환
     return this.typeOrmRepository.save(initialQuestion);
+  }
+
+  // 역할: 시니어의 과거 메시지를 최신 cursor 이전부터 조회한 뒤 화면 표시 순서로 반환한다.
+  async findHistory(
+    seniorId: number,
+    cursor: number | undefined,
+    limit: number,
+  ): Promise<ConversationMessage[]> {
+    const query = this.typeOrmRepository
+      .createQueryBuilder('message')
+      .where('message.SENIOR_ID = :seniorId', { seniorId })
+      .orderBy('message.MESSAGE_ID', 'DESC')
+      .take(limit);
+    if (cursor !== undefined) {
+      query.andWhere('message.MESSAGE_ID < :cursor', { cursor });
+    }
+    const messages = await query.getMany();
+    return messages.reverse();
   }
 }
