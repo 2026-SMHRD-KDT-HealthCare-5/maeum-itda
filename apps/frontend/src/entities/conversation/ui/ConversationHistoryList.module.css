@@ -74,6 +74,11 @@
   text-align: left;
 }
 
+.pendingMessage > span {
+  color: #7f8a84;
+  font-style: italic;
+}
+
 .liveMessages .assistantMessage:last-child {
   padding-block: 16px;
   background: #fff;

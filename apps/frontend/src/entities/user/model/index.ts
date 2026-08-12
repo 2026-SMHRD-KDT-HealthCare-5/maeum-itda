@@ -9,6 +9,11 @@ export interface Session {
   userId: string
   name: string
   role: Role
+  // /ws/chats 인증 첫 메시지(auth)에 실어 보낼 JWT(docs/ws-protocol.md §5.1).
+  // 로그인이 아직 mockResolveRole()이라 실제 토큰을 발급받을 방법이 없으니
+  // 지금은 항상 null이다 — apps/backend에 로그인 엔드포인트가 생기면 그
+  // 응답의 accessToken으로 채울 것.
+  accessToken: string | null
 }
 
 export interface SessionContextValue {

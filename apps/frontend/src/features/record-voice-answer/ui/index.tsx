@@ -4,12 +4,14 @@ type RecordVoiceAnswerActionProps = {
   characterImageAlt: string
   characterImageSrc: string
   characterState: 'listening' | 'question' | 'thinking'
+  onFinishAnswer: () => void
 }
 
 export function RecordVoiceAnswerAction({
   characterImageAlt,
   characterImageSrc,
   characterState,
+  onFinishAnswer,
 }: RecordVoiceAnswerActionProps) {
   const isResponding = characterState === 'listening'
   const statusText =
@@ -35,6 +37,7 @@ export function RecordVoiceAnswerAction({
         type="button"
         disabled={!isResponding}
         data-state={isResponding ? 'responding' : 'waiting'}
+        onClick={onFinishAnswer}
       >
         <span aria-hidden="true">{isResponding ? '' : '•••'}</span>
         <strong>{isResponding ? '지금 답변 마치기' : '응답 대기 중'}</strong>
