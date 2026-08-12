@@ -7,10 +7,10 @@ STT 서비스.
 이 파일의 요청 형식(멀티파트 필드명, 모델별 language/languages[] 분기 등)과
 faster-whisper 추론 파라미터(vad_filter, beam_size 등)는 2026-08-05에 STT만 따로
 떼어 검증했던 프로젝트(STT-...-v1-API-openai / STT-...-v2-로컬-fasterwhisper)의
-실전 검증된 구현을 그대로 가져와 이 WS 파이프라인에 맞게 통합한 것이다.
+실전 검증된 구현을 그대로 가져와 REST 배치 파이프라인에 맞게 통합한 것이다.
 
 FR-01-08(음성 분석 실패 처리) 대응: 두 경로 모두 실패하면 SttResult.ok=False로
-반환하고, WS 핸들러 쪽에서 stt_failed 메시지를 백엔드에 보낸다.
+반환하고, REST 엔드포인트가 HTTP 422 응답으로 변환한다.
 
 주의(원본 프로젝트에서 확인된 함정):
 - 로컬 whisper 추론은 블로킹이라 이벤트 루프에서 직접 호출하면 안 됨

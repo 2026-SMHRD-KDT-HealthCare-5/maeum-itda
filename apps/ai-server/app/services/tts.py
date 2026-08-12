@@ -158,7 +158,7 @@ async def _stream_one_segment(client: httpx.AsyncClient, text: str, chunk_size: 
 
 async def synthesize_stream(text: str) -> AsyncIterator[bytes]:
     """텍스트 -> 실제 오디오 바이트 스트림. 생성되는 대로 바로 yield된다
-    (WS 핸들러가 이 제너레이터의 각 결과를 그대로 tts_chunk_meta + binary로 내보내면 됨).
+    현재 REST 배치 분석에서는 호출하지 않으며 TTS 개별 검증에서 사용한다.
 
     2000자를 넘는 예외적인 경우에만 split_text()로 나눠 세그먼트별로 순차 스트리밍한다.
     평소(단문 질문)에는 세그먼트가 1개뿐이라 사실상 한 번의 스트리밍 호출로 끝난다."""

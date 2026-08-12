@@ -1,7 +1,7 @@
 """
 감정분류 모듈 단독 검증용 CLI.
 
-app/services/emotion.py를 서버(WS) 없이 그대로 불러와서 실행합니다.
+app/services/emotion.py를 서버 실행 없이 그대로 불러와서 실행합니다.
 
 주의: 아직 TEXT_EMOTION_MODEL_PATH / VOICE_EMOTION_MODEL_PATH에 실제 체크포인트가
 연결되지 않았다면, 모델 로딩이 실패하고 "균등분포"(모든 감정이 똑같은 확률)가 나옵니다.

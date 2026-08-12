@@ -1,10 +1,9 @@
 """
-세션(통화) 단위 대화 문맥을 메모리에 들고 있는 매니저.
+LLM에 전달할 대화 문맥 자료구조와 메모리 매니저.
 
-- 이번 통화(세션) 동안의 turn 히스토리는 이 AI 서버가 관리한다.
-- 과거 세션들의 요약(prev_session_summary)은 연결 시작 시 백엔드가 1회 제공한다.
-- 연결이 끊기면(session_end 수신 또는 WS disconnect) 해당 세션 상태는 폐기한다.
-  (영속 저장이 필요하면 여기서 DB/Redis 등에 flush하는 훅을 추가하면 됨)
+- 현재 REST 배치 분석은 요청마다 임시 SessionState를 생성한다.
+- prev_session_summary와 pending_scale_items는 향후 REST 계약에서 문맥을 받을 때 사용한다.
+- SessionManager는 지속 문맥이 다시 필요할 때 사용할 수 있도록 유지한다.
 """
 from dataclasses import dataclass, field
 from typing import Optional

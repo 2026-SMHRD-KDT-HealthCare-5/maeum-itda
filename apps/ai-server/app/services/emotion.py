@@ -136,7 +136,7 @@ def dominant_emotion(emotion_probs: dict[str, float]) -> str:
 
 
 def classify_and_fuse(text: str, audio_bytes: bytes, sample_rate: int = 16000) -> dict[str, float]:
-    """WS 핸들러에서 호출하는 진입점: 텍스트+음성 감정분류 후 융합까지 한번에."""
+    """REST 배치 엔드포인트에서 호출하는 텍스트·음성 감정분류 진입점."""
     text_probs = classify_text_emotion(text)
     voice_probs = classify_voice_emotion(audio_bytes, sample_rate=sample_rate)
     return fuse_emotions(text_probs, voice_probs)
