@@ -10,11 +10,24 @@ import {
   Query,
   UnauthorizedException,
 } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiBearerAuth,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { AuthService } from '../auth/auth.service';
+import { ApiErrorResponseDto } from '../common/dto/api-error-response.dto';
 import { UserRole } from '../users/entities/user.entity';
 import { ChatsService } from './chats.service';
+import { ChatHistoryPageResponseDto } from './dto/chat-history-response.dto';
 
 // /chats 경로의 HTTP 요청을 이 Controller로 전달한다.
+@ApiTags('2. 대화 기록')
+@ApiBearerAuth()
 @Controller('chats')
 export class ChatsController {
   private readonly chatsService: ChatsService;
@@ -29,6 +42,33 @@ export class ChatsController {
 
   // 역할: 인증된 시니어 본인의 과거 대화만 cursor 기반으로 조회한다.
   @Get('messages')
+  @ApiOperation({ summary: '시니어 본인의 과거 대화 메시지 조회' })
+  @ApiQuery({
+    name: 'cursor',
+    required: false,
+    type: Number,
+    description: '이 ID보다 오래된 메시지를 조회한다.',
+    example: 101,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: '조회 개수(기본 30, 최소 1, 최대 100)',
+    example: 30,
+  })
+  @ApiOkResponse({
+    description: '대화 메시지와 다음 cursor 반환',
+    type: ChatHistoryPageResponseDto,
+  })
+  @ApiBadRequestResponse({
+    description: 'cursor 또는 limit 형식·범위 오류',
+    type: ApiErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Bearer Token 누락·만료 또는 시니어 계정이 아님',
+    type: ApiErrorResponseDto,
+  })
   async getMessages(
     @Headers('authorization') authorization: string | undefined,
     @Query('cursor') cursorValue?: string,

@@ -19,6 +19,7 @@ export function setupSwagger(app: INestApplication): void {
 
   // 생성한 문서를 /api-docs 경로의 Swagger UI로 제공한다.
   SwaggerModule.setup('api-docs', app, document, {
+    jsonDocumentUrl: '/api-docs-json',
     swaggerOptions: {
       persistAuthorization: true,
     },
