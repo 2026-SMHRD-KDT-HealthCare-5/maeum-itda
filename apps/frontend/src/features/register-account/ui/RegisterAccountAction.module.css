@@ -59,6 +59,11 @@
   color: #214c3a;
 }
 
+.roleError {
+  border-color: #c95f5f;
+  background: #fffafa;
+}
+
 .roleImage {
   width: min(100%, 112px);
   height: 82px;
@@ -162,6 +167,14 @@
   margin: 6px 2px 0;
   color: #b74d4d;
   font-size: 12px;
+  line-height: 1.4;
+}
+
+.checkSuccess {
+  margin: 6px 2px 0;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
   line-height: 1.4;
 }
 
