@@ -6,7 +6,7 @@ export default [
   {
     files: ['public/sw.js'],
     languageOptions: {
-      globals: { self: 'readonly', caches: 'readonly', fetch: 'readonly' },
+      globals: { self: 'readonly', caches: 'readonly', fetch: 'readonly', URL: 'readonly' },
     },
   },
 ]

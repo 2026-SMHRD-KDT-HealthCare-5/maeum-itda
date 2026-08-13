@@ -1,0 +1,14 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 100svh;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.title {
+  font-size: 18px;
+}
