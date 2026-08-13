@@ -1,2 +1,13 @@
-// TODO(entities/user): 로그인 API 연동 (UC-00). apps/backend 준비 전까지 비어있음.
-export {}
+import { apiClient } from '../../../shared/api'
+import { roleFromApi, type MyProfile } from '../model'
+
+export async function fetchMyProfile(): Promise<MyProfile> {
+  const { data } = await apiClient.users.usersControllerGetMyProfile()
+  return {
+    userId: data.userId,
+    loginId: data.loginId,
+    name: data.name,
+    phone: data.phone,
+    role: roleFromApi(data.role),
+  }
+}
