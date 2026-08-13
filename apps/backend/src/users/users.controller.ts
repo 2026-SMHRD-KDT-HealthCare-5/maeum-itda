@@ -28,7 +28,7 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
 
 // /users 경로의 HTTP 요청을 이 Controller로 전달한다.
-@ApiTags('2. 회원 관리')
+@ApiTags('2. 내 계정 관리')
 @ApiBearerAuth()
 @UseGuards(AccessTokenGuard)
 @Controller('users')

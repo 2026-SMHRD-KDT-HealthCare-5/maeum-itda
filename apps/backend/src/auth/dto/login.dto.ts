@@ -11,11 +11,11 @@ export class LoginDto {
   @Matches(/^[a-zA-Z0-9_]{4,50}$/, {
     message: '아이디 또는 비밀번호가 일치하지 않습니다.',
   })
-  loginId: string;
+  loginId!: string;
 
   @ApiProperty({ description: '비밀번호', example: 'password123!' })
   @IsString()
   @MinLength(1)
   @MaxLength(72)
-  password: string;
+  password!: string;
 }

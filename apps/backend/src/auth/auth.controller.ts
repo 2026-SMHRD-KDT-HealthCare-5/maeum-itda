@@ -24,7 +24,7 @@ import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 
 // Swagger 문서 그룹과 /auth REST API 기본 경로를 등록한다.
-@ApiTags('1. 인증 및 회원관리')
+@ApiTags('1. 인증 및 회원가입')
 @Controller('auth')
 export class AuthController {
   private readonly authService: AuthService;
