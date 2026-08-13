@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card } from '../../../shared/ui'
 import { LoginForm } from '../../../features/login-with-credentials'
 import brandImage from './logo-daseul.png'
@@ -7,6 +7,8 @@ import styles from './LoginPage.module.css'
 // LOGIN_01 (UC-00)
 export function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const notice = (location.state as { notice?: string } | null)?.notice
 
   return (
     <main className={styles.page}>
@@ -22,6 +24,11 @@ export function LoginPage() {
 
       <section className={styles.loginCard} aria-label="로그인">
         <Card>
+          {notice && (
+            <p className={styles.notice} role="status">
+              {notice}
+            </p>
+          )}
           <LoginForm />
 
           <div className={styles.divider}>
