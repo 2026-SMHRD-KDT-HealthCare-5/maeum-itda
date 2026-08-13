@@ -9,7 +9,7 @@ import { sendWsError } from './ws-event';
 describe('sendWsError', () => {
   it('requestEvent와 retryable을 포함한 공통 오류 envelope를 전송한다', () => {
     const send = jest.fn<void, [string]>();
-    const client = { send } as unknown as WebSocket;
+    const client = { send, readyState: 1 } as unknown as WebSocket;
 
     sendWsError(client, {
       code: 'QUESTION_MISMATCH',
@@ -29,5 +29,20 @@ describe('sendWsError', () => {
       },
       ts: expect.any(String),
     });
+  });
+
+  it('연결이 닫힌 client에는 이벤트를 전송하지 않는다', () => {
+    const send = jest.fn<void, [string]>();
+    const client = { send, readyState: 3 } as unknown as WebSocket;
+
+    const sent = sendWsError(client, {
+      code: 'INTERNAL_ERROR',
+      message: '서버 오류가 발생했습니다.',
+      requestEvent: 'unknown',
+      retryable: true,
+    });
+
+    expect(sent).toBe(false);
+    expect(send).not.toHaveBeenCalled();
   });
 });

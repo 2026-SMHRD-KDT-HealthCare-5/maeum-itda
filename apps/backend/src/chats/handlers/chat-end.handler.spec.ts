@@ -8,11 +8,18 @@ import type { QuestionAnswerQueueService } from '../question-answer-queue.servic
 import type { AudioBinaryHandler } from './audio-binary.handler';
 import { ChatEndHandler } from './chat-end.handler';
 import type { AudioMetadataHandler } from './audio-metadata.handler';
+import type { ChatEndEvent } from '../client-ws-event';
+
+const chatEndEvent: ChatEndEvent = {
+  event: 'chat:end',
+  payload: { reason: 'USER_REQUESTED' },
+  ts: '2026-08-12T00:00:00.000Z',
+};
 
 describe('ChatEndHandler', () => {
   function createContext() {
     const send = jest.fn<void, [string]>();
-    const client = { send } as unknown as WebSocket;
+    const client = { send, readyState: 1 } as unknown as WebSocket;
     const queue = { flush: jest.fn() };
     const metadata = { clearClient: jest.fn() };
     const binary = { clearClient: jest.fn() };
@@ -34,17 +41,7 @@ describe('ChatEndHandler', () => {
 
   it('남은 질문 큐와 연결 상태를 정리하고 chat:ended를 전송한다', () => {
     const context = createContext();
-    context.handler.handleChatEnd(
-      context.client,
-      Buffer.from(
-        JSON.stringify({
-          event: 'chat:end',
-          payload: { reason: 'USER_REQUESTED' },
-          ts: '2026-08-12T00:00:00.000Z',
-        }),
-      ),
-      false,
-    );
+    context.handler.handleChatEnd(context.client, chatEndEvent);
 
     expect(context.queue.flush).toHaveBeenCalledWith(101, false);
     expect(context.metadata.clearClient).toHaveBeenCalledWith(context.client);
@@ -57,33 +54,6 @@ describe('ChatEndHandler', () => {
           reason: 'USER_REQUESTED',
           endedAt: expect.any(String),
         },
-      }),
-    );
-  });
-
-  it('지원하지 않는 종료 사유를 거부하고 상태를 정리하지 않는다', () => {
-    const context = createContext();
-    context.handler.handleChatEnd(
-      context.client,
-      Buffer.from(
-        JSON.stringify({
-          event: 'chat:end',
-          payload: { reason: 'TIMEOUT' },
-          ts: '2026-08-12T00:00:00.000Z',
-        }),
-      ),
-      false,
-    );
-
-    expect(context.queue.flush).not.toHaveBeenCalled();
-    expect(context.state.markChatEnded).not.toHaveBeenCalled();
-    expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
-      expect.objectContaining({
-        event: 'error',
-        payload: expect.objectContaining({
-          requestEvent: 'chat:end',
-          retryable: false,
-        }),
       }),
     );
   });
