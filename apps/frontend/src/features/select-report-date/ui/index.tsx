@@ -7,6 +7,7 @@ const weekDays = ['일', '월', '화', '수', '목', '금', '토']
 interface SelectReportDateActionProps {
   selectedDate: Date
   onSelectDate: (date: Date) => void
+  datesWithReport: Set<string>
 }
 
 // GUARDIAN_REPORT_01 (UC-08) — 일간 리포트 날짜 네비게이션 + 캘린더 모달.
@@ -16,6 +17,7 @@ interface SelectReportDateActionProps {
 export function SelectReportDateAction({
   selectedDate,
   onSelectDate,
+  datesWithReport,
 }: SelectReportDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [visibleMonth, setVisibleMonth] = useState(
@@ -107,6 +109,7 @@ export function SelectReportDateAction({
                 </span>
               ))}
               {calendarDates.map((date) => {
+                const hasReport = datesWithReport.has(toDateKey(date))
                 const isSelected = isSameDate(date, selectedDate)
                 const isOutsideMonth = date.getMonth() !== month
 
@@ -117,11 +120,12 @@ export function SelectReportDateAction({
                     className={[
                       styles.dateCell,
                       isOutsideMonth ? styles.outsideMonth : '',
+                      hasReport ? styles.hasReport : '',
                       isSelected ? styles.selected : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    aria-label={`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`}
+                    aria-label={`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일, 리포트 ${hasReport ? '있음' : '없음'}`}
                     aria-pressed={isSelected}
                     onClick={() => {
                       onSelectDate(date)
@@ -132,6 +136,10 @@ export function SelectReportDateAction({
                   </button>
                 )
               })}
+            </div>
+            <div className={styles.legend}>
+              <span>● 리포트 있음</span>
+              <span>○ 리포트 없음</span>
             </div>
           </div>
         </div>

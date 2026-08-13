@@ -20,10 +20,10 @@ export const mockNotifications: Notification[] = [
   {
     id: 'noti-2',
     title: '주간 리포트가 도착했어요',
-    content: '이번 주 대화 5건이 분석되었어요.',
+    content: '지난 주 대화 6건이 분석되었어요.',
     isRead: false,
-    createdAt: daysAgoIso(0),
-    target: { type: 'weeklyReport', weekStart: '2025-06-30' },
+    createdAt: daysAgoIso(4),
+    target: { type: 'weeklyReport', weekStart: '2026-08-03' },
   },
   {
     id: 'noti-3',
@@ -32,14 +32,6 @@ export const mockNotifications: Notification[] = [
     isRead: true,
     createdAt: daysAgoIso(1),
     target: { type: 'dailyReport', reportId: 'report-yesterday' },
-  },
-  {
-    id: 'noti-4',
-    title: '주간 리포트가 도착했어요',
-    content: '지난 주 대화 7건이 분석되었어요.',
-    isRead: true,
-    createdAt: daysAgoIso(7),
-    target: { type: 'weeklyReport', weekStart: '2025-06-23' },
   },
 ]
 

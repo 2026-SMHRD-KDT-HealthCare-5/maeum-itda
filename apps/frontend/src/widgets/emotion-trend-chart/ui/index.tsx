@@ -26,13 +26,13 @@ interface ScoreDotProps {
 }
 
 const defaultMockScores: DailyScorePoint[] = [
-  { date: '2025-06-01', emotionScore: 53 },
-  { date: '2025-06-02', emotionScore: 82 },
-  { date: '2025-06-03', emotionScore: null },
-  { date: '2025-06-04', emotionScore: 41 },
-  { date: '2025-06-05', emotionScore: 65 },
-  { date: '2025-06-06', emotionScore: 52 },
-  { date: '2025-06-07', emotionScore: 93 },
+  { date: '2026-08-07', emotionScore: 53 },
+  { date: '2026-08-08', emotionScore: 82 },
+  { date: '2026-08-09', emotionScore: null },
+  { date: '2026-08-10', emotionScore: 41 },
+  { date: '2026-08-11', emotionScore: 65 },
+  { date: '2026-08-12', emotionScore: 52 },
+  { date: '2026-08-13', emotionScore: 93 },
 ]
 
 const THRESHOLD_SCORE = 50
@@ -86,10 +86,12 @@ export function EmotionTrendChart({
   dailyScores = defaultMockScores,
   highlightToday = true,
   detailsHref,
+  title = '최근 7일 정서 지수',
 }: {
   dailyScores?: DailyScorePoint[]
   highlightToday?: boolean
   detailsHref?: string
+  title?: string
 }) {
   const navigate = useNavigate()
   const chartData = dailyScores.map((day, index) => ({
@@ -104,7 +106,7 @@ export function EmotionTrendChart({
   return (
     <section className={styles.chart}>
       <div className={styles.header}>
-        <h2 className={styles.title}>최근 7일 정서 지수</h2>
+        <h2 className={styles.title}>{title}</h2>
         {detailsHref && (
           <Link className={styles.detailsLink} to={detailsHref}>
             지난 기록 보기 <span aria-hidden="true">›</span>
