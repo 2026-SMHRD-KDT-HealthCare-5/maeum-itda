@@ -1,34 +1,17 @@
-"""
-마음잇다 AI 서버 (FastAPI + WebSocket)
+"""마음잇다 AI 서버 (FastAPI REST)."""
 
-백엔드(Node/Nest.js) <-> 이 서버 간 단일 WebSocket 연결에서:
-  1. 백엔드가 세션 시작 정보(session_init)와 발화별 오디오를 보내면
-  2. STT -> 텍스트/음성 감정분류(+융합) -> LLM 꼬리질문 생성 -> TTS 스트리밍
-  3. 결과(user_text, emotion, ai_question)와 TTS 오디오 청크를 백엔드로 돌려준다.
-
-WS 메시지 시퀀스는 README.md 참고.
-"""
 import asyncio
-import json
 import logging
+from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from app.config import get_settings
-from app.schemas import (
-    SessionInit,
-    UtteranceStart,
-    SttFailed,
-    TurnResult,
-    TtsChunkMeta,
-    TtsEnd,
-    ErrorMsg,
-)
-from app.session_manager import session_manager, Turn, SessionState
-from app.services import stt as stt_service
+from app.schemas import AnswerAnalysis, BatchAnalysisResponse
 from app.services import emotion as emotion_service
 from app.services import llm as llm_service
-from app.services import tts as tts_service
+from app.services import stt as stt_service
+from app.session_manager import SessionState
 
 logging.basicConfig(level=get_settings().log_level)
 logger = logging.getLogger("maum_itda")
@@ -41,151 +24,108 @@ async def health():
     return {"status": "ok"}
 
 
-@app.websocket("/ws/counsel/{session_id}")
-async def counsel_ws(websocket: WebSocket, session_id: str):
-    await websocket.accept()
-    logger.info("[%s] WS 연결 수립", session_id)
+@app.post("/analysis/audio/batch", response_model=BatchAnalysisResponse)
+async def analyze_audio_batch(
+    question_message_id: int = Form(alias="questionMessageId"),
+    generation_id: str = Form(alias="generationId"),
+    audio_files: list[UploadFile] = File(alias="audioFiles"),
+    message_ids: list[int] = Form(alias="messageIds"),
+    audio_transfer_ids: list[str] = Form(alias="audioTransferIds"),
+    captured_ats: list[str] = Form(alias="capturedAts"),
+    end_types: list[str] = Form(alias="endTypes"),
+) -> BatchAnalysisResponse:
+    """WebSocket 대신 한 질문의 음성 묶음을 REST로 분석한다."""
+    lengths = {
+        len(audio_files),
+        len(message_ids),
+        len(audio_transfer_ids),
+        len(captured_ats),
+        len(end_types),
+    }
+    if len(lengths) != 1 or not audio_files:
+        raise HTTPException(status_code=422, detail="반복 필드 개수가 일치하지 않습니다.")
+    if any(end_type not in {"auto", "manual"} for end_type in end_types):
+        raise HTTPException(status_code=422, detail="endTypes 값이 올바르지 않습니다.")
 
-    session: SessionState | None = None
-    pending_meta: UtteranceStart | None = None
+    answers: list[AnswerAnalysis] = []
+    transcripts: list[str] = []
+    emotions: list[dict[str, float]] = []
 
-    try:
-        while True:
-            message = await websocket.receive()
+    for audio_file, message_id in zip(audio_files, message_ids, strict=True):
+        audio_bytes = await audio_file.read()
+        audio_format = _resolve_audio_format(audio_file)
 
-            if message["type"] == "websocket.disconnect":
-                break
-
-            # ---- JSON 컨트롤 프레임 ----
-            if message.get("text") is not None:
-                try:
-                    data = json.loads(message["text"])
-                except json.JSONDecodeError:
-                    await _send_error(websocket, None, "invalid_json")
-                    continue
-
-                mtype = data.get("type")
-
-                if mtype == "session_init":
-                    init = SessionInit(**data)
-                    session = session_manager.create(
-                        session_id=init.session_id,
-                        user_id=init.user_id,
-                        prev_summary=init.prev_session_summary,
-                        pending_scale_items=init.pending_scale_items,
-                    )
-                    logger.info("[%s] 세션 초기화 완료 (user=%s)", init.session_id, init.user_id)
-
-                elif mtype == "utterance_start":
-                    pending_meta = UtteranceStart(**data)
-
-                elif mtype == "session_end":
-                    logger.info("[%s] 세션 종료 요청 수신", session_id)
-                    break
-
-                else:
-                    logger.warning("[%s] 알 수 없는 메시지 타입: %s", session_id, mtype)
-
-            # ---- 바이너리(오디오) 프레임 ----
-            elif message.get("bytes") is not None:
-                audio_bytes = message["bytes"]
-
-                if session is None:
-                    await _send_error(websocket, None, "session_not_initialized")
-                    continue
-                if pending_meta is None:
-                    await _send_error(websocket, None, "utterance_start_missing")
-                    continue
-
-                meta = pending_meta
-                pending_meta = None
-                await handle_utterance(websocket, session, meta, audio_bytes)
-
-    except WebSocketDisconnect:
-        logger.info("[%s] WS 연결 끊김", session_id)
-    except Exception as e:  # noqa: BLE001
-        logger.exception("[%s] WS 처리 중 예외: %s", session_id, e)
-        try:
-            await _send_error(websocket, None, f"internal_error: {e}")
-        except Exception:  # noqa: BLE001
-            pass
-    finally:
-        if session is not None:
-            session_manager.remove(session.session_id)
-        logger.info("[%s] 세션 정리 완료", session_id)
-
-
-async def handle_utterance(
-    websocket: WebSocket,
-    session: SessionState,
-    meta: UtteranceStart,
-    audio_bytes: bytes,
-) -> None:
-    """한 발화(utterance)에 대한 전체 파이프라인 처리."""
-
-    # 1) STT (블로킹 작업이므로 스레드풀에서 실행)
-    stt_result = await asyncio.to_thread(stt_service.transcribe, audio_bytes, meta.audio_format)
-    if not stt_result.ok:
-        await websocket.send_json(
-            SttFailed(utterance_id=meta.utterance_id, reason=stt_result.reason).model_dump()
-        )
-        return
-
-    user_text = stt_result.text
-
-    # 2) 텍스트+음성 감정분류 -> 융합
-    emotion = await asyncio.to_thread(
-        emotion_service.classify_and_fuse, user_text, audio_bytes, meta.sample_rate
-    )
-    dominant = emotion_service.dominant_emotion(emotion)
-
-    # 3) LLM 꼬리질문 생성 (텍스트 + 감정 + 세션 히스토리 + 이전 세션 요약)
-    llm_result = await asyncio.to_thread(
-        llm_service.generate_next_question, user_text, emotion, session
-    )
-    ai_question = llm_result["ai_question"]
-
-    # 세션 히스토리에 반영
-    session.add_turn(
-        Turn(
-            utterance_id=meta.utterance_id,
-            user_text=user_text,
-            emotion=emotion,
-            ai_question=ai_question,
-        )
-    )
-
-    # 4) 텍스트/감정/다음질문 결과를 먼저 전송
-    #    (요구사항: STT 텍스트는 다음 질문 생성 시점에 함께 노출)
-    await websocket.send_json(
-        TurnResult(
-            utterance_id=meta.utterance_id,
-            user_text=user_text,
-            emotion=emotion,
-            dominant_emotion=dominant,
-            ai_question=ai_question,
-            target_scale=llm_result.get("target_scale"),
-            target_item=llm_result.get("target_item"),
-        ).model_dump()
-    )
-
-    # 5) TTS 스트리밍 - 청크가 생성되는 대로 바로 전송 (TTFB 최소화)
-    try:
-        chunk_index = 0
-        async for chunk in tts_service.synthesize_stream(ai_question):
-            await websocket.send_json(
-                TtsChunkMeta(utterance_id=meta.utterance_id, chunk_index=chunk_index).model_dump()
+        stt_result = await asyncio.to_thread(stt_service.transcribe, audio_bytes, audio_format)
+        if not stt_result.ok:
+            raise HTTPException(
+                status_code=422,
+                detail=f"messageId={message_id} STT 실패: {stt_result.reason}",
             )
-            await websocket.send_bytes(chunk)
-            chunk_index += 1
-        await websocket.send_json(TtsEnd(utterance_id=meta.utterance_id).model_dump())
-    except Exception as e:  # noqa: BLE001
-        logger.error("[%s] TTS 스트리밍 실패: %s", meta.utterance_id, e)
-        await _send_error(websocket, meta.utterance_id, f"tts_failed: {e}")
+
+        emotion = await asyncio.to_thread(
+            emotion_service.classify_and_fuse,
+            stt_result.text,
+            audio_bytes,
+            16000,
+        )
+        transcripts.append(stt_result.text)
+        emotions.append(emotion)
+        answers.append(
+            AnswerAnalysis(
+                messageId=message_id,
+                transcript=stt_result.text,
+                sentimentLabel=_to_sentiment_label(emotion),
+                scaleAnalyses=[],
+            )
+        )
+
+    session = SessionState(session_id=generation_id, user_id=str(question_message_id))
+    llm_result = await asyncio.to_thread(
+        llm_service.generate_next_question,
+        "\n".join(transcripts),
+        _average_emotions(emotions),
+        session,
+    )
+    next_question = llm_result.get("ai_question")
+
+    return BatchAnalysisResponse(
+        answers=answers,
+        nextQuestion=next_question if isinstance(next_question, str) else None,
+    )
 
 
-async def _send_error(websocket: WebSocket, utterance_id: str | None, detail: str) -> None:
-    await websocket.send_json(ErrorMsg(utterance_id=utterance_id, detail=detail).model_dump())
+def _to_sentiment_label(emotion: dict[str, float]) -> str:
+    positive = sum(emotion.get(key, 0.0) for key in ("happy", "joy", "positive"))
+    neutral = emotion.get("neutral", 0.0)
+    negative = sum(
+        emotion.get(key, 0.0)
+        for key in ("sad", "angry", "anxious", "fear", "disgust", "negative")
+    )
+    return max(
+        {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative},
+        key=lambda label: {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative}[label],
+    )
+
+
+def _resolve_audio_format(audio_file: UploadFile) -> str:
+    """백엔드의 `.audio` 파일명은 Content-Type을 기준으로 실제 포맷을 판별한다."""
+    suffix = Path(audio_file.filename or "").suffix.lower().lstrip(".")
+    if suffix and suffix != "audio":
+        return suffix
+
+    mime_subtype = (audio_file.content_type or "").partition("/")[2].partition(";")[0]
+    return {
+        "mpeg": "mp3",
+        "x-wav": "wav",
+    }.get(mime_subtype, mime_subtype or "webm")
+
+
+def _average_emotions(items: list[dict[str, float]]) -> dict[str, float]:
+    labels = set().union(*(item.keys() for item in items))
+    return {
+        label: sum(item.get(label, 0.0) for item in items) / len(items)
+        for label in labels
+    }
 
 
 if __name__ == "__main__":

@@ -1,7 +1,10 @@
 """
 TTS 모듈 단독 검증용 CLI.
 
-app/services/tts.py를 서버(WS) 없이 그대로 불러와서 실행합니다.
+app/services/tts.py를 서버 실행 없이 그대로 불러와서 실행합니다.
+
+현재 REST 배치 분석 엔드포인트는 TTS를 호출하지 않습니다. 이 스크립트는 TTS 기능을
+개별 실행하고 Typecast 응답 및 TTFB를 확인하기 위한 용도입니다.
 .env에 실제 TYPECAST_API_KEY / TYPECAST_VOICE_ID를 채운 뒤 실행하세요.
 
 입력/출력 폴더 (프로젝트 루트 기준, 기본값):

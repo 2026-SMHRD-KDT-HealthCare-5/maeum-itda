@@ -1,7 +1,7 @@
 """
 STT 모듈 단독 검증용 CLI.
 
-app/services/stt.py를 서버(WS) 없이 그대로 불러와서 실행합니다.
+app/services/stt.py를 서버 실행 없이 그대로 불러와서 실행합니다.
 .env에 실제 OPENAI_API_KEY를 채운 뒤 실행하세요.
 
 입력/출력 폴더 (프로젝트 루트 기준, 기본값):

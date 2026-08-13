@@ -1,7 +1,7 @@
 """
 LLM(꼬리질문 생성) 모듈 단독 검증용 CLI.
 
-app/services/llm.py를 서버(WS) 없이 그대로 불러와서 실행합니다.
+app/services/llm.py를 서버 실행 없이 그대로 불러와서 실행합니다.
 .env에 실제 OPENAI_API_KEY를 채운 뒤 실행하세요.
 
 사용법:
@@ -14,7 +14,7 @@ app/services/llm.py를 서버(WS) 없이 그대로 불러와서 실행합니다.
 
     # 오늘 아직 채점 안 된 척도 문항도 흉내내고 싶으면
     python scripts/test_llm.py --text "요즘 밤에 잠을 잘 못 자요" \\
-        --pending "SGDS-K:Q3,Q7;GAD-7:Q2"
+        --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
 """
 import argparse
 import sys
@@ -55,7 +55,7 @@ def main() -> None:
     parser.add_argument("--text", required=True, help="시니어의 발화(STT 결과라고 가정)")
     parser.add_argument("--emotion", help='예: "sad:0.6,anxious:0.25,neutral:0.15" (생략 시 중립 100%%)')
     parser.add_argument("--prev-summary", default="", help="이전 세션 요약 (생략 가능)")
-    parser.add_argument("--pending", help='예: "SGDS-K:Q3,Q7;GAD-7:Q2" (생략 시 없음)')
+    parser.add_argument("--pending", help='예: "SGDS_K:Q3,Q7;GAD_7:Q2" (생략 시 없음)')
     args = parser.parse_args()
 
     emotion = parse_emotion(args.emotion)
