@@ -19,6 +19,9 @@ describe('UsersService', () => {
     name: '김순자',
     phone: '01012345678',
     role: UserRole.SENIOR,
+    notificationEnabled: true,
+    emotionAlertThreshold: null,
+    checkinReminderTime: '09:00:00',
     joinedAt: new Date('2026-08-13T00:00:00.000Z'),
     withdrawnAt: null,
   };

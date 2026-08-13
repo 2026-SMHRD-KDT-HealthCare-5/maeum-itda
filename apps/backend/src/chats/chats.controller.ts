@@ -26,7 +26,7 @@ import { ChatsService } from './chats.service';
 import { ChatHistoryPageResponseDto } from './dto/chat-history-response.dto';
 
 // /chats 경로의 HTTP 요청을 이 Controller로 전달한다.
-@ApiTags('2. 대화 기록')
+@ApiTags('3. 대화 기록')
 @ApiBearerAuth()
 @Controller('chats')
 export class ChatsController {
@@ -42,7 +42,7 @@ export class ChatsController {
 
   // 역할: 인증된 시니어 본인의 과거 대화만 cursor 기반으로 조회한다.
   @Get('messages')
-  @ApiOperation({ summary: '시니어 본인의 과거 대화 메시지 조회' })
+  @ApiOperation({ summary: '무한 스크롤' })
   @ApiQuery({
     name: 'cursor',
     required: false,

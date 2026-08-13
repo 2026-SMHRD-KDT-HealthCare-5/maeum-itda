@@ -12,8 +12,8 @@ export class CheckLoginIdDto {
     example: 'senior01',
   })
   @IsString()
-  @Matches(/^[a-zA-Z0-9_]{4,50}$/, {
-    message: '아이디는 영문, 숫자, 밑줄을 사용해 4~50자로 입력해주세요.',
+  @Matches(/^[a-zA-Z0-9]{4,20}$/, {
+    message: '아이디는 영문과 숫자만 사용해 4~20자로 입력해주세요.',
   })
-  loginId: string;
+  loginId!: string;
 }

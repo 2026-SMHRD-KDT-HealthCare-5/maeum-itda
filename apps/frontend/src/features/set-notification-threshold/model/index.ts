@@ -1,7 +1,7 @@
 export interface NotificationThresholdValue {
   enabled: boolean
-  threshold: number // 20~80, 결정사항 로그 §1 "낮게 30 / 보통 50 / 높게 70" 프리셋 범위 참고
+  threshold: number // 정서지수 전체 범위인 0~100
 }
 
-export const THRESHOLD_MIN = 20
-export const THRESHOLD_MAX = 80
+export const THRESHOLD_MIN = 0
+export const THRESHOLD_MAX = 100

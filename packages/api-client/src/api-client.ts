@@ -103,7 +103,7 @@ export interface SignUpDto {
    */
   loginId: string;
   /**
-   * 8~72자의 비밀번호
+   * 4~72자의 비밀번호
    * @example "password123!"
    */
   password: string;
@@ -287,6 +287,94 @@ export interface RetryAudioAnalysisResponseDto {
   answerMessageIds: number[];
   /** 새로 생성한 다음 질문. 대화 종료 상태이면 null */
   nextQuestion: NextQuestionResponseDto | null;
+}
+
+export interface ConnectionCounterpartResponseDto {
+  /** @example 2 */
+  userId: number;
+  /** @example "guardian01" */
+  loginId: string;
+  /** @example "김민준" */
+  name: string;
+  /** @example "GUARDIAN" */
+  role: "SENIOR" | "GUARDIAN";
+}
+
+export interface ConnectionResponseDto {
+  /** @example 10 */
+  relationshipId: object | null;
+  /** @example "CONNECTED" */
+  status: "REQUESTED" | "CONNECTED" | "REJECTED" | "DISCONNECTED" | null;
+  /** @format date-time */
+  requestedAt: object | null;
+  /** @format date-time */
+  connectedAt: object | null;
+  counterpart: ConnectionCounterpartResponseDto | null;
+}
+
+export interface CreateConnectionRequestDto {
+  /**
+   * 연결할 시니어 로그인 아이디
+   * @example "senior01"
+   */
+  seniorLoginId: string;
+}
+
+export interface GuardianAlertSettingResponseDto {
+  /**
+   * 정서지수 하락 알림 사용 여부
+   * @example true
+   */
+  enabled: boolean;
+  /**
+   * 정서지수 하락 알림 임계치
+   * @min 0
+   * @max 100
+   * @example 50
+   */
+  threshold: number;
+}
+
+export interface UpdateGuardianAlertSettingDto {
+  /**
+   * 정서지수 하락 알림 사용 여부
+   * @example true
+   */
+  enabled?: boolean;
+  /**
+   * 정서지수 하락 알림 임계치
+   * @min 0
+   * @max 100
+   * @example 50
+   */
+  threshold?: number;
+}
+
+export interface SeniorCheckinSettingResponseDto {
+  /**
+   * 매일 안부 알림 사용 여부
+   * @example true
+   */
+  enabled: boolean;
+  /**
+   * Asia/Seoul 기준 매일 알림 시각
+   * @example "09:00"
+   */
+  time: string;
+}
+
+export interface UpdateSeniorCheckinSettingDto {
+  /**
+   * 매일 안부 알림 사용 여부
+   * @example true
+   */
+  enabled?: boolean;
+  /**
+   * Asia/Seoul 기준 매일 알림 시각
+   * @pattern ^([01]\d|2[0-3]):[0-5]\d$
+   * @example "09:00"
+   */
+  time?: string;
 }
 
 export type QueryParamsType = Record<string | number, any>;
@@ -558,7 +646,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 1. 인증 및 회원관리
+     * @tags 1. 인증 및 회원가입
      * @name AuthControllerCheckLoginId
      * @summary 회원가입 아이디 중복 확인
      * @request GET:/auth/check-login-id
@@ -584,7 +672,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 1. 인증 및 회원관리
+     * @tags 1. 인증 및 회원가입
      * @name AuthControllerLogin
      * @summary 로그인
      * @request POST:/auth/login
@@ -602,7 +690,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 1. 인증 및 회원관리
+     * @tags 1. 인증 및 회원가입
      * @name AuthControllerSignUp
      * @summary 회원가입
      * @request POST:/auth/signup
@@ -621,7 +709,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 2. 회원 관리
+     * @tags 2. 내 계정 관리
      * @name UsersControllerGetMyProfile
      * @summary 내 정보 조회
      * @request GET:/users/me
@@ -639,7 +727,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 2. 회원 관리
+     * @tags 2. 내 계정 관리
      * @name UsersControllerUpdateMyProfile
      * @summary 내 기본 정보 수정
      * @request PATCH:/users/me
@@ -662,7 +750,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 2. 회원 관리
+     * @tags 2. 내 계정 관리
      * @name UsersControllerWithdraw
      * @summary 회원 탈퇴
      * @request DELETE:/users/me
@@ -675,14 +763,100 @@ export class Api<
         secure: true,
         ...params,
       }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 내 계정 관리
+     * @name ProfileSettingsControllerGetGuardianAlertSetting
+     * @summary 보호자 알림 수신 여부와 정서지수 임계치 확인
+     * @request GET:/users/me/emotion-alert-settings
+     * @secure
+     */
+    profileSettingsControllerGetGuardianAlertSetting: (
+      params: RequestParams = {},
+    ) =>
+      this.request<GuardianAlertSettingResponseDto, ApiErrorResponseDto>({
+        path: `/users/me/emotion-alert-settings`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 내 계정 관리
+     * @name ProfileSettingsControllerUpdateGuardianAlertSetting
+     * @summary 보호자 알림 수신 여부 또는 정서지수 임계치 변경
+     * @request PATCH:/users/me/emotion-alert-settings
+     * @secure
+     */
+    profileSettingsControllerUpdateGuardianAlertSetting: (
+      data: UpdateGuardianAlertSettingDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<GuardianAlertSettingResponseDto, ApiErrorResponseDto>({
+        path: `/users/me/emotion-alert-settings`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 내 계정 관리
+     * @name ProfileSettingsControllerGetSeniorCheckinSetting
+     * @summary 시니어 안부 알림 수신 여부와 예약 시간 확인
+     * @request GET:/users/me/checkin-reminder-settings
+     * @secure
+     */
+    profileSettingsControllerGetSeniorCheckinSetting: (
+      params: RequestParams = {},
+    ) =>
+      this.request<SeniorCheckinSettingResponseDto, ApiErrorResponseDto>({
+        path: `/users/me/checkin-reminder-settings`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 내 계정 관리
+     * @name ProfileSettingsControllerUpdateSeniorCheckinSetting
+     * @summary 시니어 안부 알림 수신 여부 또는 예약 시간 변경
+     * @request PATCH:/users/me/checkin-reminder-settings
+     * @secure
+     */
+    profileSettingsControllerUpdateSeniorCheckinSetting: (
+      data: UpdateSeniorCheckinSettingDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<SeniorCheckinSettingResponseDto, ApiErrorResponseDto>({
+        path: `/users/me/checkin-reminder-settings`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
   };
   chats = {
     /**
      * No description
      *
-     * @tags 2. 대화 기록
+     * @tags 3. 대화 기록
      * @name ChatsControllerGetMessages
-     * @summary 시니어 본인의 과거 대화 메시지 조회
+     * @summary 무한 스크롤
      * @request GET:/chats/messages
      * @secure
      */
@@ -714,7 +888,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 3. 음성 분석
+     * @tags 4. 음성 분석
      * @name AnalysisControllerGetStatus
      * @summary 메시지의 음성 분석 상태 조회
      * @request GET:/analysis/audio/{messageId}/status
@@ -733,7 +907,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 3. 음성 분석
+     * @tags 4. 음성 분석
      * @name AnalysisControllerRetry
      * @summary 메모리에 대기 중인 질문별 음성 분석 재시도
      * @request POST:/analysis/audio/question/{questionMessageId}/retry
@@ -746,6 +920,126 @@ export class Api<
         path: `/analysis/audio/question/${questionMessageId}/retry`,
         method: "POST",
         format: "json",
+        ...params,
+      }),
+  };
+  connections = {
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerGetMyConnection
+     * @summary 초기 연결 상태 조회
+     * @request GET:/connections/me
+     * @secure
+     */
+    connectionsControllerGetMyConnection: (params: RequestParams = {}) =>
+      this.request<ConnectionResponseDto, ApiErrorResponseDto>({
+        path: `/connections/me`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerDisconnect
+     * @summary 현재 보호자-시니어 연결 해제
+     * @request DELETE:/connections/me
+     * @secure
+     */
+    connectionsControllerDisconnect: (params: RequestParams = {}) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/connections/me`,
+        method: "DELETE",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerCreateRequest
+     * @summary 보호자가 시니어에게 연결 요청
+     * @request POST:/connections/requests
+     * @secure
+     */
+    connectionsControllerCreateRequest: (
+      data: CreateConnectionRequestDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<ConnectionResponseDto, ApiErrorResponseDto>({
+        path: `/connections/requests`,
+        method: "POST",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerAcceptRequest
+     * @summary 시니어가 연결 요청 수락
+     * @request POST:/connections/requests/{relationshipId}/accept
+     * @secure
+     */
+    connectionsControllerAcceptRequest: (
+      relationshipId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<ConnectionResponseDto, ApiErrorResponseDto>({
+        path: `/connections/requests/${relationshipId}/accept`,
+        method: "POST",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerRejectRequest
+     * @summary 시니어가 연결 요청 거절
+     * @request POST:/connections/requests/{relationshipId}/reject
+     * @secure
+     */
+    connectionsControllerRejectRequest: (
+      relationshipId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/connections/requests/${relationshipId}/reject`,
+        method: "POST",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 5. 보호자-시니어 연결
+     * @name ConnectionsControllerCancelRequest
+     * @summary 보호자가 보낸 연결 요청 취소
+     * @request DELETE:/connections/requests/{relationshipId}
+     * @secure
+     */
+    connectionsControllerCancelRequest: (
+      relationshipId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/connections/requests/${relationshipId}`,
+        method: "DELETE",
+        secure: true,
         ...params,
       }),
   };

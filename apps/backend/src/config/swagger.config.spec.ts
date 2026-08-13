@@ -12,6 +12,10 @@ import { AccessTokenGuard } from '../auth/access-token.guard';
 import { AuthService } from '../auth/auth.service';
 import { ChatsController } from '../chats/chats.controller';
 import { ChatsService } from '../chats/chats.service';
+import { ConnectionsController } from '../connections/connections.controller';
+import { ConnectionsService } from '../connections/connections.service';
+import { ProfileSettingsController } from '../profile-settings/profile-settings.controller';
+import { ProfileSettingsService } from '../profile-settings/profile-settings.service';
 import { UsersController } from '../users/users.controller';
 import { UsersService } from '../users/users.service';
 import { setupSwagger } from './swagger.config';
@@ -24,12 +28,16 @@ describe('Swagger configuration', () => {
       controllers: [
         AuthController,
         UsersController,
+        ProfileSettingsController,
+        ConnectionsController,
         ChatsController,
         AnalysisController,
       ],
       providers: [
         { provide: AuthService, useValue: {} },
         { provide: UsersService, useValue: {} },
+        { provide: ProfileSettingsService, useValue: {} },
+        { provide: ConnectionsService, useValue: {} },
         { provide: AccessTokenGuard, useValue: { canActivate: () => true } },
         { provide: ChatsService, useValue: {} },
         { provide: AnalysisService, useValue: {} },
@@ -55,6 +63,16 @@ describe('Swagger configuration', () => {
     expect(response.text).toContain('"/auth/signup"');
     expect(response.text).toContain('"/auth/login"');
     expect(response.text).toContain('"/users/me"');
+    expect(response.text).toContain('"/users/me/emotion-alert-settings"');
+    expect(response.text).toContain('"/users/me/checkin-reminder-settings"');
+    expect(response.text).toContain('"/connections/me"');
+    expect(response.text).toContain('"/connections/requests"');
+    expect(response.text).toContain(
+      '"/connections/requests/{relationshipId}/accept"',
+    );
+    expect(response.text).toContain(
+      '"/connections/requests/{relationshipId}/reject"',
+    );
     expect(response.text).toContain('"/chats/messages"');
     expect(response.text).toContain('"/analysis/audio/{messageId}/status"');
     expect(response.text).toContain(
@@ -63,6 +81,9 @@ describe('Swagger configuration', () => {
     expect(response.text).toContain('"SignUpResponseDto"');
     expect(response.text).toContain('"LoginResponseDto"');
     expect(response.text).toContain('"UserResponseDto"');
+    expect(response.text).toContain('"GuardianAlertSettingResponseDto"');
+    expect(response.text).toContain('"SeniorCheckinSettingResponseDto"');
+    expect(response.text).toContain('"ConnectionResponseDto"');
     expect(response.text).toContain('"ChatHistoryPageResponseDto"');
     expect(response.text).toContain('"VoiceAnalysisStatusResponseDto"');
   });

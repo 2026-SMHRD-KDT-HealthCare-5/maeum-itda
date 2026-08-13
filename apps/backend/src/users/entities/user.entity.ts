@@ -42,6 +42,20 @@ export class User {
   @Column({ name: 'ROLE', type: 'enum', enum: UserRole })
   role: UserRole;
 
+  @Column({ name: 'NOTIFICATION_ENABLED', type: 'boolean', default: true })
+  notificationEnabled!: boolean;
+
+  @Column({
+    name: 'EMOTION_ALERT_THRESHOLD',
+    type: 'tinyint',
+    unsigned: true,
+    nullable: true,
+  })
+  emotionAlertThreshold!: number | null;
+
+  @Column({ name: 'CHECKIN_REMINDER_TIME', type: 'time', nullable: true })
+  checkinReminderTime!: string | null;
+
   @CreateDateColumn({ name: 'JOINED_AT', type: 'datetime' })
   joinedAt: Date;
 

@@ -24,7 +24,7 @@ import {
   VoiceAnalysisStatusResponseDto,
 } from './dto/analysis-response.dto';
 
-@ApiTags('3. 음성 분석')
+@ApiTags('4. 음성 분석')
 @Controller('analysis/audio')
 export class AnalysisController {
   // 연결 객체: 음성 분석 상태 조회와 재시도 업무를 담당하는 AnalysisService
