@@ -1,6 +1,13 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { ProtectedRoute } from './ProtectedRoute'
+
+const NotFoundPage = lazy(() =>
+  import('../../pages/not-found').then((m) => ({ default: m.NotFoundPage })),
+)
+const DebugErrorsPage = lazy(() =>
+  import('../../pages/debug-errors').then((m) => ({ default: m.DebugErrorsPage })),
+)
 
 const SplashPage = lazy(() => import('../../pages/splash').then((m) => ({ default: m.SplashPage })))
 const LoginPage = lazy(() => import('../../pages/login').then((m) => ({ default: m.LoginPage })))
@@ -57,6 +64,7 @@ export function AppRouter() {
         <Route path="/" element={<SplashPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/join" element={<JoinPage />} />
+        <Route path="/debug/errors" element={<DebugErrorsPage />} />
 
         <Route
           path="/senior"
@@ -148,7 +156,7 @@ export function AppRouter() {
           }
         />
 
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   )
