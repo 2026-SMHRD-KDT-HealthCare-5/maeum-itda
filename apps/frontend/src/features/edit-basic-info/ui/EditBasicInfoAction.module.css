@@ -103,6 +103,18 @@
   cursor: pointer;
 }
 
+.guardian .field {
+  border: 1.5px solid #dce4df;
+  border-radius: 999px;
+  background: #f5f3ed;
+}
+
+.guardian .doneButton {
+  border-radius: 999px;
+  background: var(--primary-tint);
+  color: var(--primary);
+}
+
 .editButton:focus-visible,
 .doneButton:focus-visible,
 .field:focus-visible {

@@ -14,6 +14,8 @@ import {
 import { formatConnectionDuration, type Connection } from '../../../entities/connection'
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { Button, Card } from '../../../shared/ui'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './MyInfoPage.module.css'
 
@@ -55,20 +57,32 @@ export function GuardianMyInfoPage() {
 
   if (profileQuery.isPending) {
     return (
-      <main className={styles.page}>
-        <p>내 정보를 불러오는 중이에요...</p>
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          <p className={styles.statusMessage} role="status">
+            내 정보를 불러오는 중이에요...
+          </p>
+        </main>
+        <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
+      </>
     )
   }
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <main className={styles.page}>
-        <p>내 정보를 불러오지 못했어요.</p>
-        <Button type="button" onClick={() => profileQuery.refetch()}>
-          다시 시도
-        </Button>
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          <div className={styles.errorState} role="alert">
+            <p>내 정보를 불러오지 못했어요.</p>
+            <Button type="button" onClick={() => profileQuery.refetch()}>
+              다시 시도
+            </Button>
+          </div>
+        </main>
+        <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
+      </>
     )
   }
 
@@ -77,16 +91,16 @@ export function GuardianMyInfoPage() {
   return (
     <>
       <main className={styles.page}>
+        <h1 className={styles.pageTitle}>내 정보</h1>
         <header className={styles.header}>
-          <span className={styles.avatar} aria-hidden="true">
-            🧑
-          </span>
+          <img className={styles.avatar} src={guardianCoupleImage} alt="" />
           <h1 className={styles.name}>{profile.name} 보호자</h1>
         </header>
 
         <div className={styles.cards}>
-          <Card>
+          <Card className={styles.infoCard}>
             <EditBasicInfoAction
+              variant="guardian"
               values={{
                 username: profile.loginId,
                 name: profile.name,
@@ -99,14 +113,12 @@ export function GuardianMyInfoPage() {
             )}
           </Card>
 
-          <Card>
+          <Card className={styles.connectionCard}>
             <h2 className={styles.cardTitle}>연결된 어르신</h2>
             {isConnected ? (
               <div className={styles.connectedRow}>
                 <div className={styles.connectedInfo}>
-                  <span className={styles.connectedAvatar} aria-hidden="true">
-                    👵
-                  </span>
+                  <img className={styles.connectedAvatar} src={seniorCoupleImage} alt="" />
                   <div>
                     <p className={styles.connectedName}>{mockSeniorName}</p>
                     <p className={styles.connectedMeta}>
@@ -115,6 +127,7 @@ export function GuardianMyInfoPage() {
                   </div>
                 </div>
                 <DisconnectConnectionAction
+                  variant="guardian"
                   onDisconnect={() =>
                     setConnection((current) => ({ ...current, status: 'disconnected' }))
                   }
@@ -132,7 +145,7 @@ export function GuardianMyInfoPage() {
             )}
           </Card>
 
-          <Card>
+          <Card className={styles.notificationCard}>
             <SetNotificationThresholdAction
               value={notificationThreshold}
               onChange={setNotificationThreshold}
