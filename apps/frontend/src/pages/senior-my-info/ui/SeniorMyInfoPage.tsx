@@ -24,7 +24,7 @@ export function SeniorMyInfoPage() {
   const navigate = useNavigate()
 
   const [basicInfo, setBasicInfo] = useState({
-    username: session?.userId ?? 'senior01',
+    username: session?.loginId ?? 'senior01',
     name: session?.name ?? '김순자',
     phone: '010-1234-5678',
   })

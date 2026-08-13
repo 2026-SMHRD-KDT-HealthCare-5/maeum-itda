@@ -43,6 +43,59 @@ export interface ApiErrorResponseDto {
   error: string;
 }
 
+export interface LoginDto {
+  /**
+   * 로그인 아이디
+   * @example "senior01"
+   */
+  loginId: string;
+  /**
+   * 비밀번호
+   * @example "password123!"
+   */
+  password: string;
+}
+
+export interface AuthenticatedUserResponseDto {
+  /**
+   * 생성된 사용자 ID
+   * @example 1
+   */
+  userId: number;
+  /**
+   * 로그인 아이디
+   * @example "senior01"
+   */
+  loginId: string;
+  /**
+   * 사용자 이름
+   * @example "홍길동"
+   */
+  name: string;
+  /**
+   * 하이픈을 제외한 휴대전화 번호
+   * @example "01012345678"
+   */
+  phone: string;
+  /**
+   * 사용자 역할
+   * @example "SENIOR"
+   */
+  role: "SENIOR" | "GUARDIAN";
+  /**
+   * 회원가입 시각
+   * @format date-time
+   * @example "2026-08-13T09:00:00.000Z"
+   */
+  joinedAt: string;
+}
+
+export interface LoginResponseDto {
+  /** REST와 WebSocket 인증에 사용할 JWT Access Token */
+  accessToken: string;
+  user: AuthenticatedUserResponseDto;
+}
+
 export interface SignUpDto {
   /**
    * 로그인 아이디
@@ -65,8 +118,8 @@ export interface SignUpDto {
    */
   name: string;
   /**
-   * 하이픈 없는 휴대폰 번호
-   * @example "01012345678"
+   * 휴대폰 번호(하이픈 포함·미포함 허용)
+   * @example "010-1234-5678"
    */
   phone: string;
   /**
@@ -113,6 +166,37 @@ export interface SignUpResponseDto {
    * @example "2026-08-13T09:00:00.000Z"
    */
   joinedAt: string;
+}
+
+export interface UserResponseDto {
+  /** @example 1 */
+  userId: number;
+  /** @example "senior01" */
+  loginId: string;
+  /** @example "김순자" */
+  name: string;
+  /** @example "01012345678" */
+  phone: string;
+  /** @example "SENIOR" */
+  role: "SENIOR" | "GUARDIAN";
+  /**
+   * @format date-time
+   * @example "2026-08-13T09:00:00.000Z"
+   */
+  joinedAt: string;
+}
+
+export interface UpdateMyProfileDto {
+  /**
+   * 사용자 이름
+   * @example "김순자"
+   */
+  name?: string;
+  /**
+   * 휴대폰 번호(하이픈 포함·미포함 허용)
+   * @example "010-1234-5678"
+   */
+  phone?: string;
 }
 
 export interface ChatHistoryMessageDto {
@@ -501,6 +585,24 @@ export class Api<
      * No description
      *
      * @tags 1. 인증 및 회원관리
+     * @name AuthControllerLogin
+     * @summary 로그인
+     * @request POST:/auth/login
+     */
+    authControllerLogin: (data: LoginDto, params: RequestParams = {}) =>
+      this.request<LoginResponseDto, ApiErrorResponseDto>({
+        path: `/auth/login`,
+        method: "POST",
+        body: data,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 1. 인증 및 회원관리
      * @name AuthControllerSignUp
      * @summary 회원가입
      * @request POST:/auth/signup
@@ -512,6 +614,65 @@ export class Api<
         body: data,
         type: ContentType.Json,
         format: "json",
+        ...params,
+      }),
+  };
+  users = {
+    /**
+     * No description
+     *
+     * @tags 2. 회원 관리
+     * @name UsersControllerGetMyProfile
+     * @summary 내 정보 조회
+     * @request GET:/users/me
+     * @secure
+     */
+    usersControllerGetMyProfile: (params: RequestParams = {}) =>
+      this.request<UserResponseDto, ApiErrorResponseDto>({
+        path: `/users/me`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 회원 관리
+     * @name UsersControllerUpdateMyProfile
+     * @summary 내 기본 정보 수정
+     * @request PATCH:/users/me
+     * @secure
+     */
+    usersControllerUpdateMyProfile: (
+      data: UpdateMyProfileDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<UserResponseDto, ApiErrorResponseDto>({
+        path: `/users/me`,
+        method: "PATCH",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 2. 회원 관리
+     * @name UsersControllerWithdraw
+     * @summary 회원 탈퇴
+     * @request DELETE:/users/me
+     * @secure
+     */
+    usersControllerWithdraw: (params: RequestParams = {}) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/users/me`,
+        method: "DELETE",
+        secure: true,
         ...params,
       }),
   };
