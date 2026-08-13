@@ -20,6 +20,14 @@ async function bootstrap() {
     }),
   );
 
+  // 로컬 Vite 프론트엔드에서 NestJS REST API를 호출할 수 있게 허용한다.
+  // 배포 도메인은 확정 후 환경변수 기반 허용 목록으로 확장한다.
+  app.enableCors({
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   // HTTP Upgrade 요청을 표준 WebSocket 방식으로 처리할 WsAdapter를 등록한다.
   app.useWebSocketAdapter(new WsAdapter(app));
   setupSwagger(app);

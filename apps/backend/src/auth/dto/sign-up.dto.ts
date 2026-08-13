@@ -3,6 +3,7 @@
 전체 흐름: HTTP body → ValidationPipe → SignUpDto → AuthController → AuthService
 */
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   Equals,
   IsEnum,
@@ -13,6 +14,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../../users/entities/user.entity';
+import { normalizePhoneNumber } from '../../users/phone-number';
 
 export class SignUpDto {
   // ApiProperty는 Swagger 문서를 만들고 class-validator 데코레이터는 실제 입력값을 검증한다.
@@ -46,12 +48,13 @@ export class SignUpDto {
   name: string;
 
   @ApiProperty({
-    description: '하이픈 없는 휴대폰 번호',
-    example: '01012345678',
+    description: '휴대폰 번호(하이픈 포함·미포함 허용)',
+    example: '010-1234-5678',
   })
+  @Transform(({ value }) => normalizePhoneNumber(value))
   @IsString()
   @Matches(/^01[016789]\d{7,8}$/, {
-    message: '휴대폰 번호는 하이픈 없이 입력해주세요.',
+    message: '올바른 휴대폰 번호를 입력해주세요.',
   })
   phone: string;
 

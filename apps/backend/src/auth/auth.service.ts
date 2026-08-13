@@ -9,11 +9,12 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { hash } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { QueryFailedError } from 'typeorm';
 import { UserRole } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { SignUpDto } from './dto/sign-up.dto';
+import { LoginDto } from './dto/login.dto';
 
 //Gateway JWT 인증 API 설계부분
 export interface AccessTokenPayload {
@@ -33,6 +34,31 @@ export class AuthService {
     this.jwtService = jwtService;
   }
 
+  // 비밀번호 해시를 비교한 뒤 REST와 WebSocket에서 함께 쓸 Access Token을 발급한다.
+  async login(dto: LoginDto) {
+    const user = await this.usersService.findByLoginId(dto.loginId);
+
+    if (
+      !user ||
+      user.withdrawnAt !== null ||
+      !(await compare(dto.password, user.passwordHash))
+    ) {
+      throw new UnauthorizedException(
+        '아이디 또는 비밀번호가 일치하지 않습니다.',
+      );
+    }
+
+    const accessToken = await this.jwtService.signAsync({
+      sub: user.userId,
+      role: user.role,
+    } satisfies AccessTokenPayload);
+
+    return {
+      accessToken,
+      user: this.toPublicUser(user),
+    };
+  }
+
   // Gateway에서 전달받은 Access Token을 검증하고 인증된 사용자 정보를 반환한다.
   // 호출 흐름: ChatAuthHandler → verifyAccessToken() → JwtService.verifyAsync()
   async verifyAccessToken(accessToken: string): Promise<AccessTokenPayload> {
@@ -46,6 +72,12 @@ export class AuthService {
         typeof payload.sub !== 'number' ||
         !Object.values(UserRole).includes(payload.role)
       ) {
+        throw new UnauthorizedException('유효하지 않은 인증정보입니다.');
+      }
+
+      // 서명이 유효해도 탈퇴했거나 역할이 변경된 계정이면 기존 토큰 사용을 차단한다.
+      const user = await this.usersService.findById(payload.sub);
+      if (!user || user.withdrawnAt !== null || user.role !== payload.role) {
         throw new UnauthorizedException('유효하지 않은 인증정보입니다.');
       }
       return payload;
@@ -119,5 +151,23 @@ export class AuthService {
 
     const driverError = error.driverError as { code?: string };
     return driverError.code === 'ER_DUP_ENTRY';
+  }
+
+  private toPublicUser(user: {
+    userId: number;
+    loginId: string;
+    name: string;
+    phone: string;
+    role: UserRole;
+    joinedAt: Date;
+  }) {
+    return {
+      userId: user.userId,
+      loginId: user.loginId,
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+      joinedAt: user.joinedAt,
+    };
   }
 }
