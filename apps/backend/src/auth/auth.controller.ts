@@ -11,7 +11,12 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiErrorResponseDto } from '../common/dto/api-error-response.dto';
 import { AuthService } from './auth.service';
+import {
+  CheckLoginIdResponseDto,
+  SignUpResponseDto,
+} from './dto/auth-response.dto';
 import { CheckLoginIdDto } from './dto/check-login-id.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 
@@ -32,15 +37,12 @@ export class AuthController {
   @ApiOperation({ summary: '회원가입 아이디 중복 확인' })
   @ApiOkResponse({
     description: '아이디 사용 가능 여부 반환',
-    schema: {
-      example: {
-        loginId: 'senior01',
-        available: true,
-        message: '사용할 수 있는 아이디예요.',
-      },
-    },
+    type: CheckLoginIdResponseDto,
   })
-  @ApiBadRequestResponse({ description: '아이디 형식 검증 실패' })
+  @ApiBadRequestResponse({
+    description: '아이디 형식 검증 실패',
+    type: ApiErrorResponseDto,
+  })
   checkLoginId(@Query() query: CheckLoginIdDto) {
     return this.authService.checkLoginId(query.loginId);
   }
@@ -50,19 +52,16 @@ export class AuthController {
   @ApiOperation({ summary: '회원가입' })
   @ApiCreatedResponse({
     description: '회원가입 성공',
-    schema: {
-      example: {
-        userId: 1,
-        loginId: 'senior01',
-        name: '홍길동',
-        phone: '01012345678',
-        role: 'SENIOR',
-        joinedAt: '2026-08-05T09:00:00.000Z',
-      },
-    },
+    type: SignUpResponseDto,
   })
-  @ApiBadRequestResponse({ description: '요청 데이터 검증 실패' })
-  @ApiConflictResponse({ description: '이미 사용 중인 아이디' })
+  @ApiBadRequestResponse({
+    description: '요청 데이터 검증 실패',
+    type: ApiErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: '이미 사용 중인 아이디',
+    type: ApiErrorResponseDto,
+  })
   signUp(@Body() dto: SignUpDto) {
     return this.authService.signUp(dto);
   }
