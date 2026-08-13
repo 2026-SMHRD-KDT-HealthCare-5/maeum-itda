@@ -8,9 +8,12 @@ import request from 'supertest';
 import { AnalysisController } from '../analysis/analysis.controller';
 import { AnalysisService } from '../analysis/analysis.service';
 import { AuthController } from '../auth/auth.controller';
+import { AccessTokenGuard } from '../auth/access-token.guard';
 import { AuthService } from '../auth/auth.service';
 import { ChatsController } from '../chats/chats.controller';
 import { ChatsService } from '../chats/chats.service';
+import { UsersController } from '../users/users.controller';
+import { UsersService } from '../users/users.service';
 import { setupSwagger } from './swagger.config';
 
 describe('Swagger configuration', () => {
@@ -18,9 +21,16 @@ describe('Swagger configuration', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [AuthController, ChatsController, AnalysisController],
+      controllers: [
+        AuthController,
+        UsersController,
+        ChatsController,
+        AnalysisController,
+      ],
       providers: [
         { provide: AuthService, useValue: {} },
+        { provide: UsersService, useValue: {} },
+        { provide: AccessTokenGuard, useValue: { canActivate: () => true } },
         { provide: ChatsService, useValue: {} },
         { provide: AnalysisService, useValue: {} },
       ],
@@ -43,12 +53,16 @@ describe('Swagger configuration', () => {
 
     expect(response.text).toContain('"/auth/check-login-id"');
     expect(response.text).toContain('"/auth/signup"');
+    expect(response.text).toContain('"/auth/login"');
+    expect(response.text).toContain('"/users/me"');
     expect(response.text).toContain('"/chats/messages"');
     expect(response.text).toContain('"/analysis/audio/{messageId}/status"');
     expect(response.text).toContain(
       '"/analysis/audio/question/{questionMessageId}/retry"',
     );
     expect(response.text).toContain('"SignUpResponseDto"');
+    expect(response.text).toContain('"LoginResponseDto"');
+    expect(response.text).toContain('"UserResponseDto"');
     expect(response.text).toContain('"ChatHistoryPageResponseDto"');
     expect(response.text).toContain('"VoiceAnalysisStatusResponseDto"');
   });

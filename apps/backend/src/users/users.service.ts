@@ -2,10 +2,11 @@
 역할: 사용자 조회·저장 업무와 USERS 테이블 접근을 담당한다.
 전체 흐름: AuthService 또는 UsersController → UsersService → Repository<User> → MySQL
 */
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
+import { normalizePhoneNumber } from './phone-number';
 
 // NestJS가 UsersService를 Provider 객체로 생성·주입할 수 있게 한다.
 @Injectable()
@@ -25,6 +26,35 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { loginId } });
   }
 
+  findById(userId: number): Promise<User | null> {
+    return this.usersRepository.findOne({ where: { userId } });
+  }
+
+  async getActiveProfile(userId: number) {
+    const user = await this.getActiveUserOrThrow(userId);
+    return this.toPublicUser(user);
+  }
+
+  async updateActiveProfile(
+    userId: number,
+    data: { name?: string; phone?: string },
+  ) {
+    const user = await this.getActiveUserOrThrow(userId);
+    Object.assign(user, {
+      ...data,
+      ...(data.phone === undefined
+        ? {}
+        : { phone: normalizePhoneNumber(data.phone) as string }),
+    });
+    return this.toPublicUser(await this.usersRepository.save(user));
+  }
+
+  async withdraw(userId: number): Promise<void> {
+    const user = await this.getActiveUserOrThrow(userId);
+    user.withdrawnAt = new Date();
+    await this.usersRepository.save(user);
+  }
+
   // 입력 데이터를 User Entity 객체로 만든 뒤 MySQL에 저장한다.
   create(data: {
     loginId: string;
@@ -34,9 +64,31 @@ export class UsersService {
     role: UserRole;
   }): Promise<User> {
     // create()는 아직 SQL을 실행하지 않고 저장할 User 객체를 만든다.
-    const user = this.usersRepository.create(data);
+    const user = this.usersRepository.create({
+      ...data,
+      phone: normalizePhoneNumber(data.phone) as string,
+    });
 
     // save()가 INSERT 또는 UPDATE SQL을 실행한다.
     return this.usersRepository.save(user);
+  }
+
+  private async getActiveUserOrThrow(userId: number): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user || user.withdrawnAt !== null) {
+      throw new NotFoundException('사용자를 찾을 수 없습니다.');
+    }
+    return user;
+  }
+
+  private toPublicUser(user: User) {
+    return {
+      userId: user.userId,
+      loginId: user.loginId,
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+      joinedAt: user.joinedAt,
+    };
   }
 }
