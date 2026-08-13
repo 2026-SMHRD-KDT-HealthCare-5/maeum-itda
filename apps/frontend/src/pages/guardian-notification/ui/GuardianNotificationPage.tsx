@@ -7,7 +7,6 @@ export function GuardianNotificationPage() {
   return (
     <>
       <main className={styles.page}>
-        <h1 className={styles.title}>알림</h1>
         <MarkNotificationReadAction />
       </main>
       <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
