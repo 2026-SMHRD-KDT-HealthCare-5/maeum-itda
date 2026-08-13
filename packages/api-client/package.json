@@ -1,0 +1,13 @@
+{
+  "name": "@maeum-itda/api-client",
+  "version": "0.0.1",
+  "private": true,
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "swagger-typescript-api generate -p http://localhost:3000/api-docs-json -o ./src -n api-client.ts"
+  },
+  "devDependencies": {
+    "swagger-typescript-api": "^13.2.7"
+  }
+}
