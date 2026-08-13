@@ -1,8 +1,9 @@
 .section {
-  border-radius: 16px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #f7faf8;
+  border: 1px solid #dce9e1;
   overflow: hidden;
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.06);
 }
 
 .header {
@@ -12,10 +13,10 @@
   width: 100%;
   border: none;
   background: none;
-  padding: 14px 16px;
+  padding: 17px 18px;
   color: var(--text-h);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
   cursor: pointer;
 }
 
@@ -36,9 +37,9 @@
 
 .list {
   display: grid;
-  gap: 6px;
+  gap: 12px;
   margin: 0;
-  padding: 0 12px 12px;
+  padding: 0 12px 14px;
   list-style: none;
 }
 
