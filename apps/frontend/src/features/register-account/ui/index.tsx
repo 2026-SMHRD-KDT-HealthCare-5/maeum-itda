@@ -1,8 +1,8 @@
 import { useId, useRef, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { extractApiErrorMessage } from '../../../shared/api'
 import { Button } from '../../../shared/ui'
 import { checkLoginIdAvailable, registerAccount } from '../api'
-import { extractApiErrorMessage } from '../lib'
 import {
   formatPhoneNumber,
   validateRegisterAccount,
