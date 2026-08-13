@@ -1,33 +1,39 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
-import { EditBasicInfoAction } from '../../../features/edit-basic-info'
+import {
+  EditBasicInfoAction,
+  formatPhoneNumber,
+  updateMyProfile,
+} from '../../../features/edit-basic-info'
 import {
   SetCheckinReminderAction,
   type CheckinReminderValue,
 } from '../../../features/set-checkin-reminder'
 import { formatConnectionDuration, type Connection } from '../../../entities/connection'
+import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { Button, Card } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
-import { useSession } from '../../../entities/user'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import styles from './MyInfoPage.module.css'
 
-// 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 실제 API 연결
-// 전이라 시니어/보호자/연결 데이터는 페이지 로컬 mock 상태로 둔다
-// (다른 placeholder 화면의 ConversationHistoryList 등과 동일한 수준).
+// 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 연결/안부 알림 시간은
+// 아직 API가 없어 페이지 로컬 mock 상태로 둔다(기본 정보만 실제 GET/PATCH /users/me).
 const mockGuardianName = '홍길동'
 
 export function SeniorMyInfoPage() {
-  const { session, logout } = useSession()
+  const { logout } = useSession()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  const [basicInfo, setBasicInfo] = useState({
-    username: session?.loginId ?? 'senior01',
-    name: session?.name ?? '김순자',
-    phone: '010-1234-5678',
+  const profileQuery = useQuery({ queryKey: MY_PROFILE_QUERY_KEY, queryFn: fetchMyProfile })
+  const updateProfileMutation = useMutation({
+    mutationFn: updateMyProfile,
+    onSuccess: (updated) => queryClient.setQueryData(MY_PROFILE_QUERY_KEY, updated),
   })
+
   const [connection, setConnection] = useState<Connection>({
     id: 'conn-1',
     seniorId: 'senior-1',
@@ -48,6 +54,27 @@ export function SeniorMyInfoPage() {
 
   const isConnected = connection.status === 'accepted'
 
+  if (profileQuery.isPending) {
+    return (
+      <main className={styles.page}>
+        <p>내 정보를 불러오는 중이에요...</p>
+      </main>
+    )
+  }
+
+  if (profileQuery.isError || !profileQuery.data) {
+    return (
+      <main className={styles.page}>
+        <p>내 정보를 불러오지 못했어요.</p>
+        <Button type="button" onClick={() => profileQuery.refetch()}>
+          다시 시도
+        </Button>
+      </main>
+    )
+  }
+
+  const profile = profileQuery.data
+
   return (
     <>
       <main className={styles.page}>
@@ -56,15 +83,22 @@ export function SeniorMyInfoPage() {
           <span className={styles.avatar} aria-hidden="true">
             <img src={seniorCoupleImage} alt="" />
           </span>
-          <p className={styles.name}>{basicInfo.name} 어르신</p>
+          <p className={styles.name}>{profile.name} 어르신</p>
         </header>
 
         <div className={styles.cards}>
           <Card>
             <EditBasicInfoAction
-              values={basicInfo}
-              onSave={(next) => setBasicInfo((current) => ({ ...current, ...next }))}
+              values={{
+                username: profile.loginId,
+                name: profile.name,
+                phone: formatPhoneNumber(profile.phone),
+              }}
+              onSave={(next) => updateProfileMutation.mutate(next)}
             />
+            {updateProfileMutation.isError && (
+              <p className={styles.saveError}>저장에 실패했어요. 다시 시도해주세요.</p>
+            )}
           </Card>
 
           <Card>

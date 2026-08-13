@@ -1,11 +1,6 @@
 import { apiClient } from '../../../shared/api'
-import type { Role } from '../../../entities/user'
+import { roleFromApi, type Role } from '../../../entities/user'
 import type { LoginFormValues } from '../model'
-
-const ROLE_FROM_API: Record<'SENIOR' | 'GUARDIAN', Role> = {
-  SENIOR: 'senior',
-  GUARDIAN: 'guardian',
-}
 
 export interface LoginResult {
   accessToken: string
@@ -25,6 +20,6 @@ export async function login(values: LoginFormValues): Promise<LoginResult> {
     userId: data.user.userId,
     loginId: data.user.loginId,
     name: data.user.name,
-    role: ROLE_FROM_API[data.user.role],
+    role: roleFromApi(data.user.role),
   }
 }
