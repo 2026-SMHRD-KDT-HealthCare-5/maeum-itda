@@ -26,13 +26,16 @@ export function LoginForm() {
     setIsSubmitting(true)
     try {
       const result = await requestLogin(values)
-      setSession({
-        userId: result.userId,
-        loginId: result.loginId,
-        name: result.name,
-        role: result.role,
-        accessToken: result.accessToken,
-      })
+      setSession(
+        {
+          userId: result.userId,
+          loginId: result.loginId,
+          name: result.name,
+          role: result.role,
+          accessToken: result.accessToken,
+        },
+        { remember: values.autoLogin },
+      )
       navigate(result.role === 'senior' ? '/senior' : '/guardian')
     } catch (error) {
       setNotice(extractApiErrorMessage(error, '로그인에 실패했어요. 다시 시도해주세요.'))

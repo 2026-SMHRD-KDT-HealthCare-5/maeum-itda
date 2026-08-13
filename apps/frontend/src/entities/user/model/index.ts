@@ -1,7 +1,9 @@
 import { createContext, useContext } from 'react'
 
 // Session holder — LOGIN_01 (UC-00)이 실제 POST /auth/login 응답으로 채운다.
-// 새로고침하면 초기화된다(영속화는 아직 없음).
+// "자동 로그인" 체크 시 accessToken을 localStorage에 남겨 새로고침에도
+// 유지한다(entities/user/ui/SessionProvider 참고) — 체크 해제 시엔 여전히
+// 새로고침하면 로그아웃된다.
 export type Role = 'senior' | 'guardian'
 
 // 백엔드(UserRole enum: 'SENIOR' | 'GUARDIAN')와 프론트 Role 표기를 잇는다.
@@ -34,7 +36,10 @@ export interface MyProfile {
 
 export interface SessionContextValue {
   session: Session | null
-  login: (session: Session) => void
+  // localStorage에 남겨진 accessToken으로 세션을 복원하는 중인지 — 이 값이
+  // true인 동안은 ProtectedRoute가 아직 "로그아웃 상태"로 단정하면 안 된다.
+  isRestoring: boolean
+  login: (session: Session, options?: { remember?: boolean }) => void
   logout: () => void
 }
 
