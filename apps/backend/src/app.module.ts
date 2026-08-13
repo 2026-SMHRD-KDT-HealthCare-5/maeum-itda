@@ -10,8 +10,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { ChatsModule } from './chats/chats.module';
+import { ConnectionsModule } from './connections/connections.module';
 import databaseConfig from './config/database.config';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProfileSettingsModule } from './profile-settings/profile-settings.module';
 import { ReportsModule } from './reports/reports.module';
 import { UsersModule } from './users/users.module';
 
@@ -35,9 +37,11 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     UsersModule,
     ChatsModule,
+    ConnectionsModule,
     AnalysisModule,
     ReportsModule,
     NotificationsModule,
+    ProfileSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

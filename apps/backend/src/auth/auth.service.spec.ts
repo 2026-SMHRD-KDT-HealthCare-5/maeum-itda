@@ -109,7 +109,10 @@ describe('AuthService', () => {
           ...data,
           userId: 1,
           joinedAt: new Date('2026-08-04T00:00:00.000Z'),
-          checkInAlarmTime: null,
+          notificationEnabled: true,
+          emotionAlertThreshold: data.role === UserRole.GUARDIAN ? 50 : null,
+          checkinReminderTime:
+            data.role === UserRole.SENIOR ? '09:00:00' : null,
           withdrawnAt: null,
         } as User);
       },
