@@ -1,13 +1,12 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, type KeyboardEvent } from 'react'
+import { Link } from 'react-router-dom'
 import type { Notification } from '../../../entities/notification'
-import { groupByDay, mockNotifications, reportLinkPath } from '../model'
+import { formatNotificationDate, groupByDay, mockNotifications, reportLinkPath } from '../model'
 import styles from './MarkNotificationReadAction.module.css'
 
 // GUARDIAN_NOTIFICATION_01 (UC-10, UC-11)
 export function MarkNotificationReadAction() {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
-  const navigate = useNavigate()
 
   function markAllRead() {
     setNotifications((current) =>
@@ -15,23 +14,39 @@ export function MarkNotificationReadAction() {
     )
   }
 
-  function openNotification(notification: Notification) {
+  function markNotificationRead(notification: Notification) {
     setNotifications((current) =>
       current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)),
     )
-    navigate(reportLinkPath(notification.target).to)
   }
 
   if (notifications.length === 0) {
-    return <p className={styles.empty}>아직 도착한 알림이 없어요.</p>
+    return (
+      <div className={styles.notificationList}>
+        <div className={styles.header}>
+          <h1>알림</h1>
+          <button type="button" className={styles.markAllButton} disabled>
+            모두 읽음
+          </button>
+        </div>
+        <p className={styles.empty}>아직 도착한 알림이 없어요.</p>
+      </div>
+    )
   }
 
   const { today, earlier } = groupByDay(notifications)
+  const unreadCount = notifications.filter((notification) => !notification.isRead).length
 
   return (
-    <div>
+    <div className={styles.notificationList}>
       <div className={styles.header}>
-        <button type="button" className={styles.markAllButton} onClick={markAllRead}>
+        <h1>알림</h1>
+        <button
+          type="button"
+          className={styles.markAllButton}
+          onClick={markAllRead}
+          disabled={unreadCount === 0}
+        >
           모두 읽음
         </button>
       </div>
@@ -44,7 +59,7 @@ export function MarkNotificationReadAction() {
               <NotificationRow
                 key={notification.id}
                 notification={notification}
-                onOpen={openNotification}
+                onRead={markNotificationRead}
               />
             ))}
           </ul>
@@ -59,7 +74,7 @@ export function MarkNotificationReadAction() {
               <NotificationRow
                 key={notification.id}
                 notification={notification}
-                onOpen={openNotification}
+                onRead={markNotificationRead}
               />
             ))}
           </ul>
@@ -71,18 +86,25 @@ export function MarkNotificationReadAction() {
 
 function NotificationRow({
   notification,
-  onOpen,
+  onRead,
 }: {
   notification: Notification
-  onOpen: (notification: Notification) => void
+  onRead: (notification: Notification) => void
 }) {
   const isWarning = notification.title.includes('하락')
   const link = reportLinkPath(notification.target)
 
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    onRead(notification)
+  }
+
   return (
     <li>
-      <button
-        type="button"
+      <div
+        role="button"
+        tabIndex={0}
         className={[
           styles.item,
           isWarning ? styles.itemWarning : '',
@@ -90,7 +112,9 @@ function NotificationRow({
         ]
           .filter(Boolean)
           .join(' ')}
-        onClick={() => onOpen(notification)}
+        onClick={() => onRead(notification)}
+        onKeyDown={handleKeyDown}
+        aria-label={`${notification.title}, ${notification.isRead ? '읽음' : '읽지 않음'}`}
       >
         <span
           className={[styles.icon, isWarning ? styles.iconWarning : styles.iconReport].join(' ')}
@@ -101,17 +125,24 @@ function NotificationRow({
         <span className={styles.body}>
           <span className={styles.titleRow}>
             <strong>{notification.title}</strong>
-            {!notification.isRead && <span className={styles.dot} aria-hidden="true" />}
           </span>
           <span className={styles.content}>{notification.content}</span>
           <span className={styles.footer}>
-            <span className={styles.date}>
-              {new Date(notification.createdAt).toLocaleString('ko-KR')}
-            </span>
-            <span className={styles.link}>{link.label} ›</span>
+            <span className={styles.date}>{formatNotificationDate(notification.createdAt)}</span>
+            <Link
+              className={styles.link}
+              to={link.to}
+              onClick={(event) => {
+                event.stopPropagation()
+                onRead(notification)
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              {link.label} ›
+            </Link>
           </span>
         </span>
-      </button>
+      </div>
     </li>
   )
 }
