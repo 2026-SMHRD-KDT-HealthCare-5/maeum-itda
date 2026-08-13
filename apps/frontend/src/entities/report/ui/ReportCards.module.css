@@ -465,9 +465,20 @@
 }
 
 .statValue {
-  color: var(--text-h);
   font-weight: 800;
   font-size: 18px;
+}
+
+.statAverage {
+  color: #2f4037;
+}
+
+.statMaximum {
+  color: var(--primary);
+}
+
+.statMinimum {
+  color: #df5f55;
 }
 
 .dailyList {
@@ -477,31 +488,80 @@
 }
 
 .dailyRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 48px 42px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: none;
   border-radius: 14px;
   background: var(--bg);
-  padding: 10px 12px;
+  padding: 14px 16px;
   width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.05);
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.dailyRow:hover {
+  box-shadow: 0 6px 18px rgba(43, 58, 51, 0.1);
+  transform: translateY(-1px);
+}
+
+.dailyRow:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.22);
+  outline-offset: 2px;
+}
+
+.dailyRowDisabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.dailyRowDisabled:hover {
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.05);
+  transform: none;
 }
 
 .dailyDate {
-  flex-shrink: 0;
-  width: 44px;
+  display: grid;
+  gap: 1px;
   color: var(--text);
-  font-size: 12px;
+  text-align: center;
+}
+
+.dailyDate strong {
+  color: #3f4a44;
+  font-size: 14px;
+}
+
+.dailyDate small {
+  color: #a0a6a2;
+  font-size: 10px;
 }
 
 .dailyScore {
-  flex-shrink: 0;
-  width: 32px;
-  color: var(--text-h);
+  border-left: 1px solid #e7e9e7;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.dailyScoreHigh {
+  color: #3f916d;
+}
+
+.dailyScoreNormal {
+  color: #e3903b;
+}
+
+.dailyScoreLow {
+  color: #df5f55;
+}
+
+.dailyScoreUnknown {
+  color: #9fa6a1;
 }
 
 .dailyComment {
@@ -512,9 +572,15 @@
   white-space: nowrap;
 }
 
-.dailyHint {
-  margin: 6px 0 0;
-  color: var(--text);
-  font-size: 11px;
-  text-align: center;
+.dailyChevron {
+  color: #bbc0bc;
+  font-size: 22px;
+}
+
+@media (max-width: 360px) {
+  .dailyRow {
+    grid-template-columns: 42px 36px minmax(0, 1fr) 10px;
+    gap: 7px;
+    padding-inline: 12px;
+  }
 }

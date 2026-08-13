@@ -264,15 +264,17 @@ export function WeeklyStatsCards({
     <div className={styles.statsRow}>
       <div className={styles.statCard}>
         <span className={styles.statLabel}>평균</span>
-        <span className={styles.statValue}>{averageScore ?? '-'}</span>
+        <span className={[styles.statValue, styles.statAverage].join(' ')}>
+          {averageScore ?? '-'}
+        </span>
       </div>
       <div className={styles.statCard}>
         <span className={styles.statLabel}>최고</span>
-        <span className={styles.statValue}>{maxScore ?? '-'}</span>
+        <span className={[styles.statValue, styles.statMaximum].join(' ')}>{maxScore ?? '-'}</span>
       </div>
       <div className={styles.statCard}>
         <span className={styles.statLabel}>최저</span>
-        <span className={styles.statValue}>{minScore ?? '-'}</span>
+        <span className={[styles.statValue, styles.statMinimum].join(' ')}>{minScore ?? '-'}</span>
       </div>
     </div>
   )
@@ -290,17 +292,52 @@ interface WeeklyDailySummaryListProps {
 // 주간 리포트의 "일별 요약" — 카드를 탭하면 해당 날짜의 일간 리포트로 이동.
 export function WeeklyDailySummaryList({ dailyScores }: WeeklyDailySummaryListProps) {
   return (
-    <div>
-      <div className={styles.dailyList}>
-        {dailyScores.map((day) => (
-          <Link className={styles.dailyRow} to="/guardian/report" key={day.date}>
-            <span className={styles.dailyDate}>{day.date.slice(5).replace('-', '/')}</span>
-            <span className={styles.dailyScore}>{day.emotionScore ?? '-'}</span>
-            <span className={styles.dailyComment}>{day.comment ?? '데이터 부족'}</span>
+    <div className={styles.dailyList}>
+      {dailyScores.map((day) => {
+        const date = new Date(`${day.date}T00:00:00`)
+        const weekday = new Intl.DateTimeFormat('ko-KR', { weekday: 'short' }).format(date)
+        const dateLabel = day.date.slice(5).replace('-', '/')
+        const scoreClass =
+          day.emotionScore === null
+            ? styles.dailyScoreUnknown
+            : day.emotionScore >= 70
+              ? styles.dailyScoreHigh
+              : day.emotionScore >= 50
+                ? styles.dailyScoreNormal
+                : styles.dailyScoreLow
+        const rowContent = (
+          <>
+            <span className={styles.dailyDate}>
+              <strong>{weekday}</strong>
+              <small>{dateLabel}</small>
+            </span>
+            <span className={[styles.dailyScore, scoreClass].join(' ')}>
+              {day.emotionScore ?? '-'}
+            </span>
+            <span className={styles.dailyComment}>{day.comment ?? '대화 기록이 없어요'}</span>
+            {day.emotionScore !== null && (
+              <span className={styles.dailyChevron} aria-hidden="true">
+                ›
+              </span>
+            )}
+          </>
+        )
+
+        return day.emotionScore === null ? (
+          <div className={[styles.dailyRow, styles.dailyRowDisabled].join(' ')} key={day.date}>
+            {rowContent}
+          </div>
+        ) : (
+          <Link
+            aria-label={`${dateLabel} 일간 리포트 보기`}
+            className={styles.dailyRow}
+            to={`/guardian/report?date=${day.date}`}
+            key={day.date}
+          >
+            {rowContent}
           </Link>
-        ))}
-      </div>
-      <p className={styles.dailyHint}>카드를 탭하면 일간 리포트로 이동해요</p>
+        )
+      })}
     </div>
   )
 }
