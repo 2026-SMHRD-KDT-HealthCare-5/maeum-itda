@@ -5,10 +5,10 @@
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
-import type { RawData } from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
-import { rawDataToString, sendWsError } from '../ws-event';
+import { sendWsError } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
+import type { AudioMetadataEvent } from '../client-ws-event';
 
 // 대화 종료 방식
 export type AudioEndType = 'auto' | 'manual';
@@ -24,21 +24,28 @@ export interface AudioMetadata {
   seniorId: number;
 }
 
-interface AudioMetadataEvent {
-  event: 'audio:metadata';
-  payload: Omit<AudioMetadata, 'seniorId'>;
-  ts: string;
+export const AUDIO_BINARY_WAIT_MS = 10_000;
+
+interface PendingAudioMetadata {
+  metadata: AudioMetadata;
+  timeout: NodeJS.Timeout;
 }
 
 @Injectable()
 export class AudioMetadataHandler {
-  private readonly pendingMetadataByClient: WeakMap<WebSocket, AudioMetadata>; // 연결별 다음 바이너리의 발화 정보
+  private readonly pendingMetadataByClient: WeakMap<
+    WebSocket,
+    PendingAudioMetadata
+  >; // 연결별 다음 바이너리의 발화 정보와 만료 타이머
   private readonly chatConnectionStateService: ChatConnectionStateService; // 현재 AI 질문 식별정보 확인 객체
 
   // NestJS DI 컨테이너가 연결별 대화 상태 객체를 생성자에 주입
   constructor(chatConnectionStateService: ChatConnectionStateService) {
     this.chatConnectionStateService = chatConnectionStateService;
-    this.pendingMetadataByClient = new WeakMap<WebSocket, AudioMetadata>();
+    this.pendingMetadataByClient = new WeakMap<
+      WebSocket,
+      PendingAudioMetadata
+    >();
   }
 
   // 역할: audio:metadata 검증 후 인증 사용자 ID와 함께 연결별 임시 보관
@@ -47,14 +54,9 @@ export class AudioMetadataHandler {
   handleAudioMetadata(
     client: WebSocket,
     authenticatedUser: AccessTokenPayload,
-    data: RawData,
-    isBinary: boolean,
+    metadataEvent: AudioMetadataEvent,
   ): boolean {
     try {
-      if (isBinary) {
-        throw new Error('audio:metadata는 JSON 형식이어야 합니다.');
-      }
-
       // 이전 metadata에 해당하는 바이너리를 받기 전에는 새 metadata 수신 거부
       if (this.pendingMetadataByClient.has(client)) {
         sendWsError(client, {
@@ -65,8 +67,6 @@ export class AudioMetadataHandler {
         });
         return false;
       }
-
-      const metadataEvent = this.parseAudioMetadataEvent(rawDataToString(data));
 
       // 서버가 현재 연결에 전송한 AI 질문과 식별정보가 일치하는지 확인
       if (
@@ -85,10 +85,17 @@ export class AudioMetadataHandler {
         return false;
       }
 
-      this.pendingMetadataByClient.set(client, {
+      const metadata: AudioMetadata = {
         ...metadataEvent.payload,
         seniorId: authenticatedUser.sub,
-      });
+      };
+      const timeout = setTimeout(
+        () => this.expirePendingMetadata(client),
+        AUDIO_BINARY_WAIT_MS,
+      );
+      // pending metadata 타이머 하나만 남았다는 이유로 NestJS 프로세스 종료가 지연되지 않게 한다.
+      timeout.unref();
+      this.pendingMetadataByClient.set(client, { metadata, timeout });
       return true;
     } catch {
       sendWsError(client, {
@@ -104,70 +111,34 @@ export class AudioMetadataHandler {
   // 역할: 다음 음성 바이너리와 연결할 pending metadata 조회
   // 다음 호출: 바이너리 처리 Handler 구현 시 사용
   getPendingMetadata(client: WebSocket): AudioMetadata | undefined {
-    return this.pendingMetadataByClient.get(client);
+    return this.pendingMetadataByClient.get(client)?.metadata;
   }
 
   // 역할: 바이너리와 연결할 metadata를 한 번만 꺼내고 pending 상태에서 제거
   takePendingMetadata(client: WebSocket): AudioMetadata | undefined {
-    const metadata = this.pendingMetadataByClient.get(client);
-    if (metadata !== undefined) this.pendingMetadataByClient.delete(client);
-    return metadata;
+    const pending = this.pendingMetadataByClient.get(client);
+    if (pending === undefined) return undefined;
+    clearTimeout(pending.timeout);
+    this.pendingMetadataByClient.delete(client);
+    return pending.metadata;
   }
 
   // 역할: WebSocket 종료 시 연결별 pending metadata 제거
   clearClient(client: WebSocket): void {
+    const pending = this.pendingMetadataByClient.get(client);
+    if (pending !== undefined) clearTimeout(pending.timeout);
     this.pendingMetadataByClient.delete(client);
   }
 
-  // 역할: JSON 변환과 audio:metadata 필수 필드·타입 검증
-  // 다음 호출: 검증 성공 → pendingMetadataByClient에 보관
-  private parseAudioMetadataEvent(message: string): AudioMetadataEvent {
-    const parsedEvent: unknown = JSON.parse(message);
-
-    if (
-      typeof parsedEvent !== 'object' ||
-      parsedEvent === null ||
-      !('event' in parsedEvent) ||
-      parsedEvent.event !== 'audio:metadata' ||
-      !('payload' in parsedEvent) ||
-      typeof parsedEvent.payload !== 'object' ||
-      parsedEvent.payload === null ||
-      !('audioTransferId' in parsedEvent.payload) ||
-      typeof parsedEvent.payload.audioTransferId !== 'string' ||
-      parsedEvent.payload.audioTransferId.length === 0 ||
-      !('questionMessageId' in parsedEvent.payload) ||
-      !Number.isInteger(parsedEvent.payload.questionMessageId) ||
-      Number(parsedEvent.payload.questionMessageId) <= 0 ||
-      !('generationId' in parsedEvent.payload) ||
-      typeof parsedEvent.payload.generationId !== 'string' ||
-      parsedEvent.payload.generationId.length === 0 ||
-      !('mimeType' in parsedEvent.payload) ||
-      typeof parsedEvent.payload.mimeType !== 'string' ||
-      !parsedEvent.payload.mimeType.startsWith('audio/') ||
-      !('capturedAt' in parsedEvent.payload) ||
-      typeof parsedEvent.payload.capturedAt !== 'string' ||
-      Number.isNaN(Date.parse(parsedEvent.payload.capturedAt)) ||
-      !('endType' in parsedEvent.payload) ||
-      (parsedEvent.payload.endType !== 'auto' &&
-        parsedEvent.payload.endType !== 'manual') ||
-      !('ts' in parsedEvent) ||
-      typeof parsedEvent.ts !== 'string' ||
-      Number.isNaN(Date.parse(parsedEvent.ts))
-    ) {
-      throw new Error('유효하지 않은 audio:metadata 이벤트입니다.');
-    }
-
-    return {
-      event: 'audio:metadata',
-      payload: {
-        audioTransferId: parsedEvent.payload.audioTransferId,
-        questionMessageId: Number(parsedEvent.payload.questionMessageId),
-        generationId: parsedEvent.payload.generationId,
-        mimeType: parsedEvent.payload.mimeType,
-        capturedAt: parsedEvent.payload.capturedAt,
-        endType: parsedEvent.payload.endType,
-      },
-      ts: parsedEvent.ts,
-    };
+  // metadata와 짝을 이룰 바이너리가 제한 시간 안에 오지 않으면 오래된 전송 상태를 폐기한다.
+  private expirePendingMetadata(client: WebSocket): void {
+    if (!this.pendingMetadataByClient.has(client)) return;
+    this.pendingMetadataByClient.delete(client);
+    sendWsError(client, {
+      code: 'AUDIO_BINARY_TIMEOUT',
+      message: '음성 데이터가 제한 시간 안에 도착하지 않았습니다.',
+      requestEvent: 'audio:binary',
+      retryable: true,
+    });
   }
 }

@@ -6,19 +6,14 @@
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
-import type { RawData } from 'ws';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 import { QuestionAnswerQueueService } from '../question-answer-queue.service';
-import { rawDataToString, sendWsError, sendWsEvent } from '../ws-event';
+import { sendWsEvent } from '../ws-event';
 import { AudioBinaryHandler } from './audio-binary.handler';
 import { AudioMetadataHandler } from './audio-metadata.handler';
 import { ChatInactivityService } from '../chat-inactivity.service';
 
-interface ChatEndEvent {
-  event: 'chat:end';
-  payload: { reason: 'USER_REQUESTED' };
-  ts: string;
-}
+import type { ChatEndEvent } from '../client-ws-event';
 
 @Injectable()
 export class ChatEndHandler {
@@ -31,19 +26,8 @@ export class ChatEndHandler {
   ) {}
 
   // 역할: 사용자의 수동 종료를 처리하되 WebSocket 연결은 유지하여 새 chat:start를 받을 수 있게 한다.
-  handleChatEnd(client: WebSocket, data: RawData, isBinary: boolean): void {
-    try {
-      if (isBinary) throw new Error('chat:end는 JSON 형식이어야 합니다.');
-      this.parseChatEndEvent(rawDataToString(data));
-    } catch {
-      sendWsError(client, {
-        code: 'INVALID_EVENT',
-        message: '대화 종료 이벤트 형식이 올바르지 않습니다.',
-        requestEvent: 'chat:end',
-        retryable: false,
-      });
-      return;
-    }
+  handleChatEnd(client: WebSocket, event: ChatEndEvent): void {
+    void event;
 
     const currentQuestion =
       this.chatConnectionStateService.getCurrentQuestion(client);
@@ -64,31 +48,5 @@ export class ChatEndHandler {
       reason: 'USER_REQUESTED',
       endedAt,
     });
-  }
-
-  private parseChatEndEvent(message: string): ChatEndEvent {
-    const parsed: unknown = JSON.parse(message);
-    if (
-      typeof parsed !== 'object' ||
-      parsed === null ||
-      !('event' in parsed) ||
-      parsed.event !== 'chat:end' ||
-      !('payload' in parsed) ||
-      typeof parsed.payload !== 'object' ||
-      parsed.payload === null ||
-      !('reason' in parsed.payload) ||
-      parsed.payload.reason !== 'USER_REQUESTED' ||
-      Object.keys(parsed.payload).length !== 1 ||
-      !('ts' in parsed) ||
-      typeof parsed.ts !== 'string' ||
-      Number.isNaN(Date.parse(parsed.ts))
-    ) {
-      throw new Error('유효하지 않은 chat:end 이벤트입니다.');
-    }
-    return {
-      event: 'chat:end',
-      payload: { reason: 'USER_REQUESTED' },
-      ts: parsed.ts,
-    };
   }
 }

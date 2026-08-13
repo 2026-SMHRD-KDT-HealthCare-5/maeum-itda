@@ -16,7 +16,7 @@ describe('ChatInactivityService', () => {
 
   it('30초 후 안내하고 총 2분 무응답이면 연결을 닫지 않고 대화를 종료한다', () => {
     const send = jest.fn<void, [string]>();
-    const client = { send } as unknown as WebSocket;
+    const client = { send, readyState: 1 } as unknown as WebSocket;
     const queue = { flush: jest.fn() };
     const metadata = { clearClient: jest.fn() };
     const transfer = { clearClient: jest.fn() };

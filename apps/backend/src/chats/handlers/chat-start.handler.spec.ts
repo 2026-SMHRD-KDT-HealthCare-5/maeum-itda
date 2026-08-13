@@ -3,6 +3,13 @@ import { UserRole } from '../../users/entities/user.entity';
 import type { ChatsService } from '../chats.service';
 import { ChatStartHandler } from './chat-start.handler';
 import type { ChatConnectionStateService } from '../chat-connection-state.service';
+import type { ChatStartEvent } from '../client-ws-event';
+
+const chatStartEvent: ChatStartEvent = {
+  event: 'chat:start',
+  payload: {},
+  ts: '2026-08-07T10:00:01.000Z',
+};
 
 describe('ChatStartHandler', () => {
   it('chat:start 수신 시 chat:started와 ai:question을 순서대로 전송한다', async () => {
@@ -13,7 +20,7 @@ describe('ChatStartHandler', () => {
         content: '오늘 하루는 어땠나요?',
       }),
     };
-    const client = { send: jest.fn<void, [string]>() };
+    const client = { send: jest.fn<void, [string]>(), readyState: 1 };
     const chatConnectionStateService = {
       getCurrentQuestion: jest.fn().mockReturnValue(undefined),
       setCurrentQuestion: jest.fn(),
@@ -26,14 +33,7 @@ describe('ChatStartHandler', () => {
     await handler.handleChatStart(
       client as unknown as WebSocket,
       { sub: 1, role: UserRole.SENIOR },
-      Buffer.from(
-        JSON.stringify({
-          event: 'chat:start',
-          payload: {},
-          ts: '2026-08-07T10:00:01.000Z',
-        }),
-      ),
-      false,
+      chatStartEvent,
     );
 
     expect(chatsService.startChat).toHaveBeenCalledWith(1);
@@ -57,7 +57,7 @@ describe('ChatStartHandler', () => {
 
   it('진행 중인 대화에서 chat:start를 다시 받으면 시작을 거부한다', async () => {
     const chatsService = { startChat: jest.fn() };
-    const client = { send: jest.fn<void, [string]>() };
+    const client = { send: jest.fn<void, [string]>(), readyState: 1 };
     const state = {
       getCurrentQuestion: jest.fn().mockReturnValue({
         questionMessageId: 101,
@@ -73,14 +73,7 @@ describe('ChatStartHandler', () => {
     await handler.handleChatStart(
       client as unknown as WebSocket,
       { sub: 1, role: UserRole.SENIOR },
-      Buffer.from(
-        JSON.stringify({
-          event: 'chat:start',
-          payload: {},
-          ts: '2026-08-12T00:00:00.000Z',
-        }),
-      ),
-      false,
+      chatStartEvent,
     );
 
     expect(chatsService.startChat).not.toHaveBeenCalled();
