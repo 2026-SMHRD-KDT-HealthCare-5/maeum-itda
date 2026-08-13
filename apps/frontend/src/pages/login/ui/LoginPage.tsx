@@ -57,12 +57,6 @@ export function LoginPage() {
           <Button type="button" variant="outline" onClick={() => navigate('/join')}>
             회원가입
           </Button>
-
-          {/* 개인정보 처리방침 페이지가 아직 없어 링크가 아니라 텍스트만 강조함. */}
-          <p className={styles.footer}>
-            서비스 이용 시 <span className={styles.footerHighlight}>개인정보 처리방침</span>에
-            동의하게 됩니다.
-          </p>
         </Card>
       </section>
     </main>

@@ -11,6 +11,16 @@ export function roleFromApi(apiRole: 'SENIOR' | 'GUARDIAN'): Role {
   return apiRole === 'SENIOR' ? 'senior' : 'guardian'
 }
 
+// POST /auth/login 응답 — login-with-credentials/register-account 둘 다 이
+// 모양으로 로그인해 세션을 채운다.
+export interface AuthResult {
+  accessToken: string
+  userId: number
+  loginId: string
+  name: string
+  role: Role
+}
+
 export interface Session {
   userId: number
   loginId: string
