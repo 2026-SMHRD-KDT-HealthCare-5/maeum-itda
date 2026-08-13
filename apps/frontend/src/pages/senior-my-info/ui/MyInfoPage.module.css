@@ -6,6 +6,13 @@
     radial-gradient(circle at 100% 0, rgba(220, 235, 225, 0.58), transparent 19rem), var(--app-bg);
 }
 
+.saveError {
+  margin: 6px 2px 0;
+  color: #b74d4d;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .header {
   display: flex;
   flex-direction: column;

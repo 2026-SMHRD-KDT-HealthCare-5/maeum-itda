@@ -1,31 +1,38 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
-import { EditBasicInfoAction } from '../../../features/edit-basic-info'
+import {
+  EditBasicInfoAction,
+  formatPhoneNumber,
+  updateMyProfile,
+} from '../../../features/edit-basic-info'
 import {
   SetNotificationThresholdAction,
   type NotificationThresholdValue,
 } from '../../../features/set-notification-threshold'
 import { formatConnectionDuration, type Connection } from '../../../entities/connection'
+import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { Button, Card } from '../../../shared/ui'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
-import { useSession } from '../../../entities/user'
 import styles from './MyInfoPage.module.css'
 
 // 결정사항 로그 §7 — Figma '보호자 내 정보' 화면 최초 반영. 기존 별도
-// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 실제 API 연결 전이라
-// 시니어/보호자/연결 데이터는 페이지 로컬 mock 상태로 둔다.
+// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 연결/알림 임계치는 아직
+// API가 없어 페이지 로컬 mock 상태로 둔다(기본 정보만 실제 GET/PATCH /users/me).
 const mockSeniorName = '김순자'
 
 export function GuardianMyInfoPage() {
-  const { session, logout } = useSession()
+  const { logout } = useSession()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  const [basicInfo, setBasicInfo] = useState({
-    username: session?.userId ?? 'guardian01',
-    name: session?.name ?? '김민준',
-    phone: '010-9876-5432',
+  const profileQuery = useQuery({ queryKey: MY_PROFILE_QUERY_KEY, queryFn: fetchMyProfile })
+  const updateProfileMutation = useMutation({
+    mutationFn: updateMyProfile,
+    onSuccess: (updated) => queryClient.setQueryData(MY_PROFILE_QUERY_KEY, updated),
   })
+
   const [connection, setConnection] = useState<Connection>({
     id: 'conn-1',
     seniorId: 'senior-1',
@@ -46,6 +53,27 @@ export function GuardianMyInfoPage() {
 
   const isConnected = connection.status === 'accepted'
 
+  if (profileQuery.isPending) {
+    return (
+      <main className={styles.page}>
+        <p>내 정보를 불러오는 중이에요...</p>
+      </main>
+    )
+  }
+
+  if (profileQuery.isError || !profileQuery.data) {
+    return (
+      <main className={styles.page}>
+        <p>내 정보를 불러오지 못했어요.</p>
+        <Button type="button" onClick={() => profileQuery.refetch()}>
+          다시 시도
+        </Button>
+      </main>
+    )
+  }
+
+  const profile = profileQuery.data
+
   return (
     <>
       <main className={styles.page}>
@@ -53,15 +81,22 @@ export function GuardianMyInfoPage() {
           <span className={styles.avatar} aria-hidden="true">
             🧑
           </span>
-          <h1 className={styles.name}>{basicInfo.name} 보호자</h1>
+          <h1 className={styles.name}>{profile.name} 보호자</h1>
         </header>
 
         <div className={styles.cards}>
           <Card>
             <EditBasicInfoAction
-              values={basicInfo}
-              onSave={(next) => setBasicInfo((current) => ({ ...current, ...next }))}
+              values={{
+                username: profile.loginId,
+                name: profile.name,
+                phone: formatPhoneNumber(profile.phone),
+              }}
+              onSave={(next) => updateProfileMutation.mutate(next)}
             />
+            {updateProfileMutation.isError && (
+              <p className={styles.saveError}>저장에 실패했어요. 다시 시도해주세요.</p>
+            )}
           </Card>
 
           <Card>

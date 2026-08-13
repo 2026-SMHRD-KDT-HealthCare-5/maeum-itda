@@ -104,21 +104,6 @@
   text-align: center;
 }
 
-.footer {
-  margin-top: 18px;
-  font-size: 11px;
-  line-height: 150%;
-  color: #929895;
-  text-align: center;
-}
-
-.footerHighlight {
-  color: var(--primary);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 @media (max-height: 760px) {
   .page {
     justify-content: flex-start;

@@ -31,6 +31,7 @@ const mockDailyReport = {
 const mockReportsByDate: Record<string, typeof mockDailyReport> = {
   '2026-08-12': mockDailyReport,
 }
+const datesWithReport = new Set(Object.keys(mockReportsByDate))
 
 export function GuardianReportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -52,7 +53,11 @@ export function GuardianReportPage() {
       <main className={styles.page}>
         <ReportPeriodTabs active="daily" weekStart={weekStart} />
 
-        <SelectReportDateAction selectedDate={selectedDate} onSelectDate={selectDate} />
+        <SelectReportDateAction
+          selectedDate={selectedDate}
+          onSelectDate={selectDate}
+          datesWithReport={datesWithReport}
+        />
 
         {report ? (
           <>

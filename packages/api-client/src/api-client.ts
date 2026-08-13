@@ -769,7 +769,7 @@ export class Api<
      *
      * @tags 2. 내 계정 관리
      * @name ProfileSettingsControllerGetGuardianAlertSetting
-     * @summary 보호자 정서지수 하락 알림 설정 조회
+     * @summary 보호자 알림 수신 여부와 정서지수 임계치 확인
      * @request GET:/users/me/emotion-alert-settings
      * @secure
      */
@@ -789,7 +789,7 @@ export class Api<
      *
      * @tags 2. 내 계정 관리
      * @name ProfileSettingsControllerUpdateGuardianAlertSetting
-     * @summary 보호자 정서지수 하락 알림 설정 수정
+     * @summary 보호자 알림 수신 여부 또는 정서지수 임계치 변경
      * @request PATCH:/users/me/emotion-alert-settings
      * @secure
      */
@@ -812,7 +812,7 @@ export class Api<
      *
      * @tags 2. 내 계정 관리
      * @name ProfileSettingsControllerGetSeniorCheckinSetting
-     * @summary 시니어 안부 알림 설정 조회
+     * @summary 시니어 안부 알림 수신 여부와 예약 시간 확인
      * @request GET:/users/me/checkin-reminder-settings
      * @secure
      */
@@ -832,7 +832,7 @@ export class Api<
      *
      * @tags 2. 내 계정 관리
      * @name ProfileSettingsControllerUpdateSeniorCheckinSetting
-     * @summary 시니어 안부 알림 설정 수정
+     * @summary 시니어 안부 알림 수신 여부 또는 예약 시간 변경
      * @request PATCH:/users/me/checkin-reminder-settings
      * @secure
      */
