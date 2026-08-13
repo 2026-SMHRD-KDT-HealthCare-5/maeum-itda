@@ -1,6 +1,7 @@
 import { useId, useRef, useState, type FormEvent, type InputHTMLAttributes } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { extractApiErrorMessage } from '../../../shared/api'
+import { useSession } from '../../../entities/user'
 import { Button } from '../../../shared/ui'
 import { checkLoginIdAvailable, registerAccount } from '../api'
 import {
@@ -64,6 +65,7 @@ export function RegisterAccountAction() {
   const usernameErrorId = useId()
   const roleErrorId = useId()
   const navigate = useNavigate()
+  const { login: setSession } = useSession()
   const [values, setValues] = useState(initialValues)
   const [errors, setErrors] = useState<RegisterAccountErrors>({})
   const [submitted, setSubmitted] = useState(false)
@@ -134,8 +136,18 @@ export function RegisterAccountAction() {
 
     setIsSubmitting(true)
     try {
-      await registerAccount(values)
-      navigate('/login', { state: { notice: '가입이 완료됐어요. 로그인해주세요.' } })
+      const result = await registerAccount(values)
+      setSession(
+        {
+          userId: result.userId,
+          loginId: result.loginId,
+          name: result.name,
+          role: result.role,
+          accessToken: result.accessToken,
+        },
+        { remember: true },
+      )
+      navigate(result.role === 'senior' ? '/senior' : '/guardian')
     } catch (error) {
       setNotice(extractApiErrorMessage(error, '회원가입에 실패했어요. 다시 시도해주세요.'))
     } finally {
