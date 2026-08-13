@@ -22,7 +22,7 @@ export function GuardianMyInfoPage() {
   const navigate = useNavigate()
 
   const [basicInfo, setBasicInfo] = useState({
-    username: session?.userId ?? 'guardian01',
+    username: session?.loginId ?? 'guardian01',
     name: session?.name ?? '김민준',
     phone: '010-9876-5432',
   })
