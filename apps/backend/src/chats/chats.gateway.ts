@@ -19,6 +19,26 @@ import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import { ChatEndHandler } from './handlers/chat-end.handler';
 import { ChatInactivityService } from './chat-inactivity.service';
+import {
+  ClientWsEventParseError,
+  parseAuthenticatedClientEvent,
+} from './client-ws-event';
+
+export const WS_AUTH_TIMEOUT_MS = 5_000;
+
+type ConnectionPhase = 'WAITING_FOR_AUTH' | 'AUTHENTICATING' | 'AUTHENTICATED';
+
+interface PendingClientMessage {
+  data: RawData;
+  isBinary: boolean;
+}
+
+interface ClientConnectionContext {
+  phase: ConnectionPhase;
+  authenticatedUser?: AccessTokenPayload;
+  authTimeout: NodeJS.Timeout;
+  pendingMessages: PendingClientMessage[];
+}
 
 // WebSocket 연결 경로: ws://서버주소/ws/chats
 // 운영 배포에서 HTTPS/TLS가 적용되면 같은 경로를 wss://로 사용
@@ -32,7 +52,10 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly audioMetadataHandler: AudioMetadataHandler; // 음성 메타데이터 처리 객체
   private readonly audioBinaryHandler: AudioBinaryHandler; // 음성 바이너리 처리 객체
   private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
-  private readonly authenticatedClients: WeakMap<WebSocket, AccessTokenPayload>; // 연결별 인증 사용자 정보
+  private readonly connectionContexts = new WeakMap<
+    WebSocket,
+    ClientConnectionContext
+  >(); // 인증 단계와 인증 중 도착한 메시지를 연결별로 관리
 
   // NestJS DI 컨테이너가 인증 Handler와 대화 시작 Handler 객체를 생성자에 주입
   constructor(
@@ -50,24 +73,65 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.audioMetadataHandler = audioMetadataHandler;
     this.audioBinaryHandler = audioBinaryHandler;
     this.chatConnectionStateService = chatConnectionStateService;
-    this.authenticatedClients = new WeakMap<WebSocket, AccessTokenPayload>();
   }
 
   // 역할: WebSocket 연결 성립 후 첫 인증 메시지 수신 대기
   // 다음 호출: ChatAuthHandler.authenticate()
   handleConnection(client: WebSocket): void {
-    client.once('message', (data: RawData, isBinary: boolean) => {
-      void this.authenticateConnection(client, data, isBinary);
+    const authTimeout = setTimeout(() => {
+      this.connectionContexts.delete(client);
+      client.close(1008, 'WebSocket authentication timeout');
+    }, WS_AUTH_TIMEOUT_MS);
+    this.connectionContexts.set(client, {
+      phase: 'WAITING_FOR_AUTH',
+      authTimeout,
+      pendingMessages: [],
+    });
+
+    // 연결 직후부터 listener 하나를 유지해 비동기 JWT 검증 중 들어온 후속 메시지도 잃지 않는다.
+    client.on('message', (data: RawData, isBinary: boolean) => {
+      void this.handleClientMessage(client, data, isBinary);
     });
   }
 
   // 역할: WebSocket 연결 종료 시 연결별 인증정보 제거
   handleDisconnect(client: WebSocket): void {
-    this.authenticatedClients.delete(client);
+    const context = this.connectionContexts.get(client);
+    if (context !== undefined) clearTimeout(context.authTimeout);
+    this.connectionContexts.delete(client);
     this.audioMetadataHandler.clearClient(client);
     this.audioBinaryHandler.clearClient(client);
     this.chatConnectionStateService.clearClient(client);
     this.chatInactivityService?.clearClient(client);
+  }
+
+  private async handleClientMessage(
+    client: WebSocket,
+    data: RawData,
+    isBinary: boolean,
+  ): Promise<void> {
+    const context = this.connectionContexts.get(client);
+    if (context === undefined) return;
+
+    if (context.phase === 'WAITING_FOR_AUTH') {
+      context.phase = 'AUTHENTICATING';
+      await this.authenticateConnection(client, context, data, isBinary);
+      return;
+    }
+
+    if (context.phase === 'AUTHENTICATING') {
+      context.pendingMessages.push({ data, isBinary });
+      return;
+    }
+
+    if (context.authenticatedUser !== undefined) {
+      this.routeAuthenticatedMessage(
+        client,
+        context.authenticatedUser,
+        data,
+        isBinary,
+      );
+    }
   }
 
   // 역할: 인증 Handler 결과를 연결에 보관하고 이후 메시지 수신 등록
@@ -75,6 +139,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // 다음 호출: 인증 성공 → ChatStartHandler.handleChatStart()
   private async authenticateConnection(
     client: WebSocket,
+    context: ClientConnectionContext,
     data: RawData,
     isBinary: boolean,
   ): Promise<void> {
@@ -85,9 +150,18 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     );
 
     // 인증 실패 시 Handler가 오류 전송과 연결 종료를 완료하므로 수신 등록 중단
-    if (authenticatedUser === null) return;
+    if (authenticatedUser === null) {
+      clearTimeout(context.authTimeout);
+      this.connectionContexts.delete(client);
+      return;
+    }
 
-    this.authenticatedClients.set(client, authenticatedUser);
+    // 인증 timeout이나 disconnect가 먼저 연결을 정리했다면 늦게 끝난 JWT 결과를 적용하지 않는다.
+    if (this.connectionContexts.get(client) !== context) return;
+
+    clearTimeout(context.authTimeout);
+    context.phase = 'AUTHENTICATED';
+    context.authenticatedUser = authenticatedUser;
 
     // 서버가 재시작되지 않은 단기 재접속에서는 마지막 현재 질문을 새 연결에 다시 전달한다.
     const restored = this.chatConnectionStateService.restoreClient?.(
@@ -107,15 +181,16 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.chatInactivityService?.startWaitingForAnswer(client);
     }
 
-    // 인증 이후 수신하는 JSON·바이너리 메시지를 이벤트 분배 메서드에 전달
-    client.on('message', (messageData: RawData, messageIsBinary: boolean) => {
+    // JWT 검증 중 도착한 메시지를 수신 순서대로 처리한다.
+    const pendingMessages = context.pendingMessages.splice(0);
+    for (const pending of pendingMessages) {
       this.routeAuthenticatedMessage(
         client,
         authenticatedUser,
-        messageData,
-        messageIsBinary,
+        pending.data,
+        pending.isBinary,
       );
-    });
+    }
   }
 
   // 역할: 인증 이후 JSON 이벤트 이름을 확인하고 담당 Handler로 전달
@@ -133,22 +208,13 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
-      const parsedEvent: unknown = JSON.parse(rawDataToString(data));
-      if (
-        typeof parsedEvent !== 'object' ||
-        parsedEvent === null ||
-        !('event' in parsedEvent) ||
-        typeof parsedEvent.event !== 'string'
-      ) {
-        throw new Error('이벤트 이름이 없습니다.');
-      }
+      const parsedEvent = parseAuthenticatedClientEvent(rawDataToString(data));
 
       if (parsedEvent.event === 'chat:start') {
         void this.chatStartHandler.handleChatStart(
           client,
           authenticatedUser,
-          data,
-          false,
+          parsedEvent,
         );
         return;
       }
@@ -157,24 +223,23 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         const accepted = this.audioMetadataHandler.handleAudioMetadata(
           client,
           authenticatedUser,
-          data,
-          false,
+          parsedEvent,
         );
         if (accepted) this.chatInactivityService?.markAnswerStarted(client);
         return;
       }
 
       if (parsedEvent.event === 'chat:end') {
-        this.chatEndHandler.handleChatEnd(client, data, false);
+        this.chatEndHandler.handleChatEnd(client, parsedEvent);
         return;
       }
-
-      throw new Error('지원하지 않는 이벤트입니다.');
-    } catch {
+    } catch (error: unknown) {
+      const parseError =
+        error instanceof ClientWsEventParseError ? error : undefined;
       sendWsError(client, {
-        code: 'INVALID_EVENT',
+        code: parseError?.code ?? 'INVALID_EVENT',
         message: '요청한 WebSocket 이벤트를 처리할 수 없습니다.',
-        requestEvent: 'unknown',
+        requestEvent: parseError?.requestEvent ?? 'unknown',
         retryable: false,
       });
     }

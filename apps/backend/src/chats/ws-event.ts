@@ -5,9 +5,17 @@
 */
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
-import type { WsErrorPayload, WsEvent } from '@maeum-itda/shared-types';
+import { Logger } from '@nestjs/common';
+import type {
+  ServerWsEventMap,
+  WsErrorPayload,
+  WsEvent,
+} from '@maeum-itda/shared-types';
 
 export type { WsErrorPayload } from '@maeum-itda/shared-types';
+
+const logger = new Logger('WsEventSender');
+const WEB_SOCKET_OPEN_STATE = 1;
 
 // 역할: ws 수신 데이터(Buffer | ArrayBuffer | Buffer[])를 UTF-8 문자열로 변환
 // Buffer.prototype.toString은 위 세 형태 모두 처리하지만, ArrayBuffer.prototype.toString은
@@ -24,22 +32,39 @@ export function rawDataToString(data: RawData): string {
 
 // 모든 WebSocket JSON 이벤트가 공유하는 event/payload/ts 형식
 // 역할: 응답 데이터에 이벤트 이름과 서버 전송 시각을 추가하여 브라우저로 전송
-export function sendWsEvent<TEvent extends string, TPayload>(
+export function sendWsEvent<TEvent extends keyof ServerWsEventMap>(
   client: WebSocket,
   event: TEvent,
-  payload: TPayload,
-): void {
-  const responseEvent: WsEvent<TEvent, TPayload> = {
+  payload: ServerWsEventMap[TEvent],
+): boolean {
+  if (client.readyState !== WEB_SOCKET_OPEN_STATE) {
+    logger.warn(`닫힌 WebSocket 이벤트 전송 생략: event=${event}`);
+    return false;
+  }
+
+  const responseEvent: WsEvent<TEvent, ServerWsEventMap[TEvent]> = {
     event,
     payload,
     ts: new Date().toISOString(),
   };
 
-  client.send(JSON.stringify(responseEvent));
+  try {
+    client.send(JSON.stringify(responseEvent));
+    return true;
+  } catch (error: unknown) {
+    logger.error(
+      `WebSocket 이벤트 전송 실패: event=${event}`,
+      error instanceof Error ? error.stack : String(error),
+    );
+    return false;
+  }
 }
 
 // 역할: 모든 일반 오류에 발생 요청과 재시도 가능 여부를 빠짐없이 포함해 전송한다.
 // 연결 흐름: Gateway/Handler → sendWsError() → sendWsEvent() → 브라우저
-export function sendWsError(client: WebSocket, payload: WsErrorPayload): void {
-  sendWsEvent(client, 'error', payload);
+export function sendWsError(
+  client: WebSocket,
+  payload: WsErrorPayload,
+): boolean {
+  return sendWsEvent(client, 'error', payload);
 }

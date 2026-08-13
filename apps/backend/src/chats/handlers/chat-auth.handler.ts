@@ -68,7 +68,8 @@ export class ChatAuthHandler {
   ): void {
     sendWsEvent(client, 'auth:success', {
       userId: authenticatedUser.sub,
-      role: authenticatedUser.role,
+      // 이 Gateway는 위 authenticate()에서 SENIOR 역할만 통과시키므로 계약의 리터럴 값을 보낸다.
+      role: 'SENIOR',
     });
   }
 

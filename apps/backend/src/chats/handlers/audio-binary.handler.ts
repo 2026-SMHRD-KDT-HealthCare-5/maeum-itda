@@ -4,7 +4,7 @@
 전체 흐름: 바이너리 검증 → 답변·관계 DB 저장 → audio:ack → 5초간 추가 답변 결합 → FastAPI REST 요청 → 다음 ai:question
 주의: STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·저장·전달 흐름만 담당한다.
 */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { AnalysisService } from '../../analysis/analysis.service';
@@ -23,6 +23,7 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class AudioBinaryHandler {
+  private readonly logger = new Logger(AudioBinaryHandler.name);
   // 같은 질문에 늦게 도착한 추가 묶음은 앞선 FastAPI 요청 뒤에 순서대로 처리한다.
   private readonly processingByQuestionMessageId = new Map<
     number,
@@ -133,7 +134,22 @@ export class AudioBinaryHandler {
 
       // 첫 등록 Handler만 공용 ready Promise를 기다려 질문별 분석을 한 번 실행한다.
       if (queued.isBatchOwner) {
-        void queued.ready.then((batch) => this.scheduleBatch(client, batch));
+        void queued.ready
+          .then((batch) => this.scheduleBatch(client, batch))
+          .catch((error: unknown) => {
+            this.logger.error(
+              `음성 답변 묶음 준비 실패: questionMessageId=${metadata.questionMessageId}`,
+              error instanceof Error ? error.stack : String(error),
+            );
+            if (this.isClientOpen(client)) {
+              this.sendError(
+                client,
+                'AUDIO_ANALYSIS_FAILED',
+                '음성 답변 묶음을 준비하지 못했습니다.',
+                true,
+              );
+            }
+          });
       }
     } catch {
       this.sendError(

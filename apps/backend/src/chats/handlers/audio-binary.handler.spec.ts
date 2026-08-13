@@ -177,4 +177,28 @@ describe('AudioBinaryHandler', () => {
       }),
     );
   });
+
+  it('답변 묶음 준비 Promise가 실패하면 AUDIO_ANALYSIS_FAILED를 전송한다', async () => {
+    const context = createContext();
+    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
+      isBatchOwner: true,
+      ready: Promise.reject(new Error('batch failed')),
+    });
+
+    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(
+      context.send.mock.calls.some((call) => {
+        const event = JSON.parse(call[0]) as {
+          event?: string;
+          payload?: { code?: string };
+        };
+        return (
+          event.event === 'error' &&
+          event.payload?.code === 'AUDIO_ANALYSIS_FAILED'
+        );
+      }),
+    ).toBe(true);
+  });
 });
