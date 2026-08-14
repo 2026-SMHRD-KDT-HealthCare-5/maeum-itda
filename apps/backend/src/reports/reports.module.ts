@@ -8,6 +8,7 @@ import { DailyEmotionReport } from './entities/daily-emotion-report.entity';
 import { DailyReportEvidence } from './entities/daily-report-evidence.entity';
 import { WeeklyEmotionReport } from './entities/weekly-emotion-report.entity';
 import { ReportsController } from './reports.controller';
+import { DailyReportRepository } from './repositories/daily-report.repository';
 import { ReportsService } from './reports.service';
 
 // DailyEmotionReport Repository와 리포트 요청 처리 객체를 등록한다.
@@ -20,6 +21,7 @@ import { ReportsService } from './reports.service';
     ]),
   ],
   controllers: [ReportsController],
-  providers: [ReportsService],
+  providers: [ReportsService, DailyReportRepository],
+  exports: [ReportsService],
 })
 export class ReportsModule {}
