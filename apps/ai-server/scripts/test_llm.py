@@ -73,13 +73,16 @@ def main() -> None:
     print(f"미채점 척도 문항: {pending or '(없음)'}")
     print("-" * 50)
 
+    answers = [{"message_id": 1, "text": args.text, "emotion": emotion}]
+
     started = time.perf_counter()
-    result = llm_service.generate_next_question(args.text, emotion, session)
+    result = llm_service.generate_next_question(answers, session)
     elapsed_ms = int((time.perf_counter() - started) * 1000)
 
     print(f"소요 시간: {elapsed_ms}ms")
     print(f"AI 질문: {result.get('ai_question')}")
     print(f"타깃 척도: {result.get('target_scale')} / {result.get('target_item')}")
+    print(f"척도 분석(stub): {result.get('answer_analyses')}")
     if result.get("empathy_note"):
         print(f"공감 메모(내부용): {result.get('empathy_note')}")
 

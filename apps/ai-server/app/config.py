@@ -37,8 +37,8 @@ class Settings(BaseSettings):
     local_whisper_beam_size: int = 5
     local_whisper_vad_filter: bool = True      # 무음 구간 잘라내고 처리(속도 향상)
 
-    # Typecast TTS (/v1/text-to-speech) - 응답은 스트리밍이 아니라 요청당 완성된 오디오 1개.
-    # 2000자 제한이 있어 긴 텍스트는 문장 단위로 쪼개 순차 호출한다 (app/services/tts.py 참고)
+    # Typecast TTS 스트리밍 응답은 REST 결과에서 Base64 문자열로 변환한다.
+    # 2000자 제한이 있어 긴 텍스트는 문장 단위로 쪼개 순차 호출한다 (app/services/tts.py 참고).
     typecast_api_key: str = ""
     typecast_voice_id: str = ""                # https://api.typecast.ai/v2/voices 로 목록 조회 가능
     typecast_model: str = "ssfm-v30"           # ssfm-v30(최신, 감정 7종) 또는 ssfm-v21
@@ -51,9 +51,10 @@ class Settings(BaseSettings):
     typecast_target_lufs: float = -14.0        # 볼륨 정규화. volume 필드와 동시 사용 불가(Typecast 스펙)
 
     # 감정 분류 모델
+    emotion_mode: str = "test"               # test/model
     text_emotion_model_path: str = "./models/text_emotion"
-    voice_emotion_model_path: str = "./models/voice_emotion"
-    emotion_labels: str = "happy,sad,angry,anxious,neutral"
+    voice_emotion_model_path: str = "./models/voice_emotion/kresnik_baseline_best.pt"
+    emotion_device: str = "auto"              # auto/cuda/cpu
 
     # 감정 융합 가중치
     emotion_fusion_text_weight: float = 0.5
@@ -63,10 +64,6 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "INFO"
-
-    @property
-    def emotion_label_list(self) -> list[str]:
-        return [x.strip() for x in self.emotion_labels.split(",") if x.strip()]
 
 
 @lru_cache

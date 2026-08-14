@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { extractApiErrorMessage } from '../../../shared/api'
-import { Button, TextField, Toggle } from '../../../shared/ui'
+import { useDelayedPending } from '../../../shared/lib'
+import { Button, LoadingSpinner, TextField, Toggle } from '../../../shared/ui'
 import { useSession } from '../../../entities/user'
 import { login as requestLogin } from '../api'
 import { validateLoginForm, type LoginFormErrors, type LoginFormValues } from '../model'
@@ -15,6 +16,7 @@ export function LoginForm() {
   const [errors, setErrors] = useState<LoginFormErrors>({})
   const [notice, setNotice] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const showSubmitSpinner = useDelayedPending(isSubmitting)
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -80,8 +82,9 @@ export function LoginForm() {
         </p>
       )}
       <Button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? '로그인하는 중...' : '로그인'}
+        로그인
       </Button>
+      {showSubmitSpinner && <LoadingSpinner overlay label="로그인하는 중이에요" />}
     </form>
   )
 }

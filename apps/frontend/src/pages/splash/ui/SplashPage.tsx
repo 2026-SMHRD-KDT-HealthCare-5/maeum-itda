@@ -1,5 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useSession } from '../../../entities/user'
+import { useDelayedPending } from '../../../shared/lib'
+import { LoadingSpinner } from '../../../shared/ui'
 
 // 화면ID 미배정(신규, 결정사항 로그 §5) — 단순 브랜딩용 화면인지 목적은 아직
 // 확정되지 않았지만, "/"에서 빠져나갈 방법이 없는 건 실제 결함이라 즉시
@@ -7,8 +9,11 @@ import { useSession } from '../../../entities/user'
 // /login이 아니라 복원된 세션의 역할별 홈으로 보낸다.
 export function SplashPage() {
   const { session, isRestoring } = useSession()
+  const showRestoringSpinner = useDelayedPending(isRestoring)
 
-  if (isRestoring) return null
+  if (isRestoring || showRestoringSpinner) {
+    return showRestoringSpinner ? <LoadingSpinner overlay /> : null
+  }
   if (!session) return <Navigate to="/login" replace />
   return <Navigate to={session.role === 'senior' ? '/senior' : '/guardian'} replace />
 }

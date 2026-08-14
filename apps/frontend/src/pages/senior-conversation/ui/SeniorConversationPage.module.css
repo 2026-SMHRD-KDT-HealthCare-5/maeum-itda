@@ -6,7 +6,8 @@
   box-sizing: border-box;
   flex-direction: column;
   background:
-    radial-gradient(circle at 100% 0, rgba(220, 235, 225, 0.72), transparent 18rem), var(--app-bg);
+    radial-gradient(circle at 96% 4%, rgba(207, 230, 216, 0.72), transparent 23rem),
+    linear-gradient(180deg, #fffaf2 0 33rem, #f5f2ec 43rem 100%);
   overflow: hidden;
 }
 

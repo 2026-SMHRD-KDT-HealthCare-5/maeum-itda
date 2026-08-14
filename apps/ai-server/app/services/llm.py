@@ -13,6 +13,17 @@ OpenAI Chat Completions를 JSON 모드로 호출해서 다음 구조로 받는�
   "target_item": "Q3" | null,
   "empathy_note": "..."   # 내부 로깅/디버깅용, 굳이 프론트에 노출 안 해도 됨
 }
+
+구조 변경(2026-08-14, feature/ai-llm-turn-analysis — 구조만):
+- 같은 질문에 답변이 여러 개(배치) 묶여 올 수 있어, 텍스트·감정을 messageId별로
+  구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, emotion}]`).
+- 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점) 필드는
+  이번 단계에서 구조(입출력 형태)만 맞춘다 — 실제 채점 프롬프트는 아직 작성하지
+  않았고, 요청받은 messageId마다 빈 `scale_analyses`를 채우는 stub으로 대체한다.
+  실제 프롬프트 내용은 `llm_prompts.py`의 TODO에 남겨뒀고 2단계에서 반영한다.
+- `_validate_answer_analyses`는 돌려받은 messageId 집합이 요청과 정확히 일치하는지
+  검증한다. 지금은 stub이 요청 그대로를 되돌려주므로 항상 통과하지만, 2단계에서
+  실제 LLM 출력으로 교체되면 이 검증이 잘못된/누락된 messageId(환각)를 잡아낸다.
 """
 import json
 import logging
@@ -21,31 +32,11 @@ from functools import lru_cache
 from openai import OpenAI
 
 from app.config import get_settings
+from app.services.llm_prompts import SYSTEM_PROMPT
 from app.session_manager import SessionState
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-SYSTEM_PROMPT = """\
-당신은 고령층(시니어) 정신건강을 살피는 AI 안부 대화 상담원 '마음잇다'입니다.
-목표는 두 가지입니다.
-1) 시니어가 방금 한 말과 감정 상태에 공감하며 자연스럽고 따뜻하게 반응한다.
-2) 대화가 부자연스럽게 느껴지지 않는 선에서, 오늘 아직 채점되지 않은 심리 척도
-   문항(SGDS_K: 한국형 노인우울척도, GAD_7: 범불안장애 척도, LSNS_6: 사회적 고립척도)
-   중 하나를 유도하는 질문을 자연스러운 일상 대화체로 던진다.
-
-규칙:
-- 존댓말, 짧고 쉬운 문장, 노인 친화적 어휘를 사용한다.
-- 절대 "우울척도 검사를 하겠습니다" 같은 임상적/기계적 표현을 쓰지 않는다.
-- 한 턴에 질문은 하나만 한다.
-- 오늘 채점할 문항이 하나도 남지 않았다면 target_scale/target_item은 null로 하고
-  일상적인 안부 질문을 생성한다.
-- suicidal/자해 등 위험 신호로 보이는 발화가 감지되면 즉시 공감과 안전 확인을
-  우선하는 질문으로 전환한다 (척도 유도보다 우선순위 높음).
-
-아래 JSON 스키마로만 응답한다 (다른 텍스트 금지):
-{"ai_question": "...", "target_scale": "SGDS_K|GAD_7|LSNS_6|null", "target_item": "...|null", "empathy_note": "..."}
-"""
 
 
 @lru_cache
@@ -53,13 +44,21 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=settings.openai_api_key, timeout=settings.openai_llm_timeout_sec)
 
 
+def _format_emotion(emotion: dict[str, float]) -> str:
+    return ", ".join(f"{k}:{v:.2f}" for k, v in sorted(emotion.items(), key=lambda kv: -kv[1]))
+
+
 def build_user_prompt(
-    user_text: str,
-    emotion: dict[str, float],
+    answers: list[dict],
     session: SessionState,
 ) -> str:
-    emotion_str = ", ".join(f"{k}:{v:.2f}" for k, v in sorted(emotion.items(), key=lambda kv: -kv[1]))
     pending_str = json.dumps(session.pending_scale_items, ensure_ascii=False)
+    answer_blocks = "\n\n".join(
+        f"[답변 {index + 1}] (messageId={answer['message_id']})\n"
+        f"발화: {answer['text']}\n"
+        f"감정: {_format_emotion(answer['emotion'])}"
+        for index, answer in enumerate(answers)
+    )
 
     return f"""\
 [이전 세션 요약]
@@ -71,22 +70,73 @@ def build_user_prompt(
 [이번 세션 최근 대화 히스토리]
 {session.history_as_text() or "(아직 없음, 이번 발화가 첫 턴)"}
 
-[시니어의 방금 발화(STT 결과)]
-{user_text}
-
-[방금 발화에서 추정된 감정 분포]
-{emotion_str}
+[시니어의 방금 발화들(STT 결과, 같은 질문에 대한 답변 묶음)]
+{answer_blocks}
 
 위 정보를 참고해서 다음 AI 질문을 JSON으로 생성하세요."""
 
 
+# 백엔드 DB의 CHECK 제약(SCALE_QUESTION_ANALYSIS 테이블)과 정확히 같은 범위를 써서,
+# AI서버를 통과한 값이 DB 저장 단계에서 다시 튕겨나가는 일이 없게 한다.
+SCALE_QUESTION_RANGES = {
+    "SGDS_K": range(1, 16),  # 1~15
+    "GAD_7": range(1, 8),  # 1~7
+    "LSNS_6": range(1, 7),  # 1~6
+}
+
+
+def _validate_scale_analysis_item(item: dict) -> None:
+    """scale_analyses 항목 하나의 scale_type/question_number/analysis_score 값을 검증한다."""
+    scale_type = item.get("scale_type")
+    question_number = item.get("question_number")
+    analysis_score = item.get("analysis_score")
+
+    if scale_type not in SCALE_QUESTION_RANGES:
+        raise ValueError(f"알 수 없는 scale_type: {scale_type!r}")
+    if not isinstance(question_number, int) or isinstance(question_number, bool):
+        raise ValueError(f"question_number가 정수가 아님: {question_number!r}")
+    if question_number not in SCALE_QUESTION_RANGES[scale_type]:
+        raise ValueError(f"{scale_type}의 question_number 범위 초과: {question_number}")
+    if isinstance(analysis_score, bool) or analysis_score not in (0, 1):
+        raise ValueError(f"analysis_score가 0/1이 아님: {analysis_score!r}")
+
+
+def _validate_answer_analyses(
+    requested_ids: list[int], answer_analyses: list[dict]
+) -> list[dict]:
+    """돌려받은 answer_analyses의 messageId와 각 scale_analyses 항목 값을 검증한다.
+
+    지금은 _stub_answer_analyses가 항상 빈 scale_analyses로 요청을 그대로 되돌려주므로
+    항상 통과하지만, 2단계에서 실제 LLM 출력으로 교체되면 잘못되거나 누락된
+    messageId(환각), 잘못된 scale_type/question_number/analysis_score를 잡아낸다.
+    답변 하나의 항목이라도 잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의
+    바깥 try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses로 폴백시킨다(배치 전체 단위 —
+    일부만 부분 수용하는 정책은 아직 미정, feature/ai-error-handling에서 다룬다).
+    """
+    returned_ids = [item["message_id"] for item in answer_analyses]
+    if sorted(returned_ids) != sorted(requested_ids):
+        raise ValueError(
+            "척도 분석 결과의 messageId가 요청과 다릅니다: "
+            f"요청={sorted(requested_ids)}, 응답={sorted(returned_ids)}"
+        )
+    for answer_analysis in answer_analyses:
+        for scale_item in answer_analysis["scale_analyses"]:
+            _validate_scale_analysis_item(scale_item)
+    return answer_analyses
+
+
+def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
+    """실제 척도 채점 프롬프트가 작성되기 전까지, 요청받은 messageId마다 빈 scale_analyses를 채운다."""
+    return [{"message_id": answer["message_id"], "scale_analyses": []} for answer in answers]
+
+
 def generate_next_question(
-    user_text: str,
-    emotion: dict[str, float],
+    answers: list[dict],
     session: SessionState,
 ) -> dict:
     client = _get_openai_client()
-    user_prompt = build_user_prompt(user_text, emotion, session)
+    user_prompt = build_user_prompt(answers, session)
+    requested_ids = [answer["message_id"] for answer in answers]
 
     try:
         resp = client.chat.completions.create(
@@ -108,6 +158,9 @@ def generate_next_question(
             data["target_scale"] = None
         if data.get("target_item") == "null":
             data["target_item"] = None
+        data["answer_analyses"] = _validate_answer_analyses(
+            requested_ids, _stub_answer_analyses(answers)
+        )
         return data
     except Exception as e:  # noqa: BLE001
         logger.error("LLM 질문 생성 실패, 기본 질문으로 대체: %s", e)
@@ -116,4 +169,5 @@ def generate_next_question(
             "target_scale": None,
             "target_item": None,
             "empathy_note": "fallback",
+            "answer_analyses": _stub_answer_analyses(answers),
         }

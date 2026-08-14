@@ -1,21 +1,48 @@
 .title {
   margin: 0 0 18px;
   color: var(--primary);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .row {
   display: flex;
   align-items: center;
-  flex-direction: column;
-  gap: 5px;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.row p {
-  align-self: flex-start;
+.row > label {
+  flex: 0 0 auto;
+}
+
+.row > label > span:last-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.notificationCopy {
+  min-width: 0;
+}
+
+.notificationCopy p {
+  margin: 0;
+  color: #2b3a33;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.notificationCopy span {
+  display: block;
+  margin-top: 4px;
   color: #919a95;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: keep-all;
 }
 
 .timeRow {
