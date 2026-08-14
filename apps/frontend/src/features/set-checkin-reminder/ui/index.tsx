@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Toggle } from '../../../shared/ui'
+import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
-
-export interface CheckinReminderValue {
-  enabled: boolean
-  time: string // "HH:mm"
-}
 
 interface SetCheckinReminderActionProps {
   value: CheckinReminderValue
@@ -40,13 +36,15 @@ export function SetCheckinReminderAction({ value, onChange }: SetCheckinReminder
       <h2 className={styles.title}>안부 알림</h2>
 
       <div className={styles.row}>
+        <div className={styles.notificationCopy}>
+          <p>안부 알림</p>
+          <span>매일 다슬이가 먼저 안부를 물어봐요</span>
+        </div>
         <Toggle
           checked={value.enabled}
           onChange={(enabled) => onChange({ ...value, enabled })}
-          label="안부 알림"
-          controlPosition="end"
+          label={value.enabled ? '알림 켜짐' : '알림 꺼짐'}
         />
-        <p>매일 다슬이가 먼저 안부를 물어봐요</p>
       </div>
 
       {value.enabled && (

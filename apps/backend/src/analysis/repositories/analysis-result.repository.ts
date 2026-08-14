@@ -87,12 +87,21 @@ export class AnalysisResultRepository {
             errorMessage: null,
           },
         );
-        await manager.save(
-          manager.create(EmotionTag, {
+        // 같은 답변을 재분석해도 MESSAGE_ID unique 충돌 없이 최신 감정 결과로 갱신한다.
+        await manager.upsert(
+          EmotionTag,
+          {
             messageId: answer.messageId,
             sentimentLabel: answer.sentimentLabel,
-          }),
+            analyzedAt: new Date(),
+          },
+          ['messageId'],
         );
+
+        // FastAPI 재시도 결과를 답변별 최신 스냅샷으로 교체해 중복과 이전 분석 잔존을 함께 막는다.
+        await manager.delete(ScaleQuestionAnalysis, {
+          messageId: answer.messageId,
+        });
         if (answer.scaleAnalyses.length > 0) {
           await manager.save(
             answer.scaleAnalyses.map((scale) =>

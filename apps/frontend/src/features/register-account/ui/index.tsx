@@ -1,5 +1,9 @@
 import { useId, useRef, useState, type FormEvent, type InputHTMLAttributes } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { extractApiErrorMessage } from '../../../shared/api'
+import { useSession } from '../../../entities/user'
 import { Button } from '../../../shared/ui'
+import { checkLoginIdAvailable, registerAccount } from '../api'
 import {
   formatPhoneNumber,
   validateRegisterAccount,
@@ -24,6 +28,11 @@ const initialValues: RegisterAccountValues = {
 interface FormFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string
   error?: string
+}
+
+interface UsernameCheckResult {
+  status: 'success' | 'error'
+  message: string
 }
 
 function FormField({ label, error, className, ...props }: FormFieldProps) {
@@ -54,10 +63,16 @@ function FormField({ label, error, className, ...props }: FormFieldProps) {
 export function RegisterAccountAction() {
   const usernameId = useId()
   const usernameErrorId = useId()
+  const roleErrorId = useId()
+  const navigate = useNavigate()
+  const { login: setSession } = useSession()
   const [values, setValues] = useState(initialValues)
   const [errors, setErrors] = useState<RegisterAccountErrors>({})
   const [submitted, setSubmitted] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
+  const [usernameCheckResult, setUsernameCheckResult] = useState<UsernameCheckResult | null>(null)
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const formRef = useRef<HTMLFormElement>(null)
 
   const updateValue = <K extends keyof RegisterAccountValues>(
@@ -67,6 +82,7 @@ export function RegisterAccountAction() {
     const next = { ...values, [field]: value }
     setValues(next)
     setNotice(null)
+    if (field === 'username') setUsernameCheckResult(null)
     if (submitted || errors[field]) {
       const nextErrors = validateRegisterAccount(next)
       setErrors((current) => ({ ...current, [field]: nextErrors[field] }))
@@ -75,13 +91,36 @@ export function RegisterAccountAction() {
 
   const selectRole = (role: RegisterRole) => updateValue('role', role)
 
-  const handleUsernameCheck = () => {
+  const handleUsernameCheck = async () => {
     const usernameError = validateRegisterAccount(values).username
     setErrors((current) => ({ ...current, username: usernameError }))
-    setNotice(usernameError ? null : '아이디 중복 확인은 회원가입 서버 연결 후 사용할 수 있어요.')
+    if (usernameError) {
+      setUsernameCheckResult(null)
+      return
+    }
+
+    setIsCheckingUsername(true)
+    try {
+      const result = await checkLoginIdAvailable(values.username.trim())
+      setErrors((current) => ({
+        ...current,
+        username: result.available ? undefined : result.message,
+      }))
+      setUsernameCheckResult({
+        status: result.available ? 'success' : 'error',
+        message: result.message,
+      })
+    } catch (error) {
+      setUsernameCheckResult({
+        status: 'error',
+        message: extractApiErrorMessage(error, '아이디 중복 확인에 실패했어요. 다시 시도해주세요.'),
+      })
+    } finally {
+      setIsCheckingUsername(false)
+    }
   }
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setSubmitted(true)
     const nextErrors = validateRegisterAccount(values)
@@ -95,18 +134,44 @@ export function RegisterAccountAction() {
       return
     }
 
-    setNotice('회원가입 서버가 연결되면 가입을 완료할 수 있어요.')
+    setIsSubmitting(true)
+    try {
+      const result = await registerAccount(values)
+      setSession(
+        {
+          userId: result.userId,
+          loginId: result.loginId,
+          name: result.name,
+          role: result.role,
+          accessToken: result.accessToken,
+        },
+        { remember: true },
+      )
+      navigate(result.role === 'senior' ? '/senior' : '/guardian')
+    } catch (error) {
+      setNotice(extractApiErrorMessage(error, '회원가입에 실패했어요. 다시 시도해주세요.'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
     <form ref={formRef} className={styles.form} onSubmit={handleSubmit} noValidate>
-      <fieldset className={styles.roleFieldset}>
+      <fieldset
+        className={styles.roleFieldset}
+        aria-invalid={errors.role ? true : undefined}
+        aria-describedby={errors.role ? roleErrorId : undefined}
+      >
         <legend>어떤 역할로 가입하시나요?</legend>
         <div className={styles.roleGrid}>
           <label
-            className={[styles.roleCard, values.role === 'senior' ? styles.roleSelected : ''].join(
-              ' ',
-            )}
+            className={[
+              styles.roleCard,
+              values.role === 'senior' ? styles.roleSelected : '',
+              errors.role ? styles.roleError : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             <input
               className={styles.visuallyHidden}
@@ -124,7 +189,10 @@ export function RegisterAccountAction() {
             className={[
               styles.roleCard,
               values.role === 'guardian' ? styles.roleSelected : '',
-            ].join(' ')}
+              errors.role ? styles.roleError : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             <input
               className={styles.visuallyHidden}
@@ -143,7 +211,11 @@ export function RegisterAccountAction() {
             </span>
           </label>
         </div>
-        {errors.role && <p className={styles.error}>{errors.role}</p>}
+        {errors.role && (
+          <p className={styles.error} id={roleErrorId}>
+            {errors.role}
+          </p>
+        )}
       </fieldset>
 
       <div className={styles.usernameGroup}>
@@ -164,13 +236,29 @@ export function RegisterAccountAction() {
             aria-invalid={errors.username ? true : undefined}
             aria-describedby={errors.username ? usernameErrorId : undefined}
           />
-          <button className={styles.checkButton} type="button" onClick={handleUsernameCheck}>
+          <button
+            className={styles.checkButton}
+            type="button"
+            onClick={handleUsernameCheck}
+            disabled={isCheckingUsername}
+            aria-label={isCheckingUsername ? '아이디 중복 확인 중' : undefined}
+          >
             중복 확인
           </button>
         </div>
         {errors.username && (
           <p className={styles.error} id={usernameErrorId}>
             {errors.username}
+          </p>
+        )}
+        {!errors.username && usernameCheckResult && (
+          <p
+            className={
+              usernameCheckResult.status === 'success' ? styles.checkSuccess : styles.error
+            }
+            role="status"
+          >
+            {usernameCheckResult.message}
           </p>
         )}
       </div>
@@ -222,8 +310,8 @@ export function RegisterAccountAction() {
         </p>
       )}
 
-      <Button type="submit" className={styles.submitButton}>
-        가입하기
+      <Button type="submit" className={styles.submitButton} disabled={isSubmitting}>
+        {isSubmitting ? '가입하는 중...' : '가입하기'}
       </Button>
     </form>
   )

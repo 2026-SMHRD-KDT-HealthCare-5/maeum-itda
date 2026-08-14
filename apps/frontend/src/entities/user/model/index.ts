@@ -1,19 +1,55 @@
 import { createContext, useContext } from 'react'
 
-// Mock session holder — LOGIN_01 (UC-00) has no real backend yet, so this
-// context is what stands in for "am I logged in, and as what role" until
-// features/login-with-credentials calls a real auth endpoint.
+// Session holder — LOGIN_01 (UC-00)이 실제 POST /auth/login 응답으로 채운다.
+// "자동 로그인" 체크 시 accessToken을 localStorage에 남겨 새로고침에도
+// 유지한다(entities/user/ui/SessionProvider 참고) — 체크 해제 시엔 여전히
+// 새로고침하면 로그아웃된다.
 export type Role = 'senior' | 'guardian'
 
-export interface Session {
-  userId: string
+// 백엔드(UserRole enum: 'SENIOR' | 'GUARDIAN')와 프론트 Role 표기를 잇는다.
+export function roleFromApi(apiRole: 'SENIOR' | 'GUARDIAN'): Role {
+  return apiRole === 'SENIOR' ? 'senior' : 'guardian'
+}
+
+// POST /auth/login 응답 — login-with-credentials/register-account 둘 다 이
+// 모양으로 로그인해 세션을 채운다.
+export interface AuthResult {
+  accessToken: string
+  userId: number
+  loginId: string
   name: string
+  role: Role
+}
+
+export interface Session {
+  userId: number
+  loginId: string
+  name: string
+  role: Role
+  // /ws/chats 인증 첫 메시지(auth)에 실어 보낼 JWT(docs/ws-protocol.md §5.1)이자
+  // REST Authorization: Bearer 헤더에도 쓰는 값 — POST /auth/login 응답의 accessToken.
+  accessToken: string
+}
+
+// senior-my-info/guardian-my-info가 공유하는 react-query 캐시 키.
+export const MY_PROFILE_QUERY_KEY = ['my-profile'] as const
+
+// GET /users/me 응답 — "내 정보" 화면이 표시하는 최신 프로필(전화번호 포함).
+// Session은 로그인 시점 값만 들고 있어 phone이 없다 — 최신값은 여기서 조회.
+export interface MyProfile {
+  userId: number
+  loginId: string
+  name: string
+  phone: string
   role: Role
 }
 
 export interface SessionContextValue {
   session: Session | null
-  login: (session: Session) => void
+  // localStorage에 남겨진 accessToken으로 세션을 복원하는 중인지 — 이 값이
+  // true인 동안은 ProtectedRoute가 아직 "로그아웃 상태"로 단정하면 안 된다.
+  isRestoring: boolean
+  login: (session: Session, options?: { remember?: boolean }) => void
   logout: () => void
 }
 

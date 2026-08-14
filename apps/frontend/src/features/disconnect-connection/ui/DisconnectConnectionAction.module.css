@@ -32,6 +32,13 @@
   font-size: 14px;
 }
 
+.confirmError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .confirmActions {
   display: flex;
   justify-content: flex-end;
@@ -56,4 +63,48 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+}
+
+.cancelButton:disabled,
+.confirmButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.guardianTrigger {
+  padding-inline: 16px;
+  border-radius: 999px;
+}
+
+.guardianConfirm {
+  position: fixed;
+  z-index: 40;
+  top: 50%;
+  left: 50%;
+  width: min(320px, calc(100vw - 40px));
+  box-sizing: border-box;
+  gap: 18px;
+  border: 1px solid #f1d0ce;
+  border-radius: 22px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(38, 48, 43, 0.28);
+  transform: translate(-50%, -50%);
+}
+
+.guardianConfirm .confirmText {
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.guardianConfirm .confirmActions {
+  justify-content: center;
+}
+
+.guardianConfirm .cancelButton,
+.guardianConfirm .confirmButton {
+  min-height: 42px;
+  border-radius: 12px;
+  padding-inline: 18px;
 }

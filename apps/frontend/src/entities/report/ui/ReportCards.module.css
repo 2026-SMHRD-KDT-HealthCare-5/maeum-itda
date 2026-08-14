@@ -4,6 +4,11 @@
   gap: 14px;
 }
 
+.scoreContent {
+  min-width: 0;
+  flex: 1;
+}
+
 .scoreCircle {
   display: grid;
   flex-shrink: 0;
@@ -49,9 +54,312 @@
   line-height: 1.4;
 }
 
+.dashboardScoreCard {
+  display: grid;
+  gap: 14px;
+}
+
+.dashboardScoreHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboardScoreContent {
+  display: grid;
+  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 96px;
+  gap: 18px;
+  min-height: 104px;
+}
+
+.dashboardScoreVisual {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 104px;
+}
+
+.dashboardScoreVisual::before {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 96px;
+  height: 104px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #fff8e9 0%, #fff1d8 100%);
+  content: '';
+  transform: translateX(-50%);
+}
+
+.dashboardScoreCopy {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.emotionCharacter,
+.emotionCharacterSmall {
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.emotionCharacter {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  left: 50%;
+  width: 88px;
+  height: 88px;
+  transform: translateX(-50%);
+}
+
+.emotionBadge {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 7px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 3px 10px rgba(84, 66, 52, 0.13);
+  color: #ef6f68;
+  font-size: 14px;
+}
+
+.emotionCharacterSmall {
+  width: 68px;
+  height: 76px;
+  flex: 0 0 auto;
+}
+
+.dashboardScoreTitle {
+  margin: 0;
+  color: #2b332f;
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.dashboardDetailsLink {
+  flex: 0 0 auto;
+  color: #718078;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.dashboardDetailsLink span {
+  font-size: 16px;
+  vertical-align: -1px;
+}
+
+.dashboardDetailsLink:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 3px;
+}
+
+.dashboardScore {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.dashboardScore strong {
+  font-size: 54px;
+  line-height: 0.95;
+  letter-spacing: -2px;
+}
+
+.dashboardScore span {
+  color: currentColor;
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.6;
+}
+
+.dashboardScoreComment {
+  margin: 0;
+  max-width: 210px;
+  color: #56615b;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+.dashboardScorePanel {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 0;
+}
+
+.scoreMeter {
+  height: 10px;
+  padding: 2px;
+  border-radius: 999px;
+  background: #e7ebe8;
+  box-shadow: inset 0 1px 2px rgba(43, 58, 51, 0.1);
+}
+
+.scoreMeter > span {
+  position: relative;
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.meterGood {
+  background: #4d9a73;
+}
+.meterNormal {
+  background: #e7ae4d;
+}
+.meterBad {
+  background: #e66f68;
+}
+.meterUnknown {
+  background: #b5bbb6;
+}
+
+@media (max-width: 360px) {
+  .dashboardScoreContent {
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 12px;
+    min-height: 96px;
+  }
+
+  .dashboardScoreVisual {
+    width: 84px;
+    height: 96px;
+  }
+
+  .dashboardScoreVisual::before {
+    top: 0;
+    width: 84px;
+    height: 96px;
+    border-radius: 19px;
+  }
+
+  .emotionCharacter {
+    top: 17px;
+    width: 76px;
+    height: 76px;
+  }
+
+  .dashboardScoreTitle {
+    padding-right: 0;
+    font-size: 16px;
+  }
+
+  .dashboardDetailsLink {
+    font-size: 10px;
+  }
+
+  .dashboardScore strong {
+    font-size: 46px;
+  }
+
+  .dashboardScorePanel {
+    padding-top: 4px;
+  }
+}
+
 .actionCard {
   display: flex;
   gap: 10px;
+}
+
+.dashboardActionCard {
+  gap: 8px;
+  max-height: 192px;
+  overflow: hidden;
+}
+
+.dashboardActionCard.actionCardExpanded {
+  max-height: none;
+  overflow: visible;
+}
+
+.dashboardActionCard .actionIcon {
+  color: #f0b43c;
+  font-size: 16px;
+}
+
+.dashboardActionCard .actionTitle {
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.dashboardActionCard .actionText {
+  color: #536075;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.dashboardActionCard .dashboardActionText.collapsed {
+  -webkit-line-clamp: 5;
+}
+
+.dashboardActionCard .dashboardActionText.actionTextWithToggle {
+  -webkit-line-clamp: 4;
+}
+
+.dashboardActionCard .actionToggle {
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.reportActionCard {
+  width: 100%;
+  gap: 8px;
+}
+
+.reportActionCard > div {
+  width: 100%;
+}
+
+.reportActionCard .actionIcon {
+  color: #f0b43c;
+  font-size: 16px;
+}
+
+.reportActionCard .actionTitle {
+  margin-bottom: 12px;
+  color: var(--primary);
+  font-size: 15px;
+}
+
+.reportActionCard .actionText {
+  color: #536075;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.reportActionCard .reportActionText.collapsed {
+  -webkit-line-clamp: 3;
+}
+
+.reportActionCard .actionToggle {
+  margin-top: 8px;
+  font-size: 13px;
 }
 
 .actionIcon {
@@ -91,18 +399,47 @@
   cursor: pointer;
 }
 
+.summaryContent {
+  width: 100%;
+}
+
 .summaryTitle {
-  margin: 0 0 6px;
+  margin: 0 0 12px;
   color: var(--text-h);
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .summaryText {
   margin: 0;
-  color: var(--text);
+  color: #536075;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.summaryCollapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.summaryToggle {
+  margin-top: 8px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--primary);
   font-size: 13px;
-  line-height: 1.5;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.summaryToggle:focus-visible,
+.reportActionCard .actionToggle:focus-visible {
+  outline: 2px solid rgba(67, 143, 107, 0.28);
+  outline-offset: 3px;
+  border-radius: 3px;
 }
 
 .statsRow {
@@ -128,9 +465,20 @@
 }
 
 .statValue {
-  color: var(--text-h);
   font-weight: 800;
   font-size: 18px;
+}
+
+.statAverage {
+  color: #2f4037;
+}
+
+.statMaximum {
+  color: var(--primary);
+}
+
+.statMinimum {
+  color: #df5f55;
 }
 
 .dailyList {
@@ -140,31 +488,80 @@
 }
 
 .dailyRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: 48px 42px minmax(0, 1fr) 14px;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   border: none;
   border-radius: 14px;
   background: var(--bg);
-  padding: 10px 12px;
+  padding: 14px 16px;
   width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.05);
   text-align: left;
   cursor: pointer;
+  text-decoration: none;
+}
+
+.dailyRow:hover {
+  box-shadow: 0 6px 18px rgba(43, 58, 51, 0.1);
+  transform: translateY(-1px);
+}
+
+.dailyRow:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.22);
+  outline-offset: 2px;
+}
+
+.dailyRowDisabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.dailyRowDisabled:hover {
+  box-shadow: 0 4px 14px rgba(43, 58, 51, 0.05);
+  transform: none;
 }
 
 .dailyDate {
-  flex-shrink: 0;
-  width: 44px;
+  display: grid;
+  gap: 1px;
   color: var(--text);
-  font-size: 12px;
+  text-align: center;
+}
+
+.dailyDate strong {
+  color: #3f4a44;
+  font-size: 14px;
+}
+
+.dailyDate small {
+  color: #a0a6a2;
+  font-size: 10px;
 }
 
 .dailyScore {
-  flex-shrink: 0;
-  width: 32px;
-  color: var(--text-h);
+  border-left: 1px solid #e7e9e7;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.dailyScoreHigh {
+  color: #3f916d;
+}
+
+.dailyScoreNormal {
+  color: #e3903b;
+}
+
+.dailyScoreLow {
+  color: #df5f55;
+}
+
+.dailyScoreUnknown {
+  color: #9fa6a1;
 }
 
 .dailyComment {
@@ -175,9 +572,15 @@
   white-space: nowrap;
 }
 
-.dailyHint {
-  margin: 6px 0 0;
-  color: var(--text);
-  font-size: 11px;
-  text-align: center;
+.dailyChevron {
+  color: #bbc0bc;
+  font-size: 22px;
+}
+
+@media (max-width: 360px) {
+  .dailyRow {
+    grid-template-columns: 42px 36px minmax(0, 1fr) 10px;
+    gap: 7px;
+    padding-inline: 12px;
+  }
 }

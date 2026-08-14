@@ -1,124 +1,183 @@
+.notificationList {
+  display: grid;
+  gap: 2px;
+}
 .header {
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
 }
-
+.header h1 {
+  margin: 0;
+  color: #2b3a33;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
 .markAllButton {
-  border: none;
+  min-height: 46px;
+  border: 0;
   border-radius: 999px;
-  background: var(--code-bg);
-  padding: 8px 14px;
-  color: var(--text-h);
+  background: #fff;
+  padding: 0 18px;
+  box-shadow: 0 5px 16px rgba(43, 58, 51, 0.08);
+  color: #647069;
+  font: inherit;
+  font-size: 14px;
   font-weight: 700;
-  font-size: 13px;
   cursor: pointer;
 }
-
-.groupLabel {
-  margin: 16px 0 8px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 700;
+.markAllButton:hover:not(:disabled) {
+  background: #f7faf8;
 }
-
+.markAllButton:disabled {
+  box-shadow: none;
+  color: #b1b7b3;
+  cursor: default;
+}
+.markAllButton:focus-visible,
+.item:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.22);
+  outline-offset: 2px;
+}
+.groupLabel {
+  margin: 16px 6px 10px;
+  color: #878f8a;
+  font-size: 16px;
+  font-weight: 800;
+}
 .list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
 }
-
 .item {
-  display: flex;
-  gap: 12px;
+  display: grid;
   width: 100%;
-  border: none;
-  border-radius: 14px;
-  background: var(--code-bg);
-  padding: 12px 14px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background: #fff;
+  padding: 18px;
+  box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(43, 58, 51, 0.04);
+  font: inherit;
   text-align: left;
   cursor: pointer;
+  transition:
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
-
-.itemWarning {
-  background: var(--danger-bg);
+.item:hover {
+  box-shadow: 0 7px 20px rgba(43, 58, 51, 0.09);
+  transform: translateY(-1px);
 }
-
-.itemUnread {
-  box-shadow: inset 0 0 0 1px var(--border);
+.itemWarning.itemUnread {
+  border-color: #f2c8c5;
+  background: #fff7f6;
 }
-
+.item:not(.itemUnread) {
+  background: rgba(255, 255, 255, 0.48);
+  box-shadow: none;
+  opacity: 0.58;
+}
 .icon {
   display: grid;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   border-radius: 50%;
+  font-size: 21px;
   font-weight: 800;
 }
-
 .iconWarning {
-  background: var(--danger);
+  background: #ee544d;
   color: #fff;
 }
-
 .iconReport {
-  background: var(--primary-tint);
+  background: #e9f5ee;
   color: var(--primary);
 }
-
 .body {
   display: grid;
-  gap: 4px;
-  flex: 1;
   min-width: 0;
+  gap: 5px;
 }
-
 .titleRow {
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: var(--text-h);
-  font-size: 14px;
+  gap: 7px;
+  color: #2b3a33;
+  font-size: 16px;
+  line-height: 1.35;
 }
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--danger);
+.itemWarning .titleRow,
+.itemWarning .link {
+  color: #ca3e37;
 }
-
 .content {
-  color: var(--text);
-  font-size: 13px;
-  line-height: 1.4;
+  color: #6d7772;
+  font-size: 14px;
+  line-height: 1.55;
+  word-break: keep-all;
 }
-
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 2px;
+  gap: 10px;
+  margin-top: 4px;
 }
-
 .date {
-  color: var(--text);
+  color: #a0aaa5;
   font-size: 11px;
+  white-space: nowrap;
 }
-
 .link {
   color: var(--primary);
-  font-weight: 700;
   font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
 }
 
+.link:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(31, 111, 84, 0.22);
+  outline-offset: 2px;
+}
 .empty {
-  margin: 40px 0 0;
-  color: var(--text);
-  font-size: 14px;
+  margin: 100px 0 0;
+  color: #7e8984;
+  font-size: 15px;
   text-align: center;
+}
+
+@media (max-width: 360px) {
+  .item {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 11px;
+    padding: 15px 13px;
+  }
+  .icon {
+    width: 42px;
+    height: 42px;
+  }
+  .titleRow {
+    font-size: 14px;
+  }
+  .content {
+    font-size: 13px;
+  }
+  .footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
 }

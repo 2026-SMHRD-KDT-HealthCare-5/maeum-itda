@@ -1,22 +1,76 @@
 .page {
-  padding: 20px 20px 100px;
+  min-height: 100svh;
+  padding: 32px 20px 112px;
+  box-sizing: border-box;
   display: grid;
-  gap: 14px;
+  gap: 16px;
+  background:
+    radial-gradient(circle at 96% 4%, rgba(207, 230, 216, 0.72), transparent 23rem),
+    linear-gradient(180deg, #fffaf2 0 33rem, #f5f2ec 43rem 100%);
 }
 
 .greeting {
-  margin: 0 0 4px;
+  margin: 0 4px 26px;
 }
 
 .greeting h1 {
   margin: 0;
-  color: var(--text-h);
-  font-size: 20px;
+  color: #2b3a33;
+  font-size: 24px;
   font-weight: 800;
 }
 
 .greeting p {
+  margin: 7px 0 0;
+  color: #8a918a;
+  font-size: 15px;
+}
+
+.recommendation {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(112px, 38%) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.guideCharacter {
+  z-index: 1;
+  width: 132%;
+  max-height: 240px;
+  align-self: start;
+  object-fit: contain;
+  object-position: center bottom;
+  transform: translateX(-12%);
+}
+
+.recommendationCard {
+  z-index: 2;
   margin: 4px 0 0;
-  color: var(--text);
-  font-size: 13px;
+  border-radius: 22px;
+  padding: 20px 18px;
+}
+
+.scoreCard {
+  border-radius: 24px;
+  padding: 18px 20px;
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding-inline: 14px;
+  }
+
+  .recommendation {
+    grid-template-columns: 106px minmax(0, 1fr);
+  }
+
+  .guideCharacter {
+    width: 130px;
+    transform: translateX(-8px);
+  }
+
+  .recommendationCard {
+    margin-top: 4px;
+    padding: 16px 14px;
+  }
 }

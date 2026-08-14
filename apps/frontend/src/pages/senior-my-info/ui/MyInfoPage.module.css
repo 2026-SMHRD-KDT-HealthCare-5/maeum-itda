@@ -1,146 +1,212 @@
 .page {
   min-height: 100svh;
-  padding: 30px 20px 112px;
+  padding: 32px 20px 112px;
   box-sizing: border-box;
   background:
-    radial-gradient(circle at 100% 0, rgba(220, 235, 225, 0.58), transparent 19rem), var(--app-bg);
+    radial-gradient(circle at 96% 4%, rgba(207, 230, 216, 0.72), transparent 23rem),
+    linear-gradient(180deg, #fffaf2 0 33rem, #f5f2ec 43rem 100%);
+}
+
+.pageTitle {
+  margin: 0 0 28px;
+  color: #2b3a33;
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.saveError {
+  margin: 8px 2px 0;
+  color: #b74d4d;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .header {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 28px;
-}
-
-.header h1 {
-  margin: 0 0 20px;
-  color: #293a32;
-  font-size: 28px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
+  gap: 12px;
+  margin-bottom: 30px;
 }
 
 .avatar {
-  display: grid;
   width: 84px;
   height: 84px;
-  place-items: center;
   border-radius: 50%;
-  background: var(--primary-tint);
-  overflow: hidden;
-}
-
-.avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
+  background: linear-gradient(145deg, #fff7e8, #e8f4ee);
+  box-shadow: 0 8px 24px rgba(43, 58, 51, 0.09);
+  object-fit: cover;
+  object-position: center;
 }
 
 .name {
   margin: 0;
-  color: var(--text-h);
-  font-size: 23px;
+  color: #2b3a33;
+  font-size: 22px;
   font-weight: 800;
 }
 
 .cardTitle {
-  margin: 0 0 10px;
+  margin: 0 0 16px;
   color: var(--primary);
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .cards {
   display: grid;
-  gap: 18px;
+  gap: 16px;
+}
+
+.infoCard,
+.connectionCard,
+.notificationCard {
+  border: 1px solid rgba(43, 58, 51, 0.035);
+  border-radius: 24px;
+  padding: 22px 20px;
+  box-shadow: 0 8px 24px rgba(43, 58, 51, 0.07);
 }
 
 .emptyConnection {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   align-items: center;
-  gap: 10px;
-  padding: 8px 0;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px 18px 18px;
+  border: 1px solid #e2eee8;
+  border-radius: 18px;
+  background: #f8fbf9;
   text-align: center;
+}
+
+.emptyConnectionIcon {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f3ed;
+  color: var(--primary);
+}
+
+.emptyConnectionIcon svg {
+  width: 32px;
+  height: 32px;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+
+.emptyConnectionCopy {
+  display: grid;
+  gap: 6px;
 }
 
 .emptyConnectionText {
   margin: 0;
-  color: var(--text);
+  color: #2b3a33;
   font-size: 16px;
+  font-weight: 800;
+}
+
+.emptyConnectionDescription {
+  margin: 0;
+  color: #6f7d76;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.connectButton {
+  width: 100%;
+  min-height: 46px;
 }
 
 .connectedRow {
   display: flex;
+  min-height: 64px;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 }
 
 .connectedInfo {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 12px;
 }
 
 .connectedAvatar {
-  display: grid;
   width: 52px;
   height: 52px;
-  place-items: center;
+  flex: 0 0 auto;
   border-radius: 50%;
-  background: #eaf4ef;
-  overflow: hidden;
-}
-
-.connectedAvatar img {
-  width: 100%;
-  height: 100%;
+  background: #edf6f1;
   object-fit: cover;
   object-position: center;
 }
 
 .connectedName {
   margin: 0;
-  color: var(--text-h);
-  font-weight: 700;
-  font-size: 17px;
+  color: #2b3a33;
+  font-size: 16px;
+  font-weight: 800;
 }
 
 .connectedMeta {
-  margin: 2px 0 0;
-  color: var(--text);
+  margin: 3px 0 0;
+  color: var(--primary);
   font-size: 13px;
 }
 
 .logoutButton {
-  width: 100%;
-  min-height: 56px;
+  min-height: 44px;
+  justify-self: center;
   margin-top: 2px;
-  border: 1px solid #dde1de;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.72);
-  color: #69736d;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
+  border: none;
+  background: none;
+  color: #7e8984;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
-.logoutButton:hover {
-  background: #fff;
-}
-
 .logoutButton:focus-visible {
-  outline: 4px solid rgba(31, 111, 84, 0.18);
+  border-radius: 8px;
+  outline: 3px solid rgba(31, 111, 84, 0.2);
   outline-offset: 2px;
 }
 
-@media (max-width: 350px) {
+.statusMessage,
+.errorState {
+  margin-top: 120px;
+  color: var(--text);
+  font-size: 15px;
+  text-align: center;
+}
+
+.errorState {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+}
+
+@media (max-width: 360px) {
   .page {
-    padding-inline: 15px;
+    padding-inline: 14px;
+  }
+
+  .infoCard,
+  .connectionCard,
+  .notificationCard {
+    padding-inline: 17px;
+  }
+
+  .connectedRow {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

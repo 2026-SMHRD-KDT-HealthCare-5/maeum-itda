@@ -8,15 +8,23 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiUnauthorizedResponse,
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { ApiErrorResponseDto } from '../common/dto/api-error-response.dto';
 import { AuthService } from './auth.service';
+import {
+  CheckLoginIdResponseDto,
+  LoginResponseDto,
+  SignUpResponseDto,
+} from './dto/auth-response.dto';
 import { CheckLoginIdDto } from './dto/check-login-id.dto';
+import { LoginDto } from './dto/login.dto';
 import { SignUpDto } from './dto/sign-up.dto';
 
 // Swagger 문서 그룹과 /auth REST API 기본 경로를 등록한다.
-@ApiTags('1. 인증 및 회원관리')
+@ApiTags('1. 인증 및 회원가입')
 @Controller('auth')
 export class AuthController {
   private readonly authService: AuthService;
@@ -32,17 +40,31 @@ export class AuthController {
   @ApiOperation({ summary: '회원가입 아이디 중복 확인' })
   @ApiOkResponse({
     description: '아이디 사용 가능 여부 반환',
-    schema: {
-      example: {
-        loginId: 'senior01',
-        available: true,
-        message: '사용할 수 있는 아이디예요.',
-      },
-    },
+    type: CheckLoginIdResponseDto,
   })
-  @ApiBadRequestResponse({ description: '아이디 형식 검증 실패' })
+  @ApiBadRequestResponse({
+    description: '아이디 형식 검증 실패',
+    type: ApiErrorResponseDto,
+  })
   checkLoginId(@Query() query: CheckLoginIdDto) {
     return this.authService.checkLoginId(query.loginId);
+  }
+
+  // 아이디와 비밀번호를 확인하고 REST·WebSocket에서 공통으로 사용할 Access Token을 발급한다.
+  @Post('login')
+  @HttpCode(200)
+  @ApiOperation({ summary: '로그인' })
+  @ApiOkResponse({ description: '로그인 성공', type: LoginResponseDto })
+  @ApiBadRequestResponse({
+    description: '요청 데이터 검증 실패',
+    type: ApiErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description: '아이디 또는 비밀번호 불일치, 탈퇴한 회원',
+    type: ApiErrorResponseDto,
+  })
+  login(@Body() dto: LoginDto) {
+    return this.authService.login(dto);
   }
 
   // POST /auth/signup 요청의 body를 DTO로 검증한 뒤 AuthService를 호출한다.
@@ -50,19 +72,16 @@ export class AuthController {
   @ApiOperation({ summary: '회원가입' })
   @ApiCreatedResponse({
     description: '회원가입 성공',
-    schema: {
-      example: {
-        userId: 1,
-        loginId: 'senior01',
-        name: '홍길동',
-        phone: '01012345678',
-        role: 'SENIOR',
-        joinedAt: '2026-08-05T09:00:00.000Z',
-      },
-    },
+    type: SignUpResponseDto,
   })
-  @ApiBadRequestResponse({ description: '요청 데이터 검증 실패' })
-  @ApiConflictResponse({ description: '이미 사용 중인 아이디' })
+  @ApiBadRequestResponse({
+    description: '요청 데이터 검증 실패',
+    type: ApiErrorResponseDto,
+  })
+  @ApiConflictResponse({
+    description: '이미 사용 중인 아이디',
+    type: ApiErrorResponseDto,
+  })
   signUp(@Body() dto: SignUpDto) {
     return this.authService.signUp(dto);
   }

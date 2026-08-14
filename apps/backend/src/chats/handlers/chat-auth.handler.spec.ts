@@ -9,7 +9,11 @@ describe('ChatAuthHandler', () => {
     const authService = {
       verifyAccessToken: jest.fn().mockResolvedValue(user),
     };
-    const client = { send: jest.fn<void, [string]>(), close: jest.fn() };
+    const client = {
+      send: jest.fn<void, [string]>(),
+      close: jest.fn(),
+      readyState: 1,
+    };
     const handler = new ChatAuthHandler(authService as unknown as AuthService);
 
     const result = await handler.authenticate(
@@ -38,7 +42,11 @@ describe('ChatAuthHandler', () => {
     const authService = {
       verifyAccessToken: jest.fn().mockRejectedValue(new Error()),
     };
-    const client = { send: jest.fn<void, [string]>(), close: jest.fn() };
+    const client = {
+      send: jest.fn<void, [string]>(),
+      close: jest.fn(),
+      readyState: 1,
+    };
     const handler = new ChatAuthHandler(authService as unknown as AuthService);
 
     const result = await handler.authenticate(

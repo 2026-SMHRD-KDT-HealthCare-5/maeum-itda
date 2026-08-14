@@ -1,0 +1,18 @@
+{
+  "name": "마음잇다",
+  "short_name": "마음잇다",
+  "description": "AI 음성 감정분석 기반 시니어 정서변화 모니터링 서비스",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7e14ff",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,214 @@
+.pill {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 2px 0 8px;
+}
+
+.arrowButton {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(48, 66, 57, 0.04);
+  border-radius: 50%;
+  background: #fff;
+  color: #34483e;
+  box-shadow: 0 3px 10px rgba(44, 59, 51, 0.09);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.arrowButton:hover {
+  background: #f4f8f5;
+  box-shadow: 0 4px 13px rgba(44, 59, 51, 0.14);
+  transform: translateY(-1px);
+}
+
+.dateButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid rgba(48, 66, 57, 0.04);
+  border-radius: 999px;
+  background: #fff;
+  padding: 10px 18px;
+  color: #2d4138;
+  box-shadow: 0 3px 10px rgba(44, 59, 51, 0.08);
+  font-weight: 800;
+  font-size: 16px;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.dateButton:hover {
+  background: #fbfcfb;
+  box-shadow: 0 4px 13px rgba(44, 59, 51, 0.12);
+}
+
+.arrowButton:focus-visible,
+.dateButton:focus-visible {
+  outline: 3px solid rgba(67, 143, 107, 0.24);
+  outline-offset: 2px;
+}
+
+.dateButton svg {
+  width: 19px;
+  height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.invalidDate {
+  border-radius: 16px;
+  background: #fff;
+  padding: 18px;
+  color: var(--danger);
+  text-align: center;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(38, 48, 43, 0.48);
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  width: min(390px, 100%);
+  padding: 24px 20px 22px;
+  border-radius: 28px;
+  background: var(--bg);
+  box-shadow: 0 24px 60px rgba(24, 35, 29, 0.24);
+}
+
+.monthNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.monthNav button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--primary);
+  font-size: 27px;
+  cursor: pointer;
+}
+
+.monthNav strong {
+  color: #2e4138;
+  font-size: 20px;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 7px 4px;
+  text-align: center;
+}
+
+.weekDay {
+  padding-bottom: 6px;
+  color: #84908a;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.dateCell {
+  position: relative;
+  display: grid;
+  width: 40px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  justify-self: center;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--text-h);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.dateCell:hover {
+  background: #edf4f0;
+}
+
+.outsideMonth {
+  color: var(--border);
+}
+
+.selectedWeek {
+  background: var(--primary-tint);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.hasReport::after {
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--primary);
+  content: '';
+}
+
+.selectedWeek.hasReport::after {
+  background: var(--primary);
+}
+
+.legend {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 18px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+@media (max-width: 360px) {
+  .pill {
+    grid-template-columns: 42px minmax(0, 1fr) 42px;
+    gap: 8px;
+  }
+
+  .arrowButton {
+    width: 42px;
+    height: 42px;
+  }
+
+  .dateButton {
+    min-height: 48px;
+    padding-inline: 10px;
+    font-size: 14px;
+  }
+}

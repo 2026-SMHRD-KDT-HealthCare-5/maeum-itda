@@ -1,10 +1,43 @@
 /*
-역할: 리포트 생성·집계·조회 업무를 처리할 Service다.
-전체 흐름: ReportsController → ReportsService → Repository → MySQL
+역할: 저장된 문항 분석 결과를 집계해 일간 정서 리포트를 생성·갱신한다.
+전체 흐름: 내부 호출 → ReportsService → 계산기/DailyReportRepository → MySQL
+주의: REST 조회 진입점과 주간 집계는 이후 별도로 연결한다.
 */
 import { Injectable } from '@nestjs/common';
+import {
+  DailyEmotionReport,
+  GenerationStatus,
+} from './entities/daily-emotion-report.entity';
+import { calculateDailyEmotionIndex } from './lib/daily-emotion-index.calculator';
+import { DailyReportRepository } from './repositories/daily-report.repository';
+import { DailyReportEvidenceRepository } from './repositories/daily-report-evidence.repository';
 
 @Injectable()
 export class ReportsService {
-  // 일간 리포트 조회·생성 메서드와 Repository 호출은 이후 이 클래스에 추가한다.
+  constructor(
+    private readonly dailyReportRepository: DailyReportRepository,
+    private readonly evidenceRepository: DailyReportEvidenceRepository,
+  ) {}
+
+  // 해당 서울 업무일의 최신 고유 문항을 집계하고 날짜별 리포트를 원자적으로 갱신한다.
+  async generateDailyReport(
+    seniorId: number,
+    reportDate: string,
+  ): Promise<DailyEmotionReport> {
+    const [analyses, evidenceMessageIds] = await Promise.all([
+      this.dailyReportRepository.findScaleAnalysesForDay(seniorId, reportDate),
+      this.evidenceRepository.findCandidateMessageIds(seniorId, reportDate),
+    ]);
+    const calculation = calculateDailyEmotionIndex(analyses);
+
+    return this.dailyReportRepository.saveDailyReport(
+      seniorId,
+      reportDate,
+      calculation.emotionIndex,
+      calculation.status === 'COMPLETED'
+        ? GenerationStatus.COMPLETED
+        : GenerationStatus.WAITING,
+      evidenceMessageIds,
+    );
+  }
 }

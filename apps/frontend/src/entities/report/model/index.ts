@@ -11,12 +11,16 @@ export type EmotionLevel = '좋음' | '보통' | '나쁨'
 // isRiskEvidence와는 독립적이다(위험 근거이면서 라벨이 없을 수도, 위험 근거가
 // 아니면서 라벨만 있을 수도 있음).
 export type SentimentLabel = '긍정' | '보통' | '부정'
+export type EvidenceScale = '우울' | '불안' | '고립'
 
 export interface EvidenceSentence {
   question: string
   answer: string
   isRiskEvidence: boolean
   sentimentLabel: SentimentLabel | null
+  scaleLabel?: EvidenceScale | null
+  questionCreatedAt?: string | null
+  answerCreatedAt?: string | null
 }
 
 export interface DailyReport {

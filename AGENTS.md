@@ -22,6 +22,8 @@ Use pnpm 11 from the repository root:
 
 Use TypeScript with 2-space indentation and the root Prettier configuration. Format changed supported files before verification and run `pnpm format:check` before committing; ESLint does not format code. React components use `PascalCase.tsx`; variables and functions use `camelCase`; slice directories use kebab-case. Frontend styles use colocated `*.module.css`. Global variables and base styles are in `apps/frontend/src/index.css`; reuse `shared/ui` and existing tokens first. NestJS files use `.module.ts`, `.service.ts`, and `.controller.ts` suffixes. Shell scripts retain LF endings.
 
+When adding a new file or making a substantial behavioral change, add or update concise comments that explain the file's role, connected components/tables, overall data or call flow, major method responsibilities, important next calls, and any intentionally incomplete integration. Inspect nearby files first and follow their established comment style and terminology. Keep comments synchronized with behavior. Do not narrate obvious syntax or add comments to every line; comments should explain architecture, business intent, non-obvious constraints, state transitions, or temporary limitations that cannot be understood clearly from names and types alone.
+
 Backend unit tests are `*.spec.ts`; e2e tests are `apps/backend/test/*.e2e-spec.ts`. No frontend test runner or coverage target is configured. For UI changes, run filtered frontend lint and build, then manually check affected routes at mobile and desktop sizes.
 
 ## Task Ownership and Workflow

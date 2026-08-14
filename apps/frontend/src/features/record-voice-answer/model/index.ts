@@ -1,83 +1,145 @@
-import type { CapturedAnswer, QuestionTurnPhase } from '@maeum-itda/shared-types'
+import { useEffect, useRef, useState } from 'react'
+import type { AiQuestionPayload, AudioAckPayload, AudioEndType } from '../../../shared/types'
+import type { ChatSocket } from '../../../shared/api'
+import type { ChatMessage } from '../../../entities/conversation'
+import { sendVoiceAnswer } from '../api'
+import { createSilenceWatcher, pickSupportedAudioMimeType, type SilenceWatcherHandle } from '../lib'
 
-// 결정사항 로그 §5(응답 유실 방지)를 그대로 옮긴 순수 상태 전이 함수 —
-// 실제 WebSocket 연동(effect) 없이도 단위 테스트 가능. UI/네트워크 연동은
-// 아직 TODO(UC-02)이며, 이 reducer가 그 연동이 따라야 할 상태 규칙이다.
-export interface RecordVoiceAnswerState {
-  phase: 'idle' | QuestionTurnPhase
-  generationId: string | null
-  // 질문 생성/출력 중 수집돼 아직 서버에 반영되지 않은 응답들 — 다음
-  // generation 요청에 포함시키기 위해 들고 있는다. captureId 기준으로
-  // 중복 저장하지 않는다(재전송 대비).
-  pendingAnswers: CapturedAnswer[]
-  // 뒤늦게 도착한 결과를 무시하기 위해 기억해두는 마지막 취소 generationId.
-  cancelledGenerationId: string | null
+// SeniorConversationPage가 캐릭터 이미지를 고르는 데 쓰는 상태.
+// 'question': 새 AI 질문이 도착해 마이크를 준비하는 중
+// 'listening': 실제로 녹음 중
+// 'thinking': 답변 전송 후 다음 질문을 기다리는 중
+export type RecordingPhase = 'question' | 'listening' | 'thinking'
+
+export interface UseRecordVoiceAnswerOptions {
+  socket: ChatSocket
+  // 현재 답해야 할 AI 질문 — null이면 아직 대화가 시작되지 않은 상태다.
+  currentQuestion: AiQuestionPayload | null
+  // audio:ack로 messageId가 확정된 시니어 답변을 대화 목록에 추가한다.
+  // content는 STT 완료 전이라 null이다(docs/ws-protocol.md §5.4).
+  onAnswerQueued: (message: ChatMessage) => void
 }
 
-export const initialRecordVoiceAnswerState: RecordVoiceAnswerState = {
-  phase: 'idle',
-  generationId: null,
-  pendingAnswers: [],
-  cancelledGenerationId: null,
+export interface UseRecordVoiceAnswerResult {
+  phase: RecordingPhase
+  // "지금 답변 마치기" 버튼에 그대로 연결한다.
+  finishAnswer: () => void
 }
 
-// UI의 RecordVoiceAnswerAction 컴포넌트와 이름이 겹치면 barrel의 `export *`가
-// 모호해져 빌드가 깨지므로(TS2308), reducer의 액션 타입은 Event로 구분한다.
-export type RecordVoiceAnswerEvent =
-  | { type: 'questionGenerationStarted'; generationId: string }
-  | { type: 'questionReady'; generationId: string }
-  | { type: 'questionPlaybackEnded' }
-  | { type: 'voiceCaptured'; answer: CapturedAnswer }
+const AUTO_SILENCE_MS = 10_000
 
-function bufferAnswer(pendingAnswers: CapturedAnswer[], answer: CapturedAnswer): CapturedAnswer[] {
-  if (pendingAnswers.some((a) => a.captureId === answer.captureId)) return pendingAnswers
-  return [...pendingAnswers, answer]
-}
+// UC-02: AI 질문이 도착하면 마이크 권한을 받아 녹음을 시작하고, 사용자가
+// 직접 끝내거나(manual) 묵음이 10초 이어지면(auto) 녹음을 마쳐 서버로
+// 보낸다. 실제 WebSocket 연동(effect)까지 포함하므로 단위 테스트는 이
+// 훅이 호출하는 lib 함수 단위로 한다.
+export function useRecordVoiceAnswer({
+  socket,
+  currentQuestion,
+  onAnswerQueued,
+}: UseRecordVoiceAnswerOptions): UseRecordVoiceAnswerResult {
+  const [phase, setPhase] = useState<RecordingPhase>('question')
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const silenceWatcherRef = useRef<SilenceWatcherHandle | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const mimeTypeRef = useRef('audio/webm')
+  const currentQuestionRef = useRef(currentQuestion)
+  // 최신 finish를 effect 의존성 없이 부르기 위한 latest-ref. 렌더 중이 아니라
+  // 커밋 이후(effect)에 갱신해야 한다(react-hooks/refs).
+  const finishRef = useRef<(endType: AudioEndType) => void>(() => {})
+  useEffect(() => {
+    currentQuestionRef.current = currentQuestion
+    finishRef.current = finish
+  })
 
-export function reduceRecordVoiceAnswer(
-  state: RecordVoiceAnswerState,
-  event: RecordVoiceAnswerEvent,
-): RecordVoiceAnswerState {
-  switch (event.type) {
-    case 'questionGenerationStarted':
-      // 이 생성 요청이 시작된 시점엔 pendingAnswers가 이미 요청에 실려
-      // 나갔다고 보고 비운다(호출자가 pendingAnswers를 실어 보낼 것).
-      return {
-        ...state,
-        phase: 'generatingQuestion',
-        generationId: event.generationId,
-        pendingAnswers: [],
+  useEffect(() => {
+    if (!currentQuestion?.generationId) return
+    let cancelled = false
+
+    async function startRecording() {
+      // 동기적인 effect 본문이 아니라 이 비동기 콜백 안에서 상태를 바꿔야
+      // 불필요한 cascading render 경고(react-hooks/set-state-in-effect)를 피한다.
+      setPhase('question')
+      let stream: MediaStream
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      } catch {
+        // 마이크 권한 거부 — 답변 없이 서버의 30초 안내/2분 자동 종료에 맡긴다.
+        return
+      }
+      if (cancelled) {
+        stream.getTracks().forEach((track) => track.stop())
+        return
       }
 
-    case 'questionReady':
-      if (state.phase !== 'generatingQuestion' || state.generationId !== event.generationId) {
-        // 이미 취소됐거나 다른 generation의 결과가 뒤늦게 도착한 경우 — 무시.
-        return state
+      streamRef.current = stream
+      const mimeType = pickSupportedAudioMimeType()
+      mimeTypeRef.current = mimeType
+      chunksRef.current = []
+      const recorder = new MediaRecorder(stream, { mimeType })
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) chunksRef.current.push(event.data)
       }
-      return { ...state, phase: 'playingQuestion' }
+      mediaRecorderRef.current = recorder
+      recorder.start()
+      silenceWatcherRef.current = createSilenceWatcher(stream, {
+        silenceMs: AUTO_SILENCE_MS,
+        onSilence: () => finishRef.current('auto'),
+      })
+      setPhase('listening')
+    }
 
-    case 'questionPlaybackEnded':
-      if (state.phase !== 'playingQuestion') return state
-      return { ...state, phase: 'awaitingAnswer' }
+    void startRecording()
+    return () => {
+      cancelled = true
+      silenceWatcherRef.current?.stop()
+      silenceWatcherRef.current = null
+      if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+    }
+  }, [currentQuestion?.generationId])
 
-    case 'voiceCaptured':
-      if (state.phase === 'generatingQuestion') {
-        // 질문 생성 중 음성 수집 → 진행 중인 생성을 취소하고(호출자가
-        // questionGenerationCancelled를 보낼 것) idle로 돌아가 이 응답을
-        // 포함한 재요청을 준비한다.
-        return {
-          ...state,
-          phase: 'idle',
-          cancelledGenerationId: state.generationId,
-          generationId: null,
-          pendingAnswers: bufferAnswer(state.pendingAnswers, event.answer),
-        }
-      }
-      // 질문 출력 중이든 답변 대기 중이든 출력/흐름은 그대로 유지하고,
-      // 응답만 버퍼에 쌓아 다음 질문 생성 요청에 포함시킨다.
-      return { ...state, pendingAnswers: bufferAnswer(state.pendingAnswers, event.answer) }
+  useEffect(() => {
+    function handleAck(payload: AudioAckPayload) {
+      onAnswerQueued({
+        messageId: payload.messageId,
+        speakerType: 'SENIOR',
+        content: null,
+        sttStatus: 'WAITING',
+        createdAt: new Date().toISOString(),
+      })
+    }
+    socket.on('audio:ack', handleAck)
+    return () => socket.off('audio:ack', handleAck)
+  }, [socket, onAnswerQueued])
 
-    default:
-      return state
+  function finish(endType: AudioEndType): void {
+    const recorder = mediaRecorderRef.current
+    const question = currentQuestionRef.current
+    if (!recorder || recorder.state !== 'recording' || !question) return
+
+    silenceWatcherRef.current?.stop()
+    setPhase('thinking')
+    recorder.onstop = () => {
+      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
+      streamRef.current?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
+      void sendVoiceAnswer(
+        socket,
+        {
+          audioTransferId: crypto.randomUUID(),
+          questionMessageId: question.messageId,
+          generationId: question.generationId,
+          mimeType: mimeTypeRef.current,
+          capturedAt: new Date().toISOString(),
+          endType,
+        },
+        blob,
+      )
+    }
+    recorder.stop()
   }
+
+  return { phase, finishAnswer: () => finish('manual') }
 }

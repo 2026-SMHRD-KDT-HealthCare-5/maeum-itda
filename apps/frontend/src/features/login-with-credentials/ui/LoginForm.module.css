@@ -11,3 +11,10 @@
 .form > button {
   margin-top: 3px;
 }
+
+.notice {
+  margin: -4px 2px 0;
+  color: #b74d4d;
+  font-size: 12px;
+  line-height: 1.4;
+}

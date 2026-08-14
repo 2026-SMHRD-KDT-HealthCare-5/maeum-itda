@@ -1,77 +1,97 @@
-import { useState } from 'react'
-import { mockSendConnectionRequest, type SentConnectionRequest } from '../model'
+import { type FormEvent, useState } from 'react'
+import type { PendingSentRequest } from '../model'
 import styles from './SendConnectionRequestAction.module.css'
 
+interface SendConnectionRequestActionProps {
+  pendingRequest: PendingSentRequest | null
+  onSubmit: (seniorLoginId: string) => void
+  onCancel: () => void
+  isSubmitting?: boolean
+  isCancelling?: boolean
+  error?: string | null
+}
+
 // GUARDIAN_LINK_01 (UC-00-1) — 어르신 아이디로 연결 요청을 보내는 폼.
-// 실제 연결 요청 API 연동 전이라 mockSendConnectionRequest로 성공/실패를
-// 흉내낸다.
-export function SendConnectionRequestAction() {
-  const [seniorUsername, setSeniorUsername] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [sentRequest, setSentRequest] = useState<SentConnectionRequest | null>(null)
+// 실제 요청/취소 API 호출과 서버 상태(pendingRequest)는 페이지가 소유하고,
+// 이 컴포넌트는 입력값과 표시만 담당한다.
+export function SendConnectionRequestAction({
+  pendingRequest,
+  onSubmit,
+  onCancel,
+  isSubmitting = false,
+  isCancelling = false,
+  error = null,
+}: SendConnectionRequestActionProps) {
+  const [seniorLoginId, setSeniorLoginId] = useState('')
 
-  function handleSubmit() {
-    const trimmed = seniorUsername.trim()
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmed = seniorLoginId.trim()
     if (!trimmed) return
-
-    const result = mockSendConnectionRequest(trimmed)
-    if (!result.ok) {
-      setError('해당 아이디로 등록된 어르신을 찾을 수 없어요.')
-      return
-    }
-
-    setError(null)
-    setSentRequest({ seniorUsername: trimmed, requestedAt: new Date().toISOString() })
-  }
-
-  function handleCancel() {
-    setSentRequest(null)
-    setSeniorUsername('')
+    onSubmit(trimmed)
   }
 
   return (
-    <div>
-      <div className={styles.card}>
+    <div className={styles.container}>
+      <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <h2 className={styles.title}>어르신 아이디</h2>
         <div className={styles.row}>
           <input
             className={styles.input}
-            value={seniorUsername}
-            onChange={(event) => {
-              setSeniorUsername(event.target.value)
-              setError(null)
-            }}
+            value={seniorLoginId}
+            onChange={(event) => setSeniorLoginId(event.target.value)}
             placeholder="아이디를 입력하세요"
             aria-label="어르신 아이디"
+            aria-describedby={error ? 'senior-id-error' : 'senior-id-hint'}
+            aria-invalid={Boolean(error)}
+            disabled={Boolean(pendingRequest) || isSubmitting}
           />
           <button
-            type="button"
+            type="submit"
             className={styles.submitButton}
-            onClick={handleSubmit}
-            disabled={!seniorUsername.trim()}
+            disabled={!seniorLoginId.trim() || Boolean(pendingRequest) || isSubmitting}
           >
-            요청
+            {isSubmitting ? '요청 중...' : '요청'}
           </button>
         </div>
-        <p className={styles.hint}>어르신이 가입 시 등록한 아이디로 찾을 수 있어요.</p>
-      </div>
+        <p id="senior-id-hint" className={styles.hint}>
+          {pendingRequest
+            ? '보낸 요청을 취소하면 다른 어르신을 찾을 수 있어요.'
+            : '어르신이 가입 시 등록한 아이디로 찾을 수 있어요.'}
+        </p>
+        {error && (
+          <p id="senior-id-error" className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </form>
 
-      {error && <p className={styles.error}>{error}</p>}
-
-      {sentRequest && (
+      {pendingRequest && (
         <div className={styles.sentCard}>
           <h3 className={styles.sentTitle}>보낸 요청</h3>
-          <div className={styles.sentRow}>
+          <div className={styles.sentRow} aria-live="polite">
             <div>
-              <p className={styles.sentUsername}>{sentRequest.seniorUsername}</p>
+              <div className={styles.sentHeading}>
+                <p className={styles.sentUsername}>{pendingRequest.seniorName}</p>
+                <span className={styles.pendingBadge}>수락 대기</span>
+              </div>
               <p className={styles.sentDate}>
-                {new Date(sentRequest.requestedAt).toLocaleDateString('ko-KR')} 요청
+                {new Date(pendingRequest.requestedAt).toLocaleDateString('ko-KR')} 요청
               </p>
             </div>
-            <button type="button" className={styles.cancelButton} onClick={handleCancel}>
-              요청 취소
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={onCancel}
+              disabled={isCancelling}
+            >
+              {isCancelling ? '취소 중...' : '요청 취소'}
             </button>
           </div>
+          <p className={styles.cancelHint}>
+            <span aria-hidden="true">i</span>
+            요청을 취소하면 다른 어르신께 보낼 수 있어요.
+          </p>
         </div>
       )}
     </div>

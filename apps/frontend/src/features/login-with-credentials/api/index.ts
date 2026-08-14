@@ -1,2 +1,6 @@
-// TODO(UC-00): real login API call once apps/backend exists. Not implemented yet.
-export {}
+import { login as authLogin, type AuthResult } from '../../../entities/user'
+import type { LoginFormValues } from '../model'
+
+export async function login(values: LoginFormValues): Promise<AuthResult> {
+  return authLogin(values.id, values.password)
+}

@@ -10,11 +10,16 @@ import styles from './EditBasicInfoAction.module.css'
 interface EditBasicInfoActionProps {
   values: BasicInfoValues
   onSave: (next: Pick<BasicInfoValues, 'name' | 'phone'>) => void
+  variant?: 'default' | 'guardian'
 }
 
 // 결정사항 로그 §7 — 시니어/보호자 내 정보 화면의 "기본 정보" 카드(아이디는
 // 읽기 전용, 이름/휴대폰만 편집 가능) 양쪽에서 공용으로 쓰는 액션.
-export function EditBasicInfoAction({ values, onSave }: EditBasicInfoActionProps) {
+export function EditBasicInfoAction({
+  values,
+  onSave,
+  variant = 'default',
+}: EditBasicInfoActionProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [draft, setDraft] = useState({ name: values.name, phone: values.phone })
   const [errors, setErrors] = useState<BasicInfoErrors>({})
@@ -35,7 +40,7 @@ export function EditBasicInfoAction({ values, onSave }: EditBasicInfoActionProps
   }
 
   return (
-    <div>
+    <div className={variant === 'guardian' ? styles.guardian : undefined}>
       <div className={styles.header}>
         <h2 className={styles.title}>기본 정보</h2>
         {!isEditing && (

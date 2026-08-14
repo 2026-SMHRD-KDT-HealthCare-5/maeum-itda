@@ -19,11 +19,11 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 'noti-2',
-    title: '주간 리포트가 도착했어요',
-    content: '이번 주 대화 5건이 분석되었어요.',
+    title: '주간 리포트가 준비됐어요',
+    content: '이번 주 안부 대화의 정서 분석이 완료됐어요.',
     isRead: false,
-    createdAt: daysAgoIso(0),
-    target: { type: 'weeklyReport', weekStart: '2025-06-30' },
+    createdAt: '2026-08-07T10:32:00+09:00',
+    target: { type: 'weeklyReport', weekStart: '2026-08-03' },
   },
   {
     id: 'noti-3',
@@ -35,11 +35,11 @@ export const mockNotifications: Notification[] = [
   },
   {
     id: 'noti-4',
-    title: '주간 리포트가 도착했어요',
-    content: '지난 주 대화 7건이 분석되었어요.',
+    title: '일간 리포트가 준비됐어요',
+    content: '어제 나눈 안부 대화의 정서 분석이 완료됐어요.',
     isRead: true,
-    createdAt: daysAgoIso(7),
-    target: { type: 'weeklyReport', weekStart: '2025-06-23' },
+    createdAt: daysAgoIso(2),
+    target: { type: 'dailyReport', reportId: 'report-two-days-ago' },
   },
 ]
 
@@ -68,4 +68,20 @@ export function reportLinkPath(target: Notification['target']): { label: string;
     return { label: '주간 리포트 보기', to: `/guardian/report/weekly/${target.weekStart}` }
   }
   return { label: '일간 리포트 보기', to: '/guardian/report' }
+}
+
+export function formatNotificationDate(iso: string): string {
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(iso))
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+
+  return `${value('year')}.${value('month')}.${value('day')} ${value('hour')}:${value('minute')}`
 }

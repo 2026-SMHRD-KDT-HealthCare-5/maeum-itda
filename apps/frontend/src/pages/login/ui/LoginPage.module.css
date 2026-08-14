@@ -94,19 +94,14 @@
   background: #d9dfdc;
 }
 
-.footer {
-  margin-top: 18px;
-  font-size: 11px;
-  line-height: 150%;
-  color: #929895;
+.notice {
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(184, 228, 211, 0.28);
+  color: #1e5b44;
+  font-size: 13px;
   text-align: center;
-}
-
-.footerHighlight {
-  color: var(--primary);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
 }
 
 @media (max-height: 760px) {
