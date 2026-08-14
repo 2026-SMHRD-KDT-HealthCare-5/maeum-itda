@@ -10,6 +10,8 @@ import {
 import type { AccessTokenPayload } from '../auth/auth.service';
 import { UserRole } from '../users/entities/user.entity';
 import { DailyReportResponseDto } from './dto/daily-report-response.dto';
+import { mapDailyEvidenceRows } from './lib/daily-report-evidence.mapper';
+import { DailyReportEvidenceRepository } from './repositories/daily-report-evidence.repository';
 import { DailyReportRepository } from './repositories/daily-report.repository';
 import { ReportAccessRepository } from './repositories/report-access.repository';
 
@@ -18,6 +20,7 @@ export class DailyReportQueryService {
   constructor(
     private readonly reportAccessRepository: ReportAccessRepository,
     private readonly dailyReportRepository: DailyReportRepository,
+    private readonly evidenceRepository: DailyReportEvidenceRepository,
   ) {}
 
   async getDailyReport(
@@ -45,6 +48,10 @@ export class DailyReportQueryService {
       throw new NotFoundException('해당 날짜의 일간 리포트가 없습니다.');
     }
 
+    const evidenceRows = await this.evidenceRepository.findRowsForReport(
+      report.reportId,
+    );
+
     // Entity 내부 연결 키는 숨기고 Swagger에 선언한 필드만 명시적으로 반환한다.
     return {
       reportId: report.reportId,
@@ -54,6 +61,7 @@ export class DailyReportQueryService {
       oneLineSummary: report.oneLineSummary,
       recommendedAction: report.recommendedAction,
       generationStatus: report.generationStatus,
+      evidences: mapDailyEvidenceRows(evidenceRows),
       createdAt: report.createdAt,
     };
   }

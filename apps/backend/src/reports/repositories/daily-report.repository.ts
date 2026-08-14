@@ -16,10 +16,14 @@ import {
 } from '../entities/daily-emotion-report.entity';
 import { DailyScaleAnalysisInput } from '../lib/daily-emotion-index.calculator';
 import { toSeoulBusinessDayUtcRange } from '../lib/seoul-business-date';
+import { DailyReportEvidenceRepository } from './daily-report-evidence.repository';
 
 @Injectable()
 export class DailyReportRepository {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly evidenceRepository: DailyReportEvidenceRepository,
+  ) {}
 
   async findDailyReport(
     seniorId: number,
@@ -66,12 +70,22 @@ export class DailyReportRepository {
     reportDate: string,
     emotionIndex: number | null,
     generationStatus: GenerationStatus,
+    evidenceMessageIds: number[],
   ): Promise<DailyEmotionReport> {
-    const repository = this.dataSource.getRepository(DailyEmotionReport);
-    await repository.upsert(
-      { seniorId, reportDate, emotionIndex, generationStatus },
-      ['seniorId', 'reportDate'],
-    );
-    return repository.findOneByOrFail({ seniorId, reportDate });
+    // 리포트 갱신과 근거 연결 교체가 일부만 반영되지 않도록 한 트랜잭션으로 저장한다.
+    return this.dataSource.transaction(async (manager) => {
+      const repository = manager.getRepository(DailyEmotionReport);
+      await repository.upsert(
+        { seniorId, reportDate, emotionIndex, generationStatus },
+        ['seniorId', 'reportDate'],
+      );
+      const report = await repository.findOneByOrFail({ seniorId, reportDate });
+      await this.evidenceRepository.replaceForReport(
+        manager,
+        report.reportId,
+        evidenceMessageIds,
+      );
+      return report;
+    });
   }
 }

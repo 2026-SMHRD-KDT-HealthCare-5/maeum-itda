@@ -3,6 +3,7 @@ import { ScaleType } from '../analysis/entities/scale-question-analysis.entity';
 import { GenerationStatus } from './entities/daily-emotion-report.entity';
 import type { DailyScaleAnalysisInput } from './lib/daily-emotion-index.calculator';
 import type { DailyReportRepository } from './repositories/daily-report.repository';
+import type { DailyReportEvidenceRepository } from './repositories/daily-report-evidence.repository';
 import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
@@ -19,6 +20,9 @@ describe('ReportsService', () => {
   });
 
   const createService = (analyses: DailyScaleAnalysisInput[]) => {
+    const evidenceRepository = {
+      findCandidateMessageIds: jest.fn().mockResolvedValue([101, 102]),
+    };
     const repository = {
       findScaleAnalysesForDay: jest.fn().mockResolvedValue(analyses),
       saveDailyReport: jest
@@ -41,8 +45,10 @@ describe('ReportsService', () => {
     return {
       service: new ReportsService(
         repository as unknown as DailyReportRepository,
+        evidenceRepository as unknown as DailyReportEvidenceRepository,
       ),
       repository,
+      evidenceRepository,
     };
   };
 
@@ -62,6 +68,7 @@ describe('ReportsService', () => {
       '2026-08-14',
       80,
       GenerationStatus.COMPLETED,
+      [101, 102],
     );
   });
 
@@ -80,6 +87,7 @@ describe('ReportsService', () => {
       '2026-08-14',
       null,
       GenerationStatus.WAITING,
+      [101, 102],
     );
   });
 });

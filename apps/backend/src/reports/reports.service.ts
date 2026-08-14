@@ -10,20 +10,24 @@ import {
 } from './entities/daily-emotion-report.entity';
 import { calculateDailyEmotionIndex } from './lib/daily-emotion-index.calculator';
 import { DailyReportRepository } from './repositories/daily-report.repository';
+import { DailyReportEvidenceRepository } from './repositories/daily-report-evidence.repository';
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly dailyReportRepository: DailyReportRepository) {}
+  constructor(
+    private readonly dailyReportRepository: DailyReportRepository,
+    private readonly evidenceRepository: DailyReportEvidenceRepository,
+  ) {}
 
   // 해당 서울 업무일의 최신 고유 문항을 집계하고 날짜별 리포트를 원자적으로 갱신한다.
   async generateDailyReport(
     seniorId: number,
     reportDate: string,
   ): Promise<DailyEmotionReport> {
-    const analyses = await this.dailyReportRepository.findScaleAnalysesForDay(
-      seniorId,
-      reportDate,
-    );
+    const [analyses, evidenceMessageIds] = await Promise.all([
+      this.dailyReportRepository.findScaleAnalysesForDay(seniorId, reportDate),
+      this.evidenceRepository.findCandidateMessageIds(seniorId, reportDate),
+    ]);
     const calculation = calculateDailyEmotionIndex(analyses);
 
     return this.dailyReportRepository.saveDailyReport(
@@ -33,6 +37,7 @@ export class ReportsService {
       calculation.status === 'COMPLETED'
         ? GenerationStatus.COMPLETED
         : GenerationStatus.WAITING,
+      evidenceMessageIds,
     );
   }
 }

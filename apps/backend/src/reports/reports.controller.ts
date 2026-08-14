@@ -19,11 +19,14 @@ import { ApiErrorResponseDto } from '../common/dto/api-error-response.dto';
 import { DailyReportQueryService } from './daily-report-query.service';
 import { DailyReportQueryDto } from './dto/daily-report-query.dto';
 import { DailyReportResponseDto } from './dto/daily-report-response.dto';
+import { ReportCalendarQueryDto } from './dto/report-calendar-query.dto';
+import { ReportCalendarResponseDto } from './dto/report-calendar-response.dto';
 import { WeeklyReportQueryDto } from './dto/weekly-report-query.dto';
 import { WeeklyReportResponseDto } from './dto/weekly-report-response.dto';
 import { WeeklyReportQueryService } from './weekly-report-query.service';
+import { ReportCalendarQueryService } from './report-calendar-query.service';
 
-@ApiTags('6. 리포트')
+@ApiTags('7. 리포트')
 @ApiBearerAuth()
 @UseGuards(AccessTokenGuard)
 @Controller('reports')
@@ -31,7 +34,35 @@ export class ReportsController {
   constructor(
     private readonly dailyReportQueryService: DailyReportQueryService,
     private readonly weeklyReportQueryService: WeeklyReportQueryService,
+    private readonly reportCalendarQueryService: ReportCalendarQueryService,
   ) {}
+
+  @Get('calendar')
+  @ApiOperation({ summary: '보호자 일간·주간 리포트 통합 달력 조회' })
+  @ApiOkResponse({ type: ReportCalendarResponseDto })
+  @ApiBadRequestResponse({
+    description: 'year 또는 month 형식·범위 오류',
+    type: ApiErrorResponseDto,
+  })
+  @ApiUnauthorizedResponse({ type: ApiErrorResponseDto })
+  @ApiForbiddenResponse({
+    description: '보호자 계정이 아님',
+    type: ApiErrorResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: '연결된 시니어가 없음',
+    type: ApiErrorResponseDto,
+  })
+  getReportCalendar(
+    @Req() request: AuthenticatedRequest,
+    @Query() query: ReportCalendarQueryDto,
+  ): Promise<ReportCalendarResponseDto> {
+    return this.reportCalendarQueryService.getCalendar(
+      request.user,
+      query.year,
+      query.month,
+    );
+  }
 
   // 보호자 JWT의 연결 관계로 대상 시니어를 결정하므로 seniorId는 요청에서 받지 않는다.
   @Get('daily')
