@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
 import {
   EditBasicInfoAction,
@@ -83,20 +83,30 @@ export function SeniorMyInfoPage() {
 
   if (anyPending || showLoadingOverlay) {
     return (
-      <main className={styles.page}>
-        {showLoadingOverlay && <LoadingSpinner overlay label="내 정보를 불러오는 중이에요" />}
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          {showLoadingOverlay && <LoadingSpinner overlay label="내 정보를 불러오는 중이에요" />}
+        </main>
+        <BottomTabBar items={SENIOR_TAB_ITEMS} />
+      </>
     )
   }
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <main className={styles.page}>
-        <p>내 정보를 불러오지 못했어요.</p>
-        <Button type="button" onClick={() => profileQuery.refetch()}>
-          다시 시도
-        </Button>
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          <div className={styles.errorState} role="alert">
+            <p>내 정보를 불러오지 못했어요.</p>
+            <Button type="button" onClick={() => profileQuery.refetch()}>
+              다시 시도
+            </Button>
+          </div>
+        </main>
+        <BottomTabBar items={SENIOR_TAB_ITEMS} />
+      </>
     )
   }
 
@@ -106,17 +116,16 @@ export function SeniorMyInfoPage() {
   return (
     <>
       <main className={styles.page}>
+        <h1 className={styles.pageTitle}>내 정보</h1>
         <header className={styles.header}>
-          <h1>내 정보</h1>
-          <span className={styles.avatar} aria-hidden="true">
-            <img src={seniorCoupleImage} alt="" />
-          </span>
-          <p className={styles.name}>{profile.name} 어르신</p>
+          <img className={styles.avatar} src={seniorCoupleImage} alt="" />
+          <h2 className={styles.name}>{profile.name} 어르신</h2>
         </header>
 
         <div className={styles.cards}>
-          <Card>
+          <Card className={styles.infoCard}>
             <EditBasicInfoAction
+              variant="guardian"
               values={{
                 username: profile.loginId,
                 name: profile.name,
@@ -129,8 +138,8 @@ export function SeniorMyInfoPage() {
             )}
           </Card>
 
-          <Card>
-            <h2 className={styles.cardTitle}>보호자</h2>
+          <Card className={styles.connectionCard}>
+            <h2 className={styles.cardTitle}>연결된 보호자</h2>
             {connectionQuery.isError && (
               <p className={styles.saveError}>연결 상태를 불러오지 못했어요.</p>
             )}
@@ -138,9 +147,7 @@ export function SeniorMyInfoPage() {
               (isConnected ? (
                 <div className={styles.connectedRow}>
                   <div className={styles.connectedInfo}>
-                    <span className={styles.connectedAvatar} aria-hidden="true">
-                      <img src={guardianCoupleImage} alt="" />
-                    </span>
+                    <img className={styles.connectedAvatar} src={guardianCoupleImage} alt="" />
                     <div>
                       <p className={styles.connectedName}>
                         {connectionQuery.data.counterpart?.name}
@@ -151,6 +158,7 @@ export function SeniorMyInfoPage() {
                     </div>
                   </div>
                   <DisconnectConnectionAction
+                    variant="guardian"
                     onDisconnect={() => disconnectMutation.mutate()}
                     isDisconnecting={disconnectMutation.isPending}
                     error={
@@ -165,17 +173,34 @@ export function SeniorMyInfoPage() {
                 </div>
               ) : (
                 <div className={styles.emptyConnection}>
-                  <p className={styles.emptyConnectionText}>연결된 보호자가 없어요</p>
-                  <Link to="/senior/connection">
-                    <Button type="button" variant="outline">
-                      요청 확인하기
-                    </Button>
-                  </Link>
+                  <span className={styles.emptyConnectionIcon} aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none">
+                      <circle cx="12" cy="11" r="4" />
+                      <path d="M5.5 23c.6-4.1 3-6.2 6.5-6.2 2.3 0 4.2.9 5.3 2.7" />
+                      <path d="M18.5 14.5h3a4 4 0 0 1 0 8h-3" />
+                      <path d="M13.5 22.5h-3a4 4 0 0 1 0-8h3" />
+                    </svg>
+                  </span>
+                  <div className={styles.emptyConnectionCopy}>
+                    <p className={styles.emptyConnectionText}>아직 연결된 보호자가 없어요</p>
+                    <p className={styles.emptyConnectionDescription}>
+                      보호자가 연결을 요청하면
+                      <br />
+                      여기에서 요청을 확인할 수 있어요.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    className={styles.connectButton}
+                    onClick={() => navigate('/senior/connection')}
+                  >
+                    요청 확인하기
+                  </Button>
                 </div>
               ))}
           </Card>
 
-          <Card>
+          <Card className={styles.notificationCard}>
             {checkinReminderQuery.isError && (
               <p className={styles.saveError}>안부 알림 설정을 불러오지 못했어요.</p>
             )}
