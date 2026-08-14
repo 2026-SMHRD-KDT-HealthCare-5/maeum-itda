@@ -1,6 +1,8 @@
 """NestJS 없이 AI 서버의 REST 배치 API를 호출하는 테스트 클라이언트."""
 
 import argparse
+import base64
+import binascii
 import json
 import sys
 import uuid
@@ -12,6 +14,7 @@ import httpx
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INPUT_SOUND_DIR = PROJECT_ROOT / "input_sound"
 OUTPUT_TEXT_DIR = PROJECT_ROOT / "output_text"
+OUTPUT_SOUND_DIR = PROJECT_ROOT / "output_sound"
 AUDIO_EXTS = {
     ".wav", ".mp3", ".mpga", ".mpeg", ".mp4", ".m4a", ".webm",
     ".flac", ".ogg", ".opus", ".aac", ".wma",
@@ -29,6 +32,8 @@ MIME_BY_EXT = {
     ".opus": "audio/opus",
     ".aac": "audio/aac",
 }
+SENTIMENT_LABELS = {"POSITIVE", "NEUTRAL", "NEGATIVE"}
+SCALE_TYPES = {"SGDS_K", "GAD_7", "LSNS_6"}
 
 
 def resolve_audio_paths(values: list[str] | None) -> list[Path]:
@@ -51,6 +56,96 @@ def resolve_audio_paths(values: list[str] | None) -> list[Path]:
     return candidates
 
 
+def build_nestjs_multipart(
+    audio_paths: list[Path],
+    question_message_id: int,
+    generation_id: str,
+    captured_at: str,
+) -> tuple[list[tuple[str, tuple]], list[object], list[int]]:
+    """NestJS AiClient.createFormData()와 같은 필드·순서로 multipart를 만든다."""
+    multipart: list[tuple[str, tuple]] = [
+        ("questionMessageId", (None, str(question_message_id))),
+        ("generationId", (None, generation_id)),
+    ]
+    opened_files: list[object] = []
+    message_ids: list[int] = []
+
+    for index, audio_path in enumerate(audio_paths, start=1):
+        message_id = question_message_id + index
+        transfer_id = str(uuid.uuid4())
+        mime_type = MIME_BY_EXT.get(
+            audio_path.suffix.lower(),
+            "application/octet-stream",
+        )
+        audio_file = audio_path.open("rb")
+        opened_files.append(audio_file)
+        message_ids.append(message_id)
+
+        # apps/backend/src/analysis/ai.client.ts createFormData()와 동일한 순서다.
+        multipart.extend(
+            [
+                (
+                    "audioFiles",
+                    (f"{transfer_id}.audio", audio_file, mime_type),
+                ),
+                ("messageIds", (None, str(message_id))),
+                ("audioTransferIds", (None, transfer_id)),
+                ("capturedAts", (None, captured_at)),
+                ("endTypes", (None, "manual")),
+            ]
+        )
+
+    return multipart, opened_files, message_ids
+
+
+def validate_nestjs_response(result: object, requested_ids: list[int]) -> dict:
+    """NestJS AiClient.validateResponse()가 요구하는 JSON 계약을 동일하게 확인한다."""
+    if not isinstance(result, dict):
+        raise ValueError("FastAPI 응답이 객체 형식이 아닙니다.")
+
+    answers = result.get("answers")
+    next_question = result.get("nextQuestion")
+    if not isinstance(answers, list) or not (
+        next_question is None or isinstance(next_question, str)
+    ):
+        raise ValueError("FastAPI 질문별 분석 응답 형식이 올바르지 않습니다.")
+
+    response_ids: list[int] = []
+    for answer in answers:
+        if not isinstance(answer, dict):
+            raise ValueError("답변 분석 결과가 객체 형식이 아닙니다.")
+        message_id = answer.get("messageId")
+        transcript = answer.get("transcript")
+        sentiment_label = answer.get("sentimentLabel")
+        scale_analyses = answer.get("scaleAnalyses")
+        if (
+            not isinstance(message_id, int)
+            or isinstance(message_id, bool)
+            or not isinstance(transcript, str)
+            or not transcript.strip()
+            or sentiment_label not in SENTIMENT_LABELS
+            or not isinstance(scale_analyses, list)
+        ):
+            raise ValueError("답변 분석 결과 형식이 올바르지 않습니다.")
+
+        for scale in scale_analyses:
+            if not isinstance(scale, dict):
+                raise ValueError("척도 분석 결과가 객체 형식이 아닙니다.")
+            question_number = scale.get("questionNumber")
+            if (
+                scale.get("scaleType") not in SCALE_TYPES
+                or not isinstance(question_number, int)
+                or isinstance(question_number, bool)
+                or scale.get("analysisScore") not in {0, 1}
+            ):
+                raise ValueError("척도 분석 결과 형식이 올바르지 않습니다.")
+        response_ids.append(message_id)
+
+    if sorted(requested_ids) != sorted(response_ids):
+        raise ValueError("FastAPI 응답의 메시지 ID가 요청과 일치하지 않습니다.")
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="AI 서버 REST 배치 API 테스트")
     parser.add_argument(
@@ -66,7 +161,7 @@ def main() -> None:
 
     try:
         audio_paths = resolve_audio_paths(args.audio)
-    except ValueError as exc:
+    except (binascii.Error, ValueError) as exc:
         print(f"[오류] {exc}")
         sys.exit(1)
 
@@ -80,45 +175,21 @@ def main() -> None:
     question_message_id = 101
     generation_id = str(uuid.uuid4())
     captured_at = datetime.now(timezone.utc).isoformat()
-    data: list[tuple[str, str]] = [
-        ("questionMessageId", str(question_message_id)),
-        ("generationId", generation_id),
-    ]
-    files = []
-    opened_files = []
+    multipart, opened_files, requested_ids = build_nestjs_multipart(
+        audio_paths,
+        question_message_id,
+        generation_id,
+        captured_at,
+    )
 
     try:
-        for index, audio_path in enumerate(audio_paths, start=1):
-            message_id = question_message_id + index
-            transfer_id = str(uuid.uuid4())
-            data.extend(
-                [
-                    ("messageIds", str(message_id)),
-                    ("audioTransferIds", transfer_id),
-                    ("capturedAts", captured_at),
-                    ("endTypes", "manual"),
-                ]
-            )
-            audio_file = audio_path.open("rb")
-            opened_files.append(audio_file)
-            files.append(
-                (
-                    "audioFiles",
-                    (
-                        audio_path.name,
-                        audio_file,
-                        MIME_BY_EXT.get(audio_path.suffix.lower(), "application/octet-stream"),
-                    ),
-                )
-            )
-
-        response = httpx.post(args.url, data=data, files=files, timeout=120)
+        response = httpx.post(args.url, files=multipart, timeout=120)
         response.raise_for_status()
     finally:
         for audio_file in opened_files:
             audio_file.close()
 
-    result = response.json()
+    result = validate_nestjs_response(response.json(), requested_ids)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
     OUTPUT_TEXT_DIR.mkdir(parents=True, exist_ok=True)
@@ -129,6 +200,28 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"결과 저장: {output_path}")
+
+    tts_base64 = result.get("ttsAudioBase64")
+    tts_mime_type = result.get("ttsMimeType", "audio/mpeg")
+    if not isinstance(tts_base64, str) or not tts_base64:
+        raise ValueError("REST 응답에 ttsAudioBase64가 없습니다.")
+
+    try:
+        tts_audio = base64.b64decode(tts_base64, validate=True)
+    except ValueError as exc:
+        raise ValueError("ttsAudioBase64가 올바른 Base64 형식이 아닙니다.") from exc
+    if not tts_audio:
+        raise ValueError("디코딩된 TTS 음성이 비어 있습니다.")
+
+    extension = {
+        "audio/mpeg": "mp3",
+        "audio/wav": "wav",
+        "audio/ogg": "ogg",
+    }.get(tts_mime_type, "audio")
+    OUTPUT_SOUND_DIR.mkdir(parents=True, exist_ok=True)
+    tts_path = OUTPUT_SOUND_DIR / f"mock_rest_tts_{stamp}.{extension}"
+    tts_path.write_bytes(tts_audio)
+    print(f"TTS 저장: {tts_path} ({tts_mime_type}, {len(tts_audio):,} bytes)")
 
 
 if __name__ == "__main__":

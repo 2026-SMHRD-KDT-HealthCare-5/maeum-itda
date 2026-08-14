@@ -20,4 +20,6 @@ class AnswerAnalysis(BaseModel):
 
 class BatchAnalysisResponse(BaseModel):
     answers: list[AnswerAnalysis]
-    nextQuestion: str | None
+    nextQuestion: str
+    ttsAudioBase64: str
+    ttsMimeType: str
