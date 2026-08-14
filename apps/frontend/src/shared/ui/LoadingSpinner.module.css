@@ -1,0 +1,30 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(247, 244, 238, 0.85);
+  backdrop-filter: blur(2px);
+}
+
+.gif {
+  object-fit: contain;
+}
+
+.label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  margin: 0;
+}
