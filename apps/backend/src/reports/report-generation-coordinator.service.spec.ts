@@ -14,7 +14,11 @@ describe('ReportGenerationCoordinatorService', () => {
         .mockResolvedValue([{ guardianId: 3, seniorId: 9 }]),
     };
     const reportsService = {
-      generateDailyReport: jest.fn().mockResolvedValue({ reportId: 1 }),
+      generateDailyReport: jest.fn().mockResolvedValue({
+        reportId: 1,
+        emotionIndex: null,
+        generationStatus: GenerationStatus.WAITING,
+      }),
     };
     const weeklyService = {
       generateWeeklyReport: jest.fn().mockResolvedValue({
@@ -24,6 +28,7 @@ describe('ReportGenerationCoordinatorService', () => {
     };
     const notificationsService = {
       createWeeklyReportReadyNotification: jest.fn().mockResolvedValue({}),
+      createEmotionIndexDropNotification: jest.fn().mockResolvedValue({}),
     };
     return {
       coordinator: new ReportGenerationCoordinatorService(
@@ -56,7 +61,11 @@ describe('ReportGenerationCoordinatorService', () => {
     const order: string[] = [];
     reportsService.generateDailyReport.mockImplementation(() => {
       order.push('daily');
-      return Promise.resolve({ reportId: 1 });
+      return Promise.resolve({
+        reportId: 1,
+        emotionIndex: null,
+        generationStatus: GenerationStatus.WAITING,
+      });
     });
     weeklyService.generateWeeklyReport.mockImplementation(() => {
       order.push('weekly');
@@ -85,7 +94,23 @@ describe('ReportGenerationCoordinatorService', () => {
     );
     expect(
       notificationsService.createWeeklyReportReadyNotification,
-    ).toHaveBeenCalledWith(3, 10);
+    ).toHaveBeenCalledWith(3, 10, '2026-08-10');
+  });
+
+  it('완료된 일간 정서지수를 임계치 알림 판단으로 전달한다', async () => {
+    const { coordinator, reportsService, notificationsService } =
+      createCoordinator();
+    reportsService.generateDailyReport.mockResolvedValue({
+      reportId: 31,
+      emotionIndex: 49,
+      generationStatus: GenerationStatus.COMPLETED,
+    });
+
+    await coordinator.run(new Date('2026-08-14T00:00:00.000Z'));
+
+    expect(
+      notificationsService.createEmotionIndexDropNotification,
+    ).toHaveBeenCalledWith(3, 31, '2026-08-13', 49);
   });
 
   it('주간 데이터가 부족하면 생성 완료 알림을 보내지 않는다', async () => {

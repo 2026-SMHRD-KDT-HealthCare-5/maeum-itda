@@ -2,6 +2,52 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { GenerationStatus } from '../entities/daily-emotion-report.entity';
 
+export enum DailyEvidenceSentimentLabel {
+  POSITIVE = '긍정',
+  NEUTRAL = '보통',
+  NEGATIVE = '부정',
+}
+
+export enum DailyEvidenceScaleLabel {
+  SGDS_K = '우울',
+  GAD_7 = '불안',
+  LSNS_6 = '고립',
+}
+
+export class DailyReportEvidenceResponseDto {
+  @ApiProperty({ example: 101 })
+  messageId: number;
+
+  @ApiPropertyOptional({ nullable: true, example: '어젯밤에는 잘 주무셨어요?' })
+  question: string | null;
+
+  @ApiProperty({ example: '새벽에 한 번 깼지만 괜찮아.' })
+  answer: string;
+
+  @ApiProperty({ example: true })
+  isRiskEvidence: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: DailyEvidenceSentimentLabel,
+    example: DailyEvidenceSentimentLabel.NEGATIVE,
+  })
+  sentimentLabel: DailyEvidenceSentimentLabel | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    enum: DailyEvidenceScaleLabel,
+    example: DailyEvidenceScaleLabel.GAD_7,
+  })
+  scaleLabel: DailyEvidenceScaleLabel | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date-time' })
+  questionCreatedAt: Date | null;
+
+  @ApiProperty({ format: 'date-time' })
+  answerCreatedAt: Date;
+}
+
 export class DailyReportResponseDto {
   @ApiProperty({ example: 31 })
   reportId: number;
@@ -37,6 +83,9 @@ export class DailyReportResponseDto {
 
   @ApiProperty({ enum: GenerationStatus, example: GenerationStatus.COMPLETED })
   generationStatus: GenerationStatus;
+
+  @ApiProperty({ type: [DailyReportEvidenceResponseDto] })
+  evidences: DailyReportEvidenceResponseDto[];
 
   @ApiProperty({ example: '2026-08-15T00:00:00.000Z' })
   createdAt: Date;

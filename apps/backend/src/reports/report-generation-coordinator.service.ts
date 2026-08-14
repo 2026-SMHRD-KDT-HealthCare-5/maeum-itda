@@ -28,10 +28,21 @@ export class ReportGenerationCoordinatorService {
     for (const target of targets) {
       try {
         // 월요일에도 일요일 일간 저장이 끝난 뒤에만 아래 주간 단계로 넘어간다.
-        await this.reportsService.generateDailyReport(
+        const dailyReport = await this.reportsService.generateDailyReport(
           target.seniorId,
           context.reportDate,
         );
+        if (
+          dailyReport.generationStatus === GenerationStatus.COMPLETED &&
+          dailyReport.emotionIndex !== null
+        ) {
+          await this.notificationsService.createEmotionIndexDropNotification(
+            target.guardianId,
+            dailyReport.reportId,
+            context.reportDate,
+            dailyReport.emotionIndex,
+          );
+        }
 
         if (context.previousWeekStart !== null) {
           const weeklyReport =
@@ -43,6 +54,7 @@ export class ReportGenerationCoordinatorService {
             await this.notificationsService.createWeeklyReportReadyNotification(
               target.guardianId,
               weeklyReport.weeklyReportId,
+              context.previousWeekStart,
             );
           }
         }
