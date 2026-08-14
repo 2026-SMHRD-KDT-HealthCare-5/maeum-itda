@@ -1,6 +1,7 @@
 .page {
   min-height: 100svh;
-  padding-bottom: 104px;
+  padding: 24px 20px 104px;
+  box-sizing: border-box;
   background:
     radial-gradient(circle at 100% 0, rgba(220, 235, 225, 0.55), transparent 18rem), var(--app-bg);
 }
@@ -9,7 +10,7 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  padding: 8px 20px 24px;
+  padding: 8px 0 24px;
 }
 
 /* entities/conversation의 .transcript는 실시간 대화 화면(고정 뷰포트
@@ -142,8 +143,8 @@
 }
 
 @media (max-width: 350px) {
-  .content {
-    padding-inline: 15px;
+  .page {
+    padding-inline: 14px;
   }
 
   .summaryText {
