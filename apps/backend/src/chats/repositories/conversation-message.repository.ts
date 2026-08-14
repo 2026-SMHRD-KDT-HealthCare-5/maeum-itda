@@ -43,22 +43,4 @@ export class ConversationMessageRepository {
     // INSERT 실행 후 MySQL이 발급한 MESSAGE_ID를 포함한 객체 반환
     return this.typeOrmRepository.save(initialQuestion);
   }
-
-  // 역할: 시니어의 과거 메시지를 최신 cursor 이전부터 조회한 뒤 화면 표시 순서로 반환한다.
-  async findHistory(
-    seniorId: number,
-    cursor: number | undefined,
-    limit: number,
-  ): Promise<ConversationMessage[]> {
-    const query = this.typeOrmRepository
-      .createQueryBuilder('message')
-      .where('message.SENIOR_ID = :seniorId', { seniorId })
-      .orderBy('message.MESSAGE_ID', 'DESC')
-      .take(limit);
-    if (cursor !== undefined) {
-      query.andWhere('message.MESSAGE_ID < :cursor', { cursor });
-    }
-    const messages = await query.getMany();
-    return messages.reverse();
-  }
 }

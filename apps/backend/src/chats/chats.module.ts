@@ -23,6 +23,8 @@ import { QuestionAnswerQueueService } from './question-answer-queue.service';
 import { ChatEndHandler } from './handlers/chat-end.handler';
 import { AudioTransferStateService } from './audio-transfer-state.service';
 import { ChatInactivityService } from './chat-inactivity.service';
+import { ChatHistoryQueryService } from './chat-history-query.service';
+import { ChatHistoryRepository } from './repositories/chat-history.repository';
 
 // 인증·AI 분석·DB Repository를 가져오고 채팅의 입구와 업무 객체를 등록한다.
 // NestJS DI 컨테이너는 등록된 객체의 생성자를 확인해 필요한 의존성을 주입한다.
@@ -43,7 +45,9 @@ import { ChatInactivityService } from './chat-inactivity.service';
     AudioBinaryHandler,
     ChatConnectionStateService,
     ChatsService,
+    ChatHistoryQueryService,
     ConversationMessageRepository,
+    ChatHistoryRepository,
     AudioAnswerRepository,
     QuestionAnswerQueueService,
     AudioTransferStateService,

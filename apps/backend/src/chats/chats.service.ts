@@ -52,28 +52,4 @@ export class ChatsService {
       content: savedQuestion.content ?? INITIAL_AI_QUESTION,
     };
   }
-
-  // 역할: 스크롤 복원용 메시지를 cursor 방식으로 조회하고 다음 조회 cursor를 계산한다.
-  async getMessageHistory(
-    seniorId: number,
-    cursor: number | undefined,
-    limit: number,
-  ) {
-    const messages = await this.conversationMessageRepository.findHistory(
-      seniorId,
-      cursor,
-      limit,
-    );
-    return {
-      messages: messages.map((message) => ({
-        messageId: message.messageId,
-        speakerType: message.speakerType,
-        content: message.content,
-        sttStatus: message.sttStatus,
-        createdAt: message.createdAt,
-      })),
-      nextCursor:
-        messages.length === limit ? (messages[0]?.messageId ?? null) : null,
-    };
-  }
 }

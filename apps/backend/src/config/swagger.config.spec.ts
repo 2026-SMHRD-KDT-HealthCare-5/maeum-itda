@@ -12,6 +12,7 @@ import { AccessTokenGuard } from '../auth/access-token.guard';
 import { AuthService } from '../auth/auth.service';
 import { ChatsController } from '../chats/chats.controller';
 import { ChatsService } from '../chats/chats.service';
+import { ChatHistoryQueryService } from '../chats/chat-history-query.service';
 import { ConnectionsController } from '../connections/connections.controller';
 import { ConnectionsService } from '../connections/connections.service';
 import { ProfileSettingsController } from '../profile-settings/profile-settings.controller';
@@ -40,6 +41,7 @@ describe('Swagger configuration', () => {
         { provide: ConnectionsService, useValue: {} },
         { provide: AccessTokenGuard, useValue: { canActivate: () => true } },
         { provide: ChatsService, useValue: {} },
+        { provide: ChatHistoryQueryService, useValue: {} },
         { provide: AnalysisService, useValue: {} },
       ],
     }).compile();
@@ -74,6 +76,7 @@ describe('Swagger configuration', () => {
       '"/connections/requests/{relationshipId}/reject"',
     );
     expect(response.text).toContain('"/chats/messages"');
+    expect(response.text).toContain('"/chats/calendar"');
     expect(response.text).toContain('"/analysis/audio/{messageId}/status"');
     expect(response.text).toContain(
       '"/analysis/audio/question/{questionMessageId}/retry"',
@@ -86,5 +89,26 @@ describe('Swagger configuration', () => {
     expect(response.text).toContain('"ConnectionResponseDto"');
     expect(response.text).toContain('"ChatHistoryPageResponseDto"');
     expect(response.text).toContain('"VoiceAnalysisStatusResponseDto"');
+
+    const document = response.body as {
+      paths: Record<
+        string,
+        {
+          get?: {
+            parameters?: Array<{ name: string; schema?: { type?: string } }>;
+          };
+        }
+      >;
+    };
+    const messageParameters = document.paths['/chats/messages'].get?.parameters;
+    expect(
+      messageParameters?.find(({ name }) => name === 'date')?.schema?.type,
+    ).toBe('string');
+    expect(
+      messageParameters?.find(({ name }) => name === 'cursor')?.schema?.type,
+    ).toBe('number');
+    expect(
+      messageParameters?.find(({ name }) => name === 'limit')?.schema?.type,
+    ).toBe('number');
   });
 });
