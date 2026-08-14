@@ -1,19 +1,11 @@
-"""
-감정 분류 서비스: 텍스트 모델 + 음성 모델 각각 추론 후 융합(fusion).
+"""Text/voice emotion inference and late fusion."""
 
-현재 텍스트/음성 감정분류 모델은 각각 학습은 되어 있으나 아직 하나로 합쳐지지
-않은 상태라고 들었다. 그래서 이 파일은:
+from __future__ import annotations
 
-  1) classify_text_emotion() / classify_voice_emotion() : 각 모델 추론 함수
-     -> 실제 체크포인트 로딩/전처리 방식은 TODO 부분에 팀에서 쓰는 모델에 맞춰 교체
-  2) fuse_emotions()                                    : 두 결과를 합치는 부분
-     -> 지금은 라벨별 가중평균(config의 EMOTION_FUSION_*_WEIGHT)으로 "합쳤다고 가정"
-     -> 나중에 실제 융합 모델(예: late-fusion MLP)이 나오면 이 함수 내부만 교체하면 됨
-
-두 모델의 출력 라벨셋이 다를 경우, EMOTION_LABELS(.env) 기준으로 정렬/보정한다.
-"""
+import io
 import logging
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 
@@ -21,122 +13,253 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-LABELS = settings.emotion_label_list  # 예: ["happy","sad","angry","anxious","neutral"]
+
+# Both checkpoints were trained with this exact class order.
+MODEL_LABELS = ("happy", "angry", "sad", "anxious", "neutral")
+KOREAN_TO_SERVER_LABEL = {
+    "기쁨": "happy",
+    "분노": "angry",
+    "슬픔": "sad",
+    "불안": "anxious",
+    "중립": "neutral",
+}
+LABELS = MODEL_LABELS
+VOICE_CHECKPOINT = "kresnik/wav2vec2-large-xlsr-korean"
+VOICE_MAX_SAMPLES = 320_000
+TEST_EMOTION = {
+    "happy": 0.0,
+    "angry": 0.0,
+    "sad": 1.0,
+    "anxious": 0.0,
+    "neutral": 0.0,
+}
 
 
-# ---------------------------------------------------------------------------
-# 모델 로딩 (지연 로딩 + 캐시). 실제 체크포인트 형식에 맞춰 아래 두 함수만 교체하면 됨.
-# ---------------------------------------------------------------------------
-
-@lru_cache
-def _get_text_model():
-    """
-    TODO: 실제 텍스트 감정분류 체크포인트 로딩 코드로 교체.
-    예시는 HuggingFace transformers 시퀀스분류 모델 가정.
-    """
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
-    path = settings.text_emotion_model_path
-    logger.info("텍스트 감정분류 모델 로딩: %s", path)
-    tokenizer = AutoTokenizer.from_pretrained(path)
-    model = AutoModelForSequenceClassification.from_pretrained(path)
-    model.eval()
-    return tokenizer, model
+class EmotionInferenceError(RuntimeError):
+    """Raised when a modality cannot produce a trustworthy prediction."""
 
 
-@lru_cache
-def _get_voice_model():
-    """
-    TODO: 실제 음성 감정분류 체크포인트 로딩 코드로 교체.
-    (예: torch.load(state_dict) + 커스텀 아키텍처, 또는 wav2vec2 기반 등)
-    """
+def _resolve_path(value: str, *, expected: str) -> Path:
+    path = Path(value).expanduser()
+    if not path.is_absolute():
+        path = (Path(__file__).resolve().parents[2] / path).resolve()
+    valid = path.is_dir() if expected == "directory" else path.is_file()
+    if not valid:
+        raise FileNotFoundError(f"Expected model {expected} does not exist: {path}")
+    return path
+
+
+def _select_device():
     import torch
-    path = settings.voice_emotion_model_path
-    logger.info("음성 감정분류 모델 로딩: %s", path)
-    model = torch.load(path, map_location="cpu")
-    model.eval()
-    return model
+
+    requested = settings.emotion_device.strip().lower()
+    if requested not in {"auto", "cuda", "cpu"}:
+        raise ValueError("EMOTION_DEVICE must be one of: auto, cuda, cpu")
+    if requested == "cuda" and not torch.cuda.is_available():
+        raise EmotionInferenceError("EMOTION_DEVICE=cuda but CUDA is unavailable")
+    selected = (
+        "cuda"
+        if requested == "cuda" or (requested == "auto" and torch.cuda.is_available())
+        else "cpu"
+    )
+    return torch.device(selected)
 
 
-# ---------------------------------------------------------------------------
-# 추론
-# ---------------------------------------------------------------------------
+@lru_cache(maxsize=1)
+def _get_text_model():
+    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+    path = _resolve_path(settings.text_emotion_model_path, expected="directory")
+    device = _select_device()
+    logger.info("Loading text emotion model from %s on %s", path, device)
+    tokenizer = AutoTokenizer.from_pretrained(path, local_files_only=True)
+    model = AutoModelForSequenceClassification.from_pretrained(path, local_files_only=True)
+    model.to(device).eval()
+    return tokenizer, model, device
+
+
+def _audio_classifier_class():
+    import torch.nn as nn
+    from transformers import AutoModel
+
+    class AudioEmotionClassifier(nn.Module):
+        def __init__(self, checkpoint: str, num_labels: int):
+            super().__init__()
+            self.encoder = AutoModel.from_pretrained(checkpoint)
+            self.dropout = nn.Dropout(0.1)
+            self.classifier = nn.Linear(self.encoder.config.hidden_size, num_labels)
+
+        def forward(self, input_values, attention_mask=None):
+            outputs = self.encoder(input_values=input_values, attention_mask=attention_mask)
+            hidden = outputs.last_hidden_state
+            if attention_mask is not None and hasattr(
+                self.encoder, "_get_feature_vector_attention_mask"
+            ):
+                feature_mask = self.encoder._get_feature_vector_attention_mask(
+                    hidden.shape[1], attention_mask
+                )
+                mask = feature_mask.unsqueeze(-1).to(hidden.dtype)
+                pooled = (hidden * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-6)
+            else:
+                pooled = hidden.mean(dim=1)
+            return self.classifier(self.dropout(pooled))
+
+    return AudioEmotionClassifier
+
+
+@lru_cache(maxsize=1)
+def _get_voice_model():
+    import torch
+    from transformers import AutoFeatureExtractor
+
+    path = _resolve_path(settings.voice_emotion_model_path, expected="file")
+    device = _select_device()
+    logger.info("Loading voice emotion model from %s on %s", path, device)
+    feature_extractor = AutoFeatureExtractor.from_pretrained(VOICE_CHECKPOINT)
+    model = _audio_classifier_class()(VOICE_CHECKPOINT, len(MODEL_LABELS))
+    state_dict = torch.load(path, map_location="cpu", weights_only=True)
+    model.load_state_dict(state_dict, strict=True)
+    model.to(device).eval()
+    return feature_extractor, model, device
+
 
 def classify_text_emotion(text: str) -> dict[str, float]:
-    """텍스트 -> {라벨: 확률} 딕셔너리. 실패 시 균등분포 반환(파이프라인 안 죽게)."""
     if not text.strip():
-        return {label: 1.0 / len(LABELS) for label in LABELS}
+        raise EmotionInferenceError("Text emotion inference requires non-empty text")
     try:
         import torch
-        tokenizer, model = _get_text_model()
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=128)
-        with torch.no_grad():
-            logits = model(**inputs).logits
-            probs = torch.softmax(logits, dim=-1).squeeze(0).tolist()
-        return _align_to_labels(probs, getattr(model.config, "id2label", None))
-    except Exception as e:  # noqa: BLE001
-        logger.error("텍스트 감정분류 실패, 균등분포로 대체: %s", e)
-        return {label: 1.0 / len(LABELS) for label in LABELS}
+
+        tokenizer, model, device = _get_text_model()
+        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=192)
+        inputs = {name: value.to(device) for name, value in inputs.items()}
+        with torch.inference_mode():
+            probabilities = torch.softmax(model(**inputs).logits, dim=-1)[0].cpu().tolist()
+        return _align_to_labels(probabilities, getattr(model.config, "id2label", None))
+    except EmotionInferenceError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Text emotion inference failed")
+        raise EmotionInferenceError("Text emotion inference failed") from exc
 
 
 def classify_voice_emotion(audio_bytes: bytes, sample_rate: int = 16000) -> dict[str, float]:
-    """오디오 bytes -> {라벨: 확률} 딕셔너리. 실패 시 균등분포 반환."""
+    if not audio_bytes:
+        raise EmotionInferenceError("Voice emotion inference requires audio data")
     try:
-        import io
-        import librosa
         import torch
 
-        y, _sr = librosa.load(io.BytesIO(audio_bytes), sr=sample_rate, mono=True)
-        model = _get_voice_model()
+        waveform = _decode_audio(audio_bytes, sample_rate)[:VOICE_MAX_SAMPLES]
+        if waveform.size == 0:
+            raise EmotionInferenceError("Decoded audio contains no samples")
+        feature_extractor, model, device = _get_voice_model()
+        inputs = feature_extractor(
+            [waveform],
+            sampling_rate=sample_rate,
+            padding=True,
+            truncation=True,
+            max_length=VOICE_MAX_SAMPLES,
+            return_tensors="pt",
+        )
+        model_inputs = {"input_values": inputs.input_values.to(device)}
+        if getattr(inputs, "attention_mask", None) is not None:
+            model_inputs["attention_mask"] = inputs.attention_mask.to(device)
+        with torch.inference_mode():
+            probabilities = torch.softmax(model(**model_inputs), dim=-1)[0].cpu().tolist()
+        return _align_to_labels(probabilities)
+    except EmotionInferenceError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Voice emotion inference failed")
+        raise EmotionInferenceError("Voice emotion inference failed") from exc
 
-        # TODO: 실제 전처리(MFCC/Spectrogram 등) 및 forward 방식은 팀 모델 스펙에 맞춰 교체
-        x = torch.tensor(y, dtype=torch.float32).unsqueeze(0)
-        with torch.no_grad():
-            logits = model(x)
-            probs = torch.softmax(logits, dim=-1).squeeze(0).tolist()
-        return _align_to_labels(probs, None)
-    except Exception as e:  # noqa: BLE001
-        logger.error("음성 감정분류 실패, 균등분포로 대체: %s", e)
-        return {label: 1.0 / len(LABELS) for label in LABELS}
+
+def _decode_audio(audio_bytes: bytes, sample_rate: int) -> np.ndarray:
+    """Decode WAV/WebM/Opus and normalize it to mono float32 PCM."""
+    try:
+        import av
+
+        chunks: list[np.ndarray] = []
+        with av.open(io.BytesIO(audio_bytes), mode="r") as container:
+            resampler = av.AudioResampler(format="fltp", layout="mono", rate=sample_rate)
+            for frame in container.decode(audio=0):
+                for resampled in resampler.resample(frame):
+                    chunks.append(resampled.to_ndarray().reshape(-1))
+            for resampled in resampler.resample(None):
+                chunks.append(resampled.to_ndarray().reshape(-1))
+        if not chunks:
+            raise ValueError("No audio frames were decoded")
+        return np.concatenate(chunks).astype(np.float32, copy=False)
+    except EmotionInferenceError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise EmotionInferenceError("Audio decoding failed") from exc
 
 
-def _align_to_labels(probs: list[float], id2label: dict | None) -> dict[str, float]:
-    """모델 출력 순서를 config의 EMOTION_LABELS 순서로 맞춰준다.
-    id2label이 없으면 모델 출력 순서 == LABELS 순서라고 가정."""
+def _align_to_labels(
+    probabilities: list[float], id2label: dict[int | str, str] | None = None
+) -> dict[str, float]:
+    if len(probabilities) != len(MODEL_LABELS):
+        raise EmotionInferenceError(
+            f"Expected {len(MODEL_LABELS)} emotion logits, got {len(probabilities)}"
+        )
+    labels = list(MODEL_LABELS)
     if id2label:
-        raw = {id2label[i]: p for i, p in enumerate(probs)}
-        return {label: raw.get(label, 0.0) for label in LABELS}
-    if len(probs) != len(LABELS):
-        logger.warning("모델 출력 차원(%d)과 EMOTION_LABELS 개수(%d)가 다릅니다.", len(probs), len(LABELS))
-    return {label: probs[i] if i < len(probs) else 0.0 for i, label in enumerate(LABELS)}
+        raw_labels = [
+            id2label.get(index, id2label.get(str(index))) for index in range(len(labels))
+        ]
+        labels = [KOREAN_TO_SERVER_LABEL.get(label, label) for label in raw_labels]
+    if set(labels) != set(MODEL_LABELS):
+        raise EmotionInferenceError(f"Unsupported checkpoint labels: {labels}")
+    raw = dict(zip(labels, map(float, probabilities), strict=True))
+    return {label: raw[label] for label in LABELS}
 
 
-# ---------------------------------------------------------------------------
-# 융합 (fusion) - 텍스트/음성 모델이 아직 하나로 합쳐지지 않았으므로 임시 가중평균
-# ---------------------------------------------------------------------------
+def fuse_emotions(
+    text_probs: dict[str, float] | None,
+    voice_probs: dict[str, float] | None,
+) -> dict[str, float]:
+    if text_probs is None and voice_probs is None:
+        raise EmotionInferenceError("Both emotion models failed")
+    if text_probs is None:
+        return dict(voice_probs or {})
+    if voice_probs is None:
+        return dict(text_probs)
 
-def fuse_emotions(text_probs: dict[str, float], voice_probs: dict[str, float]) -> dict[str, float]:
-    w_text = settings.emotion_fusion_text_weight
-    w_voice = settings.emotion_fusion_voice_weight
-    total_w = w_text + w_voice or 1.0
-
-    fused = {}
-    for label in LABELS:
-        t = text_probs.get(label, 0.0)
-        v = voice_probs.get(label, 0.0)
-        fused[label] = (t * w_text + v * w_voice) / total_w
-
-    # 정규화 (합이 1이 되도록)
-    s = sum(fused.values()) or 1.0
-    fused = {k: round(v / s, 4) for k, v in fused.items()}
-    return fused
+    total_weight = settings.emotion_fusion_text_weight + settings.emotion_fusion_voice_weight
+    if total_weight <= 0:
+        raise EmotionInferenceError("Emotion fusion weights must have a positive sum")
+    fused = {
+        label: (
+            text_probs[label] * settings.emotion_fusion_text_weight
+            + voice_probs[label] * settings.emotion_fusion_voice_weight
+        )
+        / total_weight
+        for label in LABELS
+    }
+    total = sum(fused.values())
+    if total <= 0:
+        raise EmotionInferenceError("Fused emotion probabilities have zero mass")
+    return {label: value / total for label, value in fused.items()}
 
 
 def dominant_emotion(emotion_probs: dict[str, float]) -> str:
-    return max(emotion_probs.items(), key=lambda kv: kv[1])[0]
+    return max(emotion_probs.items(), key=lambda item: item[1])[0]
 
 
 def classify_and_fuse(text: str, audio_bytes: bytes, sample_rate: int = 16000) -> dict[str, float]:
-    """REST 배치 엔드포인트에서 호출하는 텍스트·음성 감정분류 진입점."""
-    text_probs = classify_text_emotion(text)
-    voice_probs = classify_voice_emotion(audio_bytes, sample_rate=sample_rate)
-    return fuse_emotions(text_probs, voice_probs)
+    mode = settings.emotion_mode.strip().lower()
+    if mode == "test":
+        return dict(TEST_EMOTION)
+    if mode != "model":
+        raise ValueError("EMOTION_MODE must be one of: test, model")
+
+    predictions: dict[str, dict[str, float] | None] = {"text": None, "voice": None}
+    for modality, classify, value in (
+        ("text", classify_text_emotion, text),
+        ("voice", lambda data: classify_voice_emotion(data, sample_rate), audio_bytes),
+    ):
+        try:
+            predictions[modality] = classify(value)
+        except EmotionInferenceError as exc:
+            logger.warning("%s emotion unavailable: %s", modality, exc)
+    return fuse_emotions(predictions["text"], predictions["voice"])
