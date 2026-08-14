@@ -2,7 +2,7 @@
 
 백엔드가 전달한 시니어 발화 음성을 분석하는 AI 서버입니다.
 
-기존 STT → 텍스트·음성 감정분류 → LLM 꼬리질문 생성 로직은 유지하고,
+기존 STT → 텍스트·음성 감정분류 → LLM 꼬리질문 생성 → TTS 로직은 유지하고,
 백엔드와의 통신 방식만 WebSocket에서 REST로 변경했습니다.
 
 ## API
@@ -50,13 +50,18 @@ Content-Type: multipart/form-data
       "scaleAnalyses": []
     }
   ],
-  "nextQuestion": "산책하면서 무엇이 가장 좋으셨어요?"
+  "nextQuestion": "산책하면서 무엇이 가장 좋으셨어요?",
+  "ttsAudioBase64": "SUQzBAAAAA...",
+  "ttsMimeType": "audio/mpeg"
 }
 ```
 
 - 감성 라벨: `POSITIVE`, `NEUTRAL`, `NEGATIVE`
 - 척도명: `SGDS_K`, `GAD_7`, `LSNS_6`
 - 현재 척도 채점 로직은 연결 전이므로 `scaleAnalyses`는 빈 배열을 반환합니다.
+- `ttsAudioBase64`는 `nextQuestion`을 Typecast로 합성한 음성을 Base64로 인코딩한 값입니다.
+- `ttsMimeType`은 기본 `audio/mpeg`이며 `.env`의 `TYPECAST_AUDIO_FORMAT`을 따릅니다.
+- LLM 질문 또는 TTS 생성에 실패하면 부분 응답 대신 HTTP `502`를 반환합니다.
 
 ## 설치 및 실행
 
@@ -94,7 +99,8 @@ python scripts/mock_backend_client.py `
   --audio input_sound/sample.webm
 ```
 
-응답은 콘솔과 `output_text/mock_rest_{시각}.json`에 저장됩니다.
+응답은 `output_text/mock_rest_{시각}.json`에, 디코딩한 TTS 음성은
+`output_sound/mock_rest_tts_{시각}.{포맷}`에 저장됩니다.
 
 ## 개별 모듈 테스트
 
@@ -106,6 +112,7 @@ python scripts/test_llm.py `
   --emotion "sad:0.6,anxious:0.25,neutral:0.15" `
   --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
 python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?"
+python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?" --stream
 ```
 
 ## 프로젝트 구조
@@ -119,7 +126,7 @@ app/
     stt.py             OpenAI STT와 로컬 Whisper 폴백
     emotion.py         텍스트·음성 감정 분류 및 융합
     llm.py             다음 꼬리질문 생성
-    tts.py             TTS 개별 모듈
+    tts.py             다음 질문 TTS 생성
 scripts/
   mock_backend_client.py  REST API 확인용 목 클라이언트
   test_stt.py
