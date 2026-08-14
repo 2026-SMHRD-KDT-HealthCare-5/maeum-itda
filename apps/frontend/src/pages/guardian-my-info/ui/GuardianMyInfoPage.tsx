@@ -23,7 +23,8 @@ import {
 } from '../../../entities/connection'
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { extractApiErrorMessage } from '../../../shared/api'
-import { Button, Card } from '../../../shared/ui'
+import { useDelayedPending } from '../../../shared/lib'
+import { Button, Card, LoadingSpinner } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
@@ -90,14 +91,19 @@ export function GuardianMyInfoPage() {
 
   const isConnected = connectionQuery.data?.status === 'CONNECTED'
 
-  if (profileQuery.isPending) {
+  // 프로필/연결/알림설정 셋 중 하나라도 아직 안 끝났으면 화면 전체를 오버레이로
+  // 덮는다 — isPending이 이미 다 false여도 showLoadingOverlay가 hold 중이면
+  // (최소 500ms 유지) 이 분기에 계속 머물러야 데이터 도착 즉시 튕기지 않는다.
+  const anyPending =
+    profileQuery.isPending || connectionQuery.isPending || notificationQuery.isPending
+  const showLoadingOverlay = useDelayedPending(anyPending)
+
+  if (anyPending || showLoadingOverlay) {
     return (
       <>
         <main className={styles.page}>
           <h1 className={styles.pageTitle}>내 정보</h1>
-          <p className={styles.statusMessage} role="status">
-            내 정보를 불러오는 중이에요...
-          </p>
+          {showLoadingOverlay && <LoadingSpinner overlay label="내 정보를 불러오는 중이에요" />}
         </main>
         <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
       </>
@@ -151,7 +157,6 @@ export function GuardianMyInfoPage() {
 
           <Card className={styles.connectionCard}>
             <h2 className={styles.cardTitle}>연결된 어르신</h2>
-            {connectionQuery.isPending && <p>연결 상태를 불러오는 중이에요...</p>}
             {connectionQuery.isError && (
               <p className={styles.saveError}>연결 상태를 불러오지 못했어요.</p>
             )}
@@ -213,7 +218,6 @@ export function GuardianMyInfoPage() {
           </Card>
 
           <Card className={styles.notificationCard}>
-            {notificationQuery.isPending && <p>알림 설정을 불러오는 중이에요...</p>}
             {notificationQuery.isError && (
               <p className={styles.saveError}>알림 설정을 불러오지 못했어요.</p>
             )}
