@@ -145,15 +145,42 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
 
 
 class StubAnswerAnalysesTests(unittest.TestCase):
-    def test_returns_empty_scale_analyses_per_message_id(self):
+    def test_test_mode_returns_fixed_scale_analysis_per_message_id(self):
         answers = [_answer(102), _answer(103)]
+        with patch.object(llm.settings, "scale_analysis_mode", "test"):
+            result = llm._stub_answer_analyses(answers)
         self.assertEqual(
-            llm._stub_answer_analyses(answers),
+            result,
+            [
+                {"message_id": 102, "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM]},
+                {"message_id": 103, "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM]},
+            ],
+        )
+
+    def test_empty_mode_returns_empty_scale_analyses_per_message_id(self):
+        answers = [_answer(102), _answer(103)]
+        with patch.object(llm.settings, "scale_analysis_mode", "empty"):
+            result = llm._stub_answer_analyses(answers)
+        self.assertEqual(
+            result,
             [
                 {"message_id": 102, "scale_analyses": []},
                 {"message_id": 103, "scale_analyses": []},
             ],
         )
+
+    def test_invalid_scale_analysis_mode_fails_fast(self):
+        with patch.object(llm.settings, "scale_analysis_mode", "invalid"):
+            with self.assertRaisesRegex(
+                ValueError, "SCALE_ANALYSIS_MODE must be one of: test, empty"
+            ):
+                llm._stub_answer_analyses([_answer(102)])
+
+    def test_mutating_returned_item_does_not_affect_other_answers(self):
+        with patch.object(llm.settings, "scale_analysis_mode", "test"):
+            result = llm._stub_answer_analyses([_answer(102), _answer(103)])
+        result[0]["scale_analyses"][0]["analysis_score"] = 0
+        self.assertEqual(result[1]["scale_analyses"][0]["analysis_score"], 1)
 
 
 class GenerateNextQuestionTests(unittest.TestCase):
@@ -176,7 +203,7 @@ class GenerateNextQuestionTests(unittest.TestCase):
             {item["message_id"] for item in result["answer_analyses"]}, {102, 103}
         )
         for item in result["answer_analyses"]:
-            self.assertEqual(item["scale_analyses"], [])
+            self.assertEqual(item["scale_analyses"], [llm.TEST_SCALE_ANALYSIS_ITEM])
 
     def test_fallback_on_openai_failure_still_returns_answer_analyses_for_all_ids(self):
         answers = [_answer(102), _answer(103)]

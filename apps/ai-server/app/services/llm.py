@@ -19,8 +19,10 @@ OpenAI Chat Completions를 JSON 모드로 호출해서 다음 구조로 받는�
   구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, emotion}]`).
 - 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점) 필드는
   이번 단계에서 구조(입출력 형태)만 맞춘다 — 실제 채점 프롬프트는 아직 작성하지
-  않았고, 요청받은 messageId마다 빈 `scale_analyses`를 채우는 stub으로 대체한다.
-  실제 프롬프트 내용은 `llm_prompts.py`의 TODO에 남겨뒀고 2단계에서 반영한다.
+  않았고, `SCALE_ANALYSIS_MODE`(emotion.py의 `EMOTION_MODE`와 같은 패턴)에 따라
+  `test`면 답변마다 고정 목업 채점(`TEST_SCALE_ANALYSIS_ITEM`)을, `empty`면 빈
+  `scale_analyses`를 채우는 stub으로 대체한다. 실제 프롬프트 내용은
+  `llm_prompts.py`의 TODO에 남겨뒀고 2단계에서 반영한다.
 - `_validate_answer_analyses`는 돌려받은 messageId 집합이 요청과 정확히 일치하는지
   검증한다. 지금은 stub이 요청 그대로를 되돌려주므로 항상 통과하지만, 2단계에서
   실제 LLM 출력으로 교체되면 이 검증이 잘못된/누락된 messageId(환각)를 잡아낸다.
@@ -125,9 +127,26 @@ def _validate_answer_analyses(
     return answer_analyses
 
 
+# SCALE_ANALYSIS_MODE=test일 때 답변마다 채우는 고정 목업 채점. emotion.py의
+# TEST_EMOTION과 같은 역할 — 실제 프롬프트 없이도 척도 채점이 있는 상태로
+# 파이프라인 전체(main.py 매핑, 백엔드 응답 검증 등)를 끝까지 돌려볼 수 있게 한다.
+TEST_SCALE_ANALYSIS_ITEM = {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
+
+
 def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
-    """실제 척도 채점 프롬프트가 작성되기 전까지, 요청받은 messageId마다 빈 scale_analyses를 채운다."""
-    return [{"message_id": answer["message_id"], "scale_analyses": []} for answer in answers]
+    """실제 척도 채점 프롬프트가 작성되기 전까지, SCALE_ANALYSIS_MODE에 따라
+    요청받은 messageId마다 고정 목업 채점(test) 또는 빈 scale_analyses(empty)를 채운다."""
+    mode = settings.scale_analysis_mode.strip().lower()
+    if mode == "test":
+        scale_analyses = [dict(TEST_SCALE_ANALYSIS_ITEM)]
+    elif mode == "empty":
+        scale_analyses = []
+    else:
+        raise ValueError("SCALE_ANALYSIS_MODE must be one of: test, empty")
+    return [
+        {"message_id": answer["message_id"], "scale_analyses": [dict(item) for item in scale_analyses]}
+        for answer in answers
+    ]
 
 
 def generate_next_question(
