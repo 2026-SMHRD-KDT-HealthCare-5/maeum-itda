@@ -3,8 +3,8 @@ TTS 모듈 단독 검증용 CLI.
 
 app/services/tts.py를 서버 실행 없이 그대로 불러와서 실행합니다.
 
-현재 REST 배치 분석 엔드포인트는 TTS를 호출하지 않습니다. 이 스크립트는 TTS 기능을
-개별 실행하고 Typecast 응답 및 TTFB를 확인하기 위한 용도입니다.
+기본 실행은 REST 배치 분석과 동일한 synthesize_full()을 호출합니다. `--stream`을
+사용하면 synthesize_stream()으로 Typecast 스트리밍과 TTFB도 따로 확인할 수 있습니다.
 .env에 실제 TYPECAST_API_KEY / TYPECAST_VOICE_ID를 채운 뒤 실행하세요.
 
 입력/출력 폴더 (프로젝트 루트 기준, 기본값):
@@ -76,7 +76,7 @@ def resolve_out_path(arg: str | None) -> Path:
     return OUTPUT_SOUND_DIR / f"tts_{stamp}.{ext}"
 
 
-async def run_synthesize(text: str, out_path: Path) -> None:
+async def run_synthesize(text: str, out_path: Path, stream: bool) -> None:
     print(f"텍스트({len(text)}자): {text}")
     print("-" * 50)
 
@@ -86,12 +86,18 @@ async def run_synthesize(text: str, out_path: Path) -> None:
     total_bytes = 0
     audio = bytearray()
 
-    async for chunk in tts_service.synthesize_stream(text):
-        if first_chunk_at is None:
-            first_chunk_at = time.perf_counter()
-        chunk_count += 1
-        total_bytes += len(chunk)
-        audio.extend(chunk)
+    if stream:
+        async for chunk in tts_service.synthesize_stream(text):
+            if first_chunk_at is None:
+                first_chunk_at = time.perf_counter()
+            chunk_count += 1
+            total_bytes += len(chunk)
+            audio.extend(chunk)
+    else:
+        audio.extend(await tts_service.synthesize_full(text))
+        first_chunk_at = time.perf_counter()
+        chunk_count = 1
+        total_bytes = len(audio)
 
     finished_at = time.perf_counter()
 
@@ -105,7 +111,10 @@ async def run_synthesize(text: str, out_path: Path) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_bytes(bytes(audio))
 
-    print(f"TTFB(첫 청크까지): {ttfb_ms}ms   <- FR-01-05 기준 ~200ms 목표")
+    if stream:
+        print(f"TTFB(첫 청크까지): {ttfb_ms}ms   <- FR-01-05 기준 ~200ms 목표")
+    else:
+        print("모드: REST와 동일한 완성 오디오 생성")
     print(f"전체 합성 시간: {total_ms}ms")
     print(f"청크 수: {chunk_count}, 총 용량: {total_bytes:,} bytes")
     print(f"저장: {out_path}")
@@ -125,6 +134,7 @@ def main() -> None:
     parser.add_argument("--text", help=f"합성할 텍스트. 생략 시 {INPUT_TEXT_DIR} 안의 .txt 파일을 자동으로 읽음")
     parser.add_argument("--out", help=f"저장할 오디오 파일 경로. 생략 시 {OUTPUT_SOUND_DIR}에 타임스탬프로 저장")
     parser.add_argument("--list-voices", action="store_true", help="보유 보이스 목록만 조회")
+    parser.add_argument("--stream", action="store_true", help="스트리밍 TTFB 테스트 모드")
     args = parser.parse_args()
 
     if args.list_voices:
@@ -133,7 +143,7 @@ def main() -> None:
 
     text = resolve_text(args.text)
     out_path = resolve_out_path(args.out)
-    asyncio.run(run_synthesize(text, out_path))
+    asyncio.run(run_synthesize(text, out_path, args.stream))
 
 
 if __name__ == "__main__":

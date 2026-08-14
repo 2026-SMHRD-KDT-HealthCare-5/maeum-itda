@@ -7,6 +7,8 @@ venv/
 
 # 환경변수 (실제 API 키 포함, 절대 커밋 금지)
 .env
+.env.*
+!.env.example
 
 # 로컬 모듈 검증용 입출력 (실제 파일은 각자 로컬 환경에만 둔다)
 input_sound/*

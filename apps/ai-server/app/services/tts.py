@@ -158,7 +158,7 @@ async def _stream_one_segment(client: httpx.AsyncClient, text: str, chunk_size: 
 
 async def synthesize_stream(text: str) -> AsyncIterator[bytes]:
     """텍스트 -> 실제 오디오 바이트 스트림. 생성되는 대로 바로 yield된다
-    현재 REST 배치 분석에서는 호출하지 않으며 TTS 개별 검증에서 사용한다.
+    TTS 스트리밍 성능과 TTFB를 개별 검증할 때 사용한다.
 
     2000자를 넘는 예외적인 경우에만 split_text()로 나눠 세그먼트별로 순차 스트리밍한다.
     평소(단문 질문)에는 세그먼트가 1개뿐이라 사실상 한 번의 스트리밍 호출로 끝난다."""
@@ -171,7 +171,7 @@ async def synthesize_stream(text: str) -> AsyncIterator[bytes]:
 
 
 async def synthesize_full(text: str) -> bytes:
-    """완성된 오디오 바이트 전체가 필요할 때(스트리밍 아님, 비-스트리밍 배치 엔드포인트 사용)."""
+    """REST 응답에 넣을 완성 오디오를 비-스트리밍 배치 엔드포인트로 생성한다."""
     segments = split_text(text) if len(text) > MAX_CHARS else [text]
     parts = []
     async with httpx.AsyncClient(base_url=API_HOST, timeout=httpx.Timeout(60.0, connect=10.0)) as client:
