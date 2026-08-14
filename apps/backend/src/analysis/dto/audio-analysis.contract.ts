@@ -34,6 +34,7 @@ export interface QuestionAnswerBatch {
 export interface ScaleAnalysisResult {
   scaleType: ScaleType;
   questionNumber: number;
+  // 모든 척도에서 1은 정서 위험 있음, 0은 위험 없음으로 방향을 통일한다.
   analysisScore: 0 | 1;
 }
 
