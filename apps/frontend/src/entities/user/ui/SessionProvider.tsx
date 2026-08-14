@@ -1,7 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { apiClient } from '../../../shared/api'
 import { fetchMyProfile } from '../api'
-import { SessionContext, type Session } from '../model'
+import { SessionContext, MY_PROFILE_QUERY_KEY, type Session } from '../model'
 
 const ACCESS_TOKEN_STORAGE_KEY = 'maeum-itda:accessToken'
 
@@ -9,6 +10,7 @@ const ACCESS_TOKEN_STORAGE_KEY = 'maeum-itda:accessToken'
 // "자동 로그인"으로 남겨둔 accessToken이 있으면 마운트 시 GET /users/me로
 // 검증해 세션을 복원한다 — 없거나 만료됐으면 그대로 로그아웃 상태로 둔다.
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [session, setSession] = useState<Session | null>(null)
   const [isRestoring, setIsRestoring] = useState(
     () => localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY) !== null,
@@ -21,6 +23,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     apiClient.setSecurityData(storedToken)
     fetchMyProfile()
       .then((profile) => {
+        // 세션 복원 때 이미 GET /users/me를 호출했으니, 페이지가 같은 키로 다시
+        // useQuery를 걸 때 중복 fetch(그리고 중복 로딩 오버레이) 없이 이 결과를
+        // 그대로 쓰도록 캐시에 심어둔다.
+        queryClient.setQueryData(MY_PROFILE_QUERY_KEY, profile)
         setSession({
           userId: profile.userId,
           loginId: profile.loginId,
@@ -38,7 +44,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         }
       })
       .finally(() => setIsRestoring(false))
-  }, [])
+  }, [queryClient])
 
   const value = useMemo(
     () => ({

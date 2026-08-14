@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../../../shared/ui'
+import { Button, LoadingSpinner } from '../../../shared/ui'
 import styles from './DebugErrorsPage.module.css'
 
 // 화면설계서에 없는 숨김 화면 — ErrorBoundary/404 화면을 실제로 무너뜨리지 않고
@@ -8,6 +8,7 @@ import styles from './DebugErrorsPage.module.css'
 export function DebugErrorsPage() {
   const navigate = useNavigate()
   const [throwNow, setThrowNow] = useState(false)
+  const [showSpinner, setShowSpinner] = useState(false)
 
   if (throwNow) {
     throw new Error('디버그 화면에서 발생시킨 테스트 에러 — ErrorBoundary 확인용')
@@ -22,6 +23,10 @@ export function DebugErrorsPage() {
       <Button type="button" variant="outline" onClick={() => navigate('/이런-경로는-없음')}>
         404 화면 보기
       </Button>
+      <Button type="button" variant="outline" onClick={() => setShowSpinner((prev) => !prev)}>
+        로딩 스피너 미리보기
+      </Button>
+      {showSpinner && <LoadingSpinner />}
     </div>
   )
 }

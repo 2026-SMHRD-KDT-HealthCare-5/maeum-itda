@@ -9,7 +9,8 @@ import {
   cancelConnectionRequest,
 } from '../../../entities/connection'
 import { extractApiErrorMessage } from '../../../shared/api'
-import { Button } from '../../../shared/ui'
+import { useDelayedPending } from '../../../shared/lib'
+import { Button, LoadingSpinner } from '../../../shared/ui'
 import styles from './GuardianConnectionPage.module.css'
 
 // GUARDIAN_LINK_01 (UC-00-1) — 내 정보의 미연결 상태에서 진입하는
@@ -33,6 +34,8 @@ export function GuardianConnectionPage() {
     mutationFn: (relationshipId: number) => cancelConnectionRequest(relationshipId),
     onSuccess: () => queryClient.setQueryData(CONNECTION_QUERY_KEY, EMPTY_CONNECTION),
   })
+
+  const showConnectionSpinner = useDelayedPending(connectionQuery.isPending)
 
   return (
     <main className={styles.page}>
@@ -73,11 +76,9 @@ export function GuardianConnectionPage() {
         </li>
       </ol>
 
-      {connectionQuery.isPending && (
-        <p className={styles.statusMessage}>연결 상태를 확인하는 중이에요...</p>
-      )}
+      {showConnectionSpinner && <LoadingSpinner overlay label="연결 상태를 확인하는 중이에요" />}
 
-      {connectionQuery.isError && (
+      {!showConnectionSpinner && connectionQuery.isError && (
         <div className={styles.statusMessage} role="alert">
           <p>연결 상태를 불러오지 못했어요.</p>
           <Button type="button" onClick={() => connectionQuery.refetch()}>
@@ -86,34 +87,36 @@ export function GuardianConnectionPage() {
         </div>
       )}
 
-      {connectionQuery.data?.status === 'CONNECTED' && (
+      {!showConnectionSpinner && connectionQuery.data?.status === 'CONNECTED' && (
         <p className={styles.statusMessage}>이미 어르신과 연결되어 있어요.</p>
       )}
 
-      {connectionQuery.data && connectionQuery.data.status !== 'CONNECTED' && (
-        <SendConnectionRequestAction
-          pendingRequest={
-            connectionQuery.data.status === 'REQUESTED' && connectionQuery.data.counterpart
-              ? {
-                  seniorName: connectionQuery.data.counterpart.name,
-                  requestedAt: connectionQuery.data.requestedAt ?? new Date().toISOString(),
-                }
-              : null
-          }
-          onSubmit={(seniorLoginId) => sendMutation.mutate(seniorLoginId)}
-          onCancel={() => {
-            const relationshipId = connectionQuery.data?.relationshipId
-            if (relationshipId != null) cancelMutation.mutate(relationshipId)
-          }}
-          isSubmitting={sendMutation.isPending}
-          isCancelling={cancelMutation.isPending}
-          error={
-            sendMutation.isError
-              ? extractApiErrorMessage(sendMutation.error, '연결 요청에 실패했어요.')
-              : null
-          }
-        />
-      )}
+      {!showConnectionSpinner &&
+        connectionQuery.data &&
+        connectionQuery.data.status !== 'CONNECTED' && (
+          <SendConnectionRequestAction
+            pendingRequest={
+              connectionQuery.data.status === 'REQUESTED' && connectionQuery.data.counterpart
+                ? {
+                    seniorName: connectionQuery.data.counterpart.name,
+                    requestedAt: connectionQuery.data.requestedAt ?? new Date().toISOString(),
+                  }
+                : null
+            }
+            onSubmit={(seniorLoginId) => sendMutation.mutate(seniorLoginId)}
+            onCancel={() => {
+              const relationshipId = connectionQuery.data?.relationshipId
+              if (relationshipId != null) cancelMutation.mutate(relationshipId)
+            }}
+            isSubmitting={sendMutation.isPending}
+            isCancelling={cancelMutation.isPending}
+            error={
+              sendMutation.isError
+                ? extractApiErrorMessage(sendMutation.error, '연결 요청에 실패했어요.')
+                : null
+            }
+          />
+        )}
     </main>
   )
 }

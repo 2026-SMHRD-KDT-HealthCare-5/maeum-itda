@@ -7,8 +7,9 @@ import {
 } from '../../../features/record-voice-answer'
 import { useSession } from '../../../entities/user'
 import { ChatSocket } from '../../../shared/api'
+import { useDelayedPending } from '../../../shared/lib'
 import type { AiQuestionPayload } from '../../../shared/types'
-import { Button } from '../../../shared/ui'
+import { Button, LoadingSpinner } from '../../../shared/ui'
 import listeningCharacterImage from './character-daseul-listening.png'
 import questionCharacterImage from './character-daseul-question.png'
 import thinkingCharacterImage from './character-daseul-thinking.png'
@@ -101,6 +102,7 @@ export function SeniorConversationPage() {
   })
 
   const character = characterByState[phase]
+  const showConnectingSpinner = useDelayedPending(connectionState === 'connecting')
 
   function confirmEndChat() {
     socket.endChat()
@@ -126,13 +128,13 @@ export function SeniorConversationPage() {
         {!session?.accessToken && (
           <p role="alert">로그인 정보가 없어 대화를 시작할 수 없어요. 다시 로그인해 주세요.</p>
         )}
-        {session?.accessToken && connectionState === 'error' && (
+        {session?.accessToken && connectionState === 'error' && !showConnectingSpinner && (
           <p role="alert">{connectionError}</p>
         )}
-        {session?.accessToken && connectionState === 'connecting' && (
-          <p aria-live="polite">다슬이와 연결하고 있어요…</p>
+        {session?.accessToken && showConnectingSpinner && (
+          <LoadingSpinner overlay label="다슬이와 연결하고 있어요…" />
         )}
-        {session?.accessToken && connectionState === 'ready' && (
+        {session?.accessToken && connectionState === 'ready' && !showConnectingSpinner && (
           <>
             {/* chat:start 이후에도 서버가 error 이벤트(예: AUDIO_ANALYSIS_FAILED)를
                 보낼 수 있다 — connectionState는 이미 'ready'라 위 분기로는 안
