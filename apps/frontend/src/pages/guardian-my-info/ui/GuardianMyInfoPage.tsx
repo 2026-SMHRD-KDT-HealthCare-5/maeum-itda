@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
 import {
@@ -9,10 +9,14 @@ import {
 } from '../../../features/edit-basic-info'
 import {
   SetNotificationThresholdAction,
+  NOTIFICATION_THRESHOLD_QUERY_KEY,
+  fetchNotificationThreshold,
+  updateNotificationThreshold,
   type NotificationThresholdValue,
 } from '../../../features/set-notification-threshold'
 import { formatConnectionDuration, type Connection } from '../../../entities/connection'
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
+import { extractApiErrorMessage } from '../../../shared/api'
 import { Button, Card } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
@@ -20,9 +24,12 @@ import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-ba
 import styles from './MyInfoPage.module.css'
 
 // 결정사항 로그 §7 — Figma '보호자 내 정보' 화면 최초 반영. 기존 별도
-// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 연결/알림 임계치는 아직
-// API가 없어 페이지 로컬 mock 상태로 둔다(기본 정보만 실제 GET/PATCH /users/me).
+// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 연결은 아직 API가 없어 페이지
+// 로컬 mock 상태로 둔다(기본 정보/알림 임계치는 실제 GET/PATCH /users/me).
 const mockSeniorName = '김순자'
+
+// 슬라이더 드래그 중 매 스텝마다 PATCH를 보내지 않도록 커밋을 묶어내는 지연 시간.
+const NOTIFICATION_SAVE_DEBOUNCE_MS = 400
 
 export function GuardianMyInfoPage() {
   const { logout } = useSession()
@@ -43,10 +50,33 @@ export function GuardianMyInfoPage() {
     requestedAt: '2025-03-01T00:00:00.000Z',
     connectedAt: '2025-03-01T00:00:00.000Z',
   })
-  const [notificationThreshold, setNotificationThreshold] = useState<NotificationThresholdValue>({
-    enabled: true,
-    threshold: 50,
+
+  const notificationQuery = useQuery({
+    queryKey: NOTIFICATION_THRESHOLD_QUERY_KEY,
+    queryFn: fetchNotificationThreshold,
   })
+  const updateNotificationMutation = useMutation({
+    mutationFn: updateNotificationThreshold,
+    onSuccess: (updated) => queryClient.setQueryData(NOTIFICATION_THRESHOLD_QUERY_KEY, updated),
+  })
+  const [notificationDraft, setNotificationDraft] = useState<NotificationThresholdValue | null>(
+    null,
+  )
+  const notificationSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (notificationSaveTimer.current) clearTimeout(notificationSaveTimer.current)
+    }
+  }, [])
+
+  function handleNotificationChange(next: NotificationThresholdValue) {
+    setNotificationDraft(next)
+    if (notificationSaveTimer.current) clearTimeout(notificationSaveTimer.current)
+    notificationSaveTimer.current = setTimeout(() => {
+      updateNotificationMutation.mutate(next, { onSettled: () => setNotificationDraft(null) })
+    }, NOTIFICATION_SAVE_DEBOUNCE_MS)
+  }
 
   function handleLogout() {
     logout()
@@ -87,6 +117,7 @@ export function GuardianMyInfoPage() {
   }
 
   const profile = profileQuery.data
+  const displayedNotification = notificationDraft ?? notificationQuery.data ?? null
 
   return (
     <>
@@ -163,10 +194,21 @@ export function GuardianMyInfoPage() {
           </Card>
 
           <Card className={styles.notificationCard}>
-            <SetNotificationThresholdAction
-              value={notificationThreshold}
-              onChange={setNotificationThreshold}
-            />
+            {notificationQuery.isPending && <p>알림 설정을 불러오는 중이에요...</p>}
+            {notificationQuery.isError && (
+              <p className={styles.saveError}>알림 설정을 불러오지 못했어요.</p>
+            )}
+            {displayedNotification && (
+              <SetNotificationThresholdAction
+                value={displayedNotification}
+                onChange={handleNotificationChange}
+              />
+            )}
+            {updateNotificationMutation.isError && (
+              <p className={styles.saveError}>
+                {extractApiErrorMessage(updateNotificationMutation.error, '저장에 실패했어요.')}
+              </p>
+            )}
           </Card>
 
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
