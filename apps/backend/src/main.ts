@@ -24,7 +24,7 @@ async function bootstrap() {
   // 배포 도메인은 확정 후 환경변수 기반 허용 목록으로 확장한다.
   app.enableCors({
     origin: 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
