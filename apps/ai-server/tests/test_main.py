@@ -1,0 +1,303 @@
+import base64
+import unittest
+from unittest.mock import AsyncMock, patch
+
+from fastapi.testclient import TestClient
+
+from app.config import get_settings
+from app.main import _tts_mime_type, app
+from app.services.stt import SttResult
+
+
+class AudioBatchApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    @staticmethod
+    def _multipart(*, end_type: str = "manual", audio: bytes = b"RIFF-test"):
+        return [
+            ("questionMessageId", (None, "101")),
+            ("generationId", (None, "550e8400-e29b-41d4-a716-446655440000")),
+            ("audioFiles", ("answer.audio", audio, "audio/wav")),
+            ("messageIds", (None, "102")),
+            ("audioTransferIds", (None, "audio-transfer-001")),
+            ("capturedAts", (None, "2026-08-13T00:00:00.000Z")),
+            ("endTypes", (None, end_type)),
+        ]
+
+    @staticmethod
+    def _multipart_batch(entries: list[dict]):
+        """답변 여러 건을 한 배치로 묶은 multipart 요청을 만든다 (NestJS가 실제로 보내는 형태)."""
+        fields: list[tuple[str, tuple]] = [
+            ("questionMessageId", (None, "101")),
+            ("generationId", (None, "550e8400-e29b-41d4-a716-446655440000")),
+        ]
+        for index, entry in enumerate(entries, start=1):
+            fields.extend(
+                [
+                    ("audioFiles", (f"answer-{index}.audio", entry["audio"], "audio/wav")),
+                    ("messageIds", (None, str(entry["message_id"]))),
+                    ("audioTransferIds", (None, f"audio-transfer-{index:03d}")),
+                    ("capturedAts", (None, "2026-08-13T00:00:00.000Z")),
+                    ("endTypes", (None, "manual")),
+                ]
+            )
+        return fields
+
+    def test_health(self):
+        response = self.client.get("/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_audio_batch_runs_stt_emotion_llm_and_tts(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ) as transcribe,
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={
+                    "happy": 0.8,
+                    "sad": 0.05,
+                    "angry": 0.05,
+                    "anxious": 0.05,
+                    "neutral": 0.05,
+                },
+            ) as classify,
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책하면서 무엇이 좋으셨어요?"},
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ) as synthesize,
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "answers": [
+                    {
+                        "messageId": 102,
+                        "transcript": "오늘 산책했어요.",
+                        "sentimentLabel": "POSITIVE",
+                        "scaleAnalyses": [],
+                    }
+                ],
+                "nextQuestion": "산책하면서 무엇이 좋으셨어요?",
+                "ttsAudioBase64": base64.b64encode(b"mock-mp3").decode("ascii"),
+                "ttsMimeType": _tts_mime_type(
+                    get_settings().typecast_audio_format.lower()
+                ),
+            },
+        )
+        transcribe.assert_called_once()
+        classify.assert_called_once()
+        generate.assert_called_once()
+        called_answers = generate.call_args[0][0]
+        self.assertEqual(
+            called_answers,
+            [
+                {
+                    "message_id": 102,
+                    "text": "오늘 산책했어요.",
+                    "emotion": {
+                        "happy": 0.8,
+                        "sad": 0.05,
+                        "angry": 0.05,
+                        "anxious": 0.05,
+                        "neutral": 0.05,
+                    },
+                }
+            ],
+        )
+        synthesize.assert_awaited_once_with("산책하면서 무엇이 좋으셨어요?")
+
+    def test_audio_batch_handles_multiple_answers_independently(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                side_effect=[
+                    SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+                    SttResult(ok=True, text="비가 와서 속상해요.", engine="mock"),
+                ],
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                side_effect=[
+                    {"happy": 0.8, "sad": 0.05, "angry": 0.05, "anxious": 0.05, "neutral": 0.05},
+                    {"happy": 0.05, "sad": 0.7, "angry": 0.05, "anxious": 0.15, "neutral": 0.05},
+                ],
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={
+                    "ai_question": "다음엔 뭐 하고 싶으세요?",
+                    "answer_analyses": [
+                        {"message_id": 102, "scale_analyses": []},
+                        {
+                            "message_id": 103,
+                            "scale_analyses": [
+                                {
+                                    "scale_type": "GAD_7",
+                                    "question_number": 1,
+                                    "analysis_score": 1,
+                                }
+                            ],
+                        },
+                    ],
+                },
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart_batch(
+                    [
+                        {"message_id": 102, "audio": b"RIFF-1"},
+                        {"message_id": 103, "audio": b"RIFF-2"},
+                    ]
+                ),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        answers = response.json()["answers"]
+        self.assertEqual([answer["messageId"] for answer in answers], [102, 103])
+        self.assertEqual(answers[0]["transcript"], "오늘 산책했어요.")
+        self.assertEqual(answers[1]["transcript"], "비가 와서 속상해요.")
+        self.assertEqual(answers[0]["sentimentLabel"], "POSITIVE")
+        self.assertEqual(answers[1]["sentimentLabel"], "NEGATIVE")
+        self.assertEqual(answers[0]["scaleAnalyses"], [])
+        self.assertEqual(
+            answers[1]["scaleAnalyses"],
+            [{"scaleType": "GAD_7", "questionNumber": 1, "analysisScore": 1}],
+        )
+
+        called_answers = generate.call_args[0][0]
+        self.assertEqual([answer["message_id"] for answer in called_answers], [102, 103])
+
+    def test_rejects_invalid_end_type_before_external_services(self):
+        with patch("app.main.stt_service.transcribe") as transcribe:
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(end_type="invalid"),
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "endTypes 값이 올바르지 않습니다.")
+        transcribe.assert_not_called()
+
+    def test_stt_failure_returns_422_and_stops_pipeline(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=False, reason="음성을 인식하지 못했습니다."),
+            ),
+            patch("app.main.emotion_service.classify_and_fuse") as classify,
+            patch("app.main.llm_service.generate_next_question") as generate,
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("messageId=102 STT 실패", response.json()["detail"])
+        classify.assert_not_called()
+        generate.assert_not_called()
+
+    def test_empty_llm_question_returns_502_without_tts(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "   "},
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(),
+            ) as synthesize,
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "LLM 다음 질문 생성에 실패했습니다.")
+        synthesize.assert_not_awaited()
+
+    def test_tts_exception_returns_502(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책은 어떠셨어요?"},
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(side_effect=RuntimeError("Typecast unavailable")),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+
+    def test_empty_tts_audio_returns_502(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책은 어떠셨어요?"},
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b""),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")
+
+
+if __name__ == "__main__":
+    unittest.main()
