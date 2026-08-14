@@ -11,8 +11,15 @@ import {
   SetNotificationThresholdAction,
   type NotificationThresholdValue,
 } from '../../../features/set-notification-threshold'
-import { formatConnectionDuration, type Connection } from '../../../entities/connection'
+import {
+  CONNECTION_QUERY_KEY,
+  EMPTY_CONNECTION,
+  fetchMyConnection,
+  disconnectConnection,
+  formatConnectionDuration,
+} from '../../../entities/connection'
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
+import { extractApiErrorMessage } from '../../../shared/api'
 import { Button, Card } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
@@ -20,10 +27,8 @@ import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-ba
 import styles from './MyInfoPage.module.css'
 
 // 결정사항 로그 §7 — Figma '보호자 내 정보' 화면 최초 반영. 기존 별도
-// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 연결/알림 임계치는 아직
-// API가 없어 페이지 로컬 mock 상태로 둔다(기본 정보만 실제 GET/PATCH /users/me).
-const mockSeniorName = '김순자'
-
+// 화면이던 UC-12(알림 설정)를 여기로 흡수했다. 알림 임계치는 아직 API가 없어
+// 페이지 로컬 mock 상태로 둔다(기본 정보/시니어 연결은 실제 API 연동).
 export function GuardianMyInfoPage() {
   const { logout } = useSession()
   const navigate = useNavigate()
@@ -35,14 +40,15 @@ export function GuardianMyInfoPage() {
     onSuccess: (updated) => queryClient.setQueryData(MY_PROFILE_QUERY_KEY, updated),
   })
 
-  const [connection, setConnection] = useState<Connection>({
-    id: 'conn-1',
-    seniorId: 'senior-1',
-    guardianId: 'guardian-1',
-    status: 'accepted',
-    requestedAt: '2025-03-01T00:00:00.000Z',
-    connectedAt: '2025-03-01T00:00:00.000Z',
+  const connectionQuery = useQuery({
+    queryKey: CONNECTION_QUERY_KEY,
+    queryFn: fetchMyConnection,
   })
+  const disconnectMutation = useMutation({
+    mutationFn: disconnectConnection,
+    onSuccess: () => queryClient.setQueryData(CONNECTION_QUERY_KEY, EMPTY_CONNECTION),
+  })
+
   const [notificationThreshold, setNotificationThreshold] = useState<NotificationThresholdValue>({
     enabled: true,
     threshold: 50,
@@ -53,7 +59,7 @@ export function GuardianMyInfoPage() {
     navigate('/login')
   }
 
-  const isConnected = connection.status === 'accepted'
+  const isConnected = connectionQuery.data?.status === 'CONNECTED'
 
   if (profileQuery.isPending) {
     return (
@@ -115,51 +121,65 @@ export function GuardianMyInfoPage() {
 
           <Card className={styles.connectionCard}>
             <h2 className={styles.cardTitle}>연결된 어르신</h2>
-            {isConnected ? (
-              <div className={styles.connectedRow}>
-                <div className={styles.connectedInfo}>
-                  <img className={styles.connectedAvatar} src={seniorCoupleImage} alt="" />
-                  <div>
-                    <p className={styles.connectedName}>{mockSeniorName}</p>
-                    <p className={styles.connectedMeta}>
-                      {formatConnectionDuration(connection.connectedAt)}
+            {connectionQuery.isPending && <p>연결 상태를 불러오는 중이에요...</p>}
+            {connectionQuery.isError && (
+              <p className={styles.saveError}>연결 상태를 불러오지 못했어요.</p>
+            )}
+            {connectionQuery.isSuccess &&
+              (isConnected ? (
+                <div className={styles.connectedRow}>
+                  <div className={styles.connectedInfo}>
+                    <img className={styles.connectedAvatar} src={seniorCoupleImage} alt="" />
+                    <div>
+                      <p className={styles.connectedName}>
+                        {connectionQuery.data.counterpart?.name}
+                      </p>
+                      <p className={styles.connectedMeta}>
+                        {formatConnectionDuration(connectionQuery.data.connectedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <DisconnectConnectionAction
+                    variant="guardian"
+                    onDisconnect={() => disconnectMutation.mutate()}
+                    isDisconnecting={disconnectMutation.isPending}
+                    error={
+                      disconnectMutation.isError
+                        ? extractApiErrorMessage(
+                            disconnectMutation.error,
+                            '연결 해제에 실패했어요.',
+                          )
+                        : null
+                    }
+                  />
+                </div>
+              ) : (
+                <div className={styles.emptyConnection}>
+                  <span className={styles.emptyConnectionIcon} aria-hidden="true">
+                    <svg viewBox="0 0 32 32" fill="none">
+                      <circle cx="12" cy="11" r="4" />
+                      <path d="M5.5 23c.6-4.1 3-6.2 6.5-6.2 2.3 0 4.2.9 5.3 2.7" />
+                      <path d="M18.5 14.5h3a4 4 0 0 1 0 8h-3" />
+                      <path d="M13.5 22.5h-3a4 4 0 0 1 0-8h3" />
+                    </svg>
+                  </span>
+                  <div className={styles.emptyConnectionCopy}>
+                    <p className={styles.emptyConnectionText}>아직 연결된 어르신이 없어요</p>
+                    <p className={styles.emptyConnectionDescription}>
+                      어르신의 아이디로 연결을 요청하면
+                      <br />
+                      안부와 리포트를 함께 확인할 수 있어요.
                     </p>
                   </div>
+                  <Button
+                    type="button"
+                    className={styles.connectButton}
+                    onClick={() => navigate('/guardian/connection')}
+                  >
+                    어르신 연결하기
+                  </Button>
                 </div>
-                <DisconnectConnectionAction
-                  variant="guardian"
-                  onDisconnect={() =>
-                    setConnection((current) => ({ ...current, status: 'disconnected' }))
-                  }
-                />
-              </div>
-            ) : (
-              <div className={styles.emptyConnection}>
-                <span className={styles.emptyConnectionIcon} aria-hidden="true">
-                  <svg viewBox="0 0 32 32" fill="none">
-                    <circle cx="12" cy="11" r="4" />
-                    <path d="M5.5 23c.6-4.1 3-6.2 6.5-6.2 2.3 0 4.2.9 5.3 2.7" />
-                    <path d="M18.5 14.5h3a4 4 0 0 1 0 8h-3" />
-                    <path d="M13.5 22.5h-3a4 4 0 0 1 0-8h3" />
-                  </svg>
-                </span>
-                <div className={styles.emptyConnectionCopy}>
-                  <p className={styles.emptyConnectionText}>아직 연결된 어르신이 없어요</p>
-                  <p className={styles.emptyConnectionDescription}>
-                    어르신의 아이디로 연결을 요청하면
-                    <br />
-                    안부와 리포트를 함께 확인할 수 있어요.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  className={styles.connectButton}
-                  onClick={() => navigate('/guardian/connection')}
-                >
-                  어르신 연결하기
-                </Button>
-              </div>
-            )}
+              ))}
           </Card>
 
           <Card className={styles.notificationCard}>
