@@ -23,6 +23,14 @@
 > - **위험 키워드 실시간 감지(자해/자살 신호 등 실시간 위험 알림 트리거)**: 삭제 확정 — 결정사항 로그의 기존 MVP 제외 결정을 재확인. AI서버 시스템 프롬프트에 남아있는 안전 확인 톤 전환 문구는 이 기능과 무관하니 유지해도 됨(실제 알림 발송 트리거만 없으면 됨).
 > - **관리자 화면**: 삭제 확정 — 애초에 12개 화면에 포함되지 않음, 착수하지 않는다.
 
+> **2026-08-15 저녁 업데이트 (실제 진행 상황 + 신규 리스크)**: 척도 채점이 계획보다 앞서갔다 — `apps/ai-server/app/services/llm_prompts.py`에 SGDS-K(15)/GAD-7(7)/LSNS-6(6) 문항을 고정 문항 은행으로 박아 넣고 SYSTEM_PROMPT에 채점 규칙을 포함시켜서, GAD-7 하나만이 아니라 **3개 척도 전부 코드 상 완료**됐다(`SCALE_ANALYSIS_MODE=model`로 전환하면 사용, 기본값은 여전히 `test`). AI 페르소나도 '다슬'(손녀 컨셉, 존댓말 유지)로 SYSTEM_PROMPT에 명시했다. 단, **실제 `OPENAI_API_KEY`로 채점 품질을 검증한 적은 아직 없다**(unit test는 OpenAI 응답을 mock으로 흉내낸 것만 통과) — 8/16 작업에 이월.
+>
+> 이 작업 중 스케줄에 없던 리스크 2개를 새로 발견했다:
+> 1. **척도 문항 커버리지 컨텍스트가 시스템 어디에도 전달되지 않는다** — NestJS `QuestionAnswerBatch` 계약(`audio-analysis.contract.ts`)에도, FastAPI `/analysis/audio/batch` 엔드포인트(`main.py`)에도 "오늘 이미 채점된 문항"을 넘기는 필드가 없다. AI서버의 `SessionState`는 매 REST 요청마다 새로 생성되며(`session_manager.py`의 싱글턴 미사용) `pending_scale_items`/`prev_session_summary`는 항상 빈 값이다. 즉 FR-01-04("오늘 아직 채점 안 된 문항 유도")를 실제로 지킬 방법이 아직 없다 — 8/16 작업에 반영.
+> 2. **`docs/ws-protocol.md` §8이 stale** — "MVP 이후"란에 아직 "TTS binary 전송"이 남아있는데, 8/16 스코프 확정에서 이미 TTS를 8/17 전 필수 완성으로 정했다(배치 base64 방식, 이 문서에 반영 안 됨). TTS 배관 작업 중 이 문서도 같이 갱신할 것.
+>
+> **TTS는 여전히 100% 미착수** — AI서버(`schemas.py`/`main.py`)는 `ttsAudioBase64`/`ttsMimeType`을 이미 응답에 담고 있지만, 백엔드 `audio-analysis.contract.ts`의 `QuestionAnswerAnalysisResult`엔 해당 필드가 없어 검증기가 버리고, `tts:audio` 같은 WS 이벤트도 코드 어디에도 없으며, 프론트에는 오디오 재생 컴포넌트 자체가 없다. 8/16의 최우선 항목.
+
 ## 재조사 결과 (2026-08-13 기준 실제 구현 상태)
 
 **프론트엔드**
@@ -71,20 +79,22 @@
 
 ### 8/15 (토) — 나 혼자 (AI서버+백엔드 겸업)
 
-- SGDS-K/GAD-7/LSNS-6 척도 채점 실구현 착수: `apps/ai-server/app/services/llm.py`의 `_stub_answer_analyses()` 제거, 척도별 채점 프롬프트(문항 유도 → 응답 → 위험여부 0/1 판정) 작성. 검증 로직(`_validate_scale_analysis_item`)은 이미 있으니 그 계약에 맞춰 실채점만 넣으면 됨. **3개 척도 전부 필수 — 한두 개만 완성하고 나머지 임시값으로 두는 건 컷 대상 아님**
-- 목표: 하루 끝에 GAD-7까지는 확실히 동작(SGDS-K/LSNS-6는 8/16에 마저 완성 — 순서일 뿐 제외가 아님)
+- ~~SGDS-K/GAD-7/LSNS-6 척도 채점 실구현~~ **완료 (계획보다 앞섬)**: `apps/ai-server/app/services/llm_prompts.py`에 3개 척도 문항 은행(28문항, 위험 응답 방향 포함)을 고정 텍스트로 넣고 SYSTEM_PROMPT 채점 규칙에 반영, `llm.py`는 `SCALE_ANALYSIS_MODE=model`일 때 이 실채점 결과를 사용하도록 분기(`test`/`empty`는 기존 stub 유지). AI 페르소나도 '다슬'로 명시함.
+- 남은 것 (8/16 아침으로 이월): **실제 `OPENAI_API_KEY`로 채점 품질 검증** — 지금까지는 unit test(mock)만 통과했고 실제 LLM 호출로 확인한 적 없음. `.env`에 `SCALE_ANALYSIS_MODE=model` 설정 후 `scripts/test_llm.py`로 여러 발화 패턴 돌려보고, 필요하면 문항 은행/프롬프트 문구 조정.
+- 목표(재확정): 3개 척도 전부 코드 완료 + 최소 1회 실제 API 호출로 채점 결과 확인
 
 ### 8/16 (일) — 나 혼자
 
-- 나머지 2개 척도(SGDS-K, LSNS-6) 채점 로직 완성
-- TTS 배관 복구 — AI서버(`schemas.py`/`main.py`)는 이미 `ttsAudioBase64`/`ttsMimeType`을 응답에 포함하도록 완료돼 있음. 남은 건: 백엔드 `analysis` 계약/검증기에 해당 필드 반영 → `tts:audio` WS 이벤트 실제 emit → 프론트 TTS 오디오 재생 컴포넌트 신규 추가(현재 전무)
-- 목표: 3개 척도 채점 + TTS 오디오가 실제로 프론트까지 도달
+- 아침: 8/15에서 이월된 **실제 API 채점 검증** 먼저 마무리
+- **문항 커버리지 컨텍스트 전달** (8/15 신규 발견 리스크) — NestJS `QuestionAnswerBatch` 계약(`audio-analysis.contract.ts`)과 FastAPI `/analysis/audio/batch` 엔드포인트(`main.py`) 양쪽에 "오늘 이미 채점된 문항" 정보를 넘기는 필드 추가, AI서버가 이걸로 실제 `SessionState.pending_scale_items`를 채우게 연결. 이게 없으면 다슬이가 같은 문항을 계속 반복해서 물어볼 수 있음
+- **TTS 배관 복구** — AI서버(`schemas.py`/`main.py`)는 이미 `ttsAudioBase64`/`ttsMimeType`을 응답에 포함하도록 완료돼 있음. 남은 건: 백엔드 `analysis` 계약/검증기(`audio-analysis.contract.ts`)에 해당 필드 반영 → `tts:audio` WS 이벤트 실제 emit → 프론트 TTS 오디오 재생 컴포넌트 신규 추가(현재 전무) → `docs/ws-protocol.md` §6.2/§8도 이 방식(배치 base64)으로 갱신(현재 "MVP 이후"에 잘못 남아있음)
+- 목표: 3개 척도 채점 실검증 완료 + 문항 반복 방지 연결 + TTS 오디오가 실제로 프론트까지 도달
 
 ### 8/17 (월) — 나 혼자
 
 - 정서지수 즉시 재계산 트리거(대화 종료 / 같은 날 재대화 / 10분 유휴 시점) 연결 — `report-generation-coordinator.service.ts`에는 여전히 09:00 cron 하나뿐이므로 새로 추가해야 함
 - 시니어 본인 발화 STT 결과 실시간 반영 — 현재 placeholder 말풍선만 있고 실제 텍스트로 안 바뀜, 새 WS 이벤트+shared-types 타입+프론트 말풍선 갱신 필요
-- 저녁: 로그인→WS 인증→마이크 답변→STT 반영→척도 채점→질문 생성→TTS 재생까지 브라우저 셀프 E2E, 발견 버그 즉시 수정
+- 저녁: 로그인→WS 인증→마이크 답변→STT 반영→척도 채점→질문 생성→TTS 재생까지 브라우저 셀프 E2E, 발견 버그 즉시 수정 — 이때 같은 문항을 반복해서 묻지 않는지(8/16에 연결한 커버리지 컨텍스트)도 같이 확인
 - 목표: **"음성 대화 챗봇 완성" 선언 가능한 상태**
 
 ### 8/18 (화) — 전원
@@ -166,17 +176,23 @@ Redis 기반 완전 재연결 복구(서버 재시작/다중 인스턴스 상태
 
 > **2026-08-15 이후 일정 재구성**: 아래부터는 8/13 시점 Day 4~10(8/17~8/25) 계획을 대체한다. 인원 가용성이 바뀌어 8/15(토)~8/17(월)은 담당자 1인 단독 작업, 8/18(화)~8/20(목)은 전원 작업이며, **8/21 이후는 계획하지 않는다**(위 "최종 크런치 일정" 참고).
 
-### 8/15 (토) — 나 혼자
+### 8/15 (토) — 나 혼자 (완료, 기록용)
 
 "오늘은 SGDS-K/GAD-7/LSNS-6 척도 채점을 실구현할 거야. `apps/ai-server/app/services/llm.py`의 `_stub_answer_analyses()`가 항상 빈 배열을 반환하는 스텁 상태니까, 이걸 제거하고 실제 채점 프롬프트(문항 유도 → 응답 → 위험여부 0/1 판정)를 넣어줘. 검증 로직(`_validate_scale_analysis_item`)은 이미 있으니 그 계약 형태에 맞춰줘. GAD-7부터 먼저 완성해서 최소 1개 척도는 오늘 안에 실제 결과가 나오게 해줘."
 
+- 실제 결과: GAD-7만이 아니라 **3개 척도 전부 코드 완료**됨 — 문항별로 나눠 짤 필요 없이 문항 은행 하나(`llm_prompts.py`의 `SCALE_ITEM_BANK`)로 한 번에 처리. 다만 실제 `OPENAI_API_KEY` 호출로 검증은 안 함(8/16으로 이월), 문항 커버리지 컨텍스트 전달 안 됨/`ws-protocol.md` TTS 섹션 stale 두 가지 신규 리스크 발견 — 위 "2026-08-15 저녁 업데이트" 참고.
+
 ### 8/16 (일) — 나 혼자
 
-"어제 만든 구조로 나머지 두 척도(SGDS-K, LSNS-6) 채점 로직을 완성해줘. 그다음 TTS 배관을 복구할 거야 — AI서버(`schemas.py`/`main.py`)는 이미 `ttsAudioBase64`/`ttsMimeType`을 응답에 담아 보내고 있으니, 백엔드 `analysis` 계약(`audio-analysis.contract.ts`)과 검증기에 이 필드를 반영하고, `tts:audio` WS 이벤트를 실제로 emit하도록 만들어줘. 마지막으로 프론트에 TTS 오디오 재생 컴포넌트를 새로 추가해줘(현재 전혀 없어) — base64를 디코드해서 재생하면 돼."
+"먼저 어제 짠 척도 채점을 실제로 검증할 거야 — `.env`에 실제 `OPENAI_API_KEY`를 넣고 `SCALE_ANALYSIS_MODE=model`로 바꾼 다음 `scripts/test_llm.py`로 여러 발화를 넣어서 채점이 그럴듯하게 나오는지 확인해줘. 문제 있으면 `llm_prompts.py`의 문항 은행/프롬프트 문구를 조정해줘.
+
+그다음 문항 커버리지 컨텍스트를 연결할 거야 — 지금 NestJS `QuestionAnswerBatch` 계약(`audio-analysis.contract.ts`)과 FastAPI `/analysis/audio/batch` 엔드포인트(`main.py`) 둘 다 '오늘 이미 채점된 문항' 정보를 넘기는 필드가 없어서, AI서버가 같은 문항을 계속 반복해서 물어볼 수 있어. 이 필드를 계약 양쪽에 추가하고 AI서버의 `SessionState.pending_scale_items`를 실제로 채워줘.
+
+마지막으로 TTS 배관을 복구할 거야 — AI서버(`schemas.py`/`main.py`)는 이미 `ttsAudioBase64`/`ttsMimeType`을 응답에 담아 보내고 있으니, 백엔드 `analysis` 계약(`audio-analysis.contract.ts`)과 검증기에 이 필드를 반영하고, `tts:audio` WS 이벤트를 실제로 emit하도록 만들어줘. 프론트에 TTS 오디오 재생 컴포넌트를 새로 추가해줘(현재 전혀 없어) — base64를 디코드해서 재생하면 돼. 끝나면 `docs/ws-protocol.md`도 이 방식(배치 base64)으로 갱신해줘 — 지금 §8 'MVP 이후'에 TTS binary 전송이라고 잘못 남아있어."
 
 ### 8/17 (월) — 나 혼자
 
-"오늘은 두 가지를 끝낼 거야. 1) 정서지수 즉시 재계산 트리거 — 지금 `report-generation-coordinator.service.ts`는 매일 09:00 cron 하나뿐이니, 대화 종료 시점 / 같은 날 재대화 시점 / 10분 유휴 시점에 즉시 재계산하는 경로를 추가해줘. 2) 시니어 본인 발화 STT 실시간 반영 — 지금은 placeholder 말풍선만 있고 실제 텍스트로 안 바뀌니까, 새 WS 이벤트를 `packages/shared-types`에 정의하고 백엔드에서 emit, 프론트에서 말풍선을 갱신하도록 연결해줘. 끝나면 로그인→WS 인증→마이크 답변→STT 반영→척도 채점→질문 생성→TTS 재생까지 브라우저로 직접 셀프 E2E 테스트하고, 발견되는 버그는 그 자리에서 고쳐줘. 오늘 목표는 '음성 대화 챗봇 완성'이라고 말할 수 있는 상태야."
+"오늘은 두 가지를 끝낼 거야. 1) 정서지수 즉시 재계산 트리거 — 지금 `report-generation-coordinator.service.ts`는 매일 09:00 cron 하나뿐이니, 대화 종료 시점 / 같은 날 재대화 시점 / 10분 유휴 시점에 즉시 재계산하는 경로를 추가해줘. 2) 시니어 본인 발화 STT 실시간 반영 — 지금은 placeholder 말풍선만 있고 실제 텍스트로 안 바뀌니까, 새 WS 이벤트를 `packages/shared-types`에 정의하고 백엔드에서 emit, 프론트에서 말풍선을 갱신하도록 연결해줘. 끝나면 로그인→WS 인증→마이크 답변→STT 반영→척도 채점→질문 생성→TTS 재생까지 브라우저로 직접 셀프 E2E 테스트하고, 이때 같은 척도 문항을 반복해서 묻지 않는지(8/16에 연결한 커버리지 컨텍스트)도 같이 확인해줘. 발견되는 버그는 그 자리에서 고쳐줘. 오늘 목표는 '음성 대화 챗봇 완성'이라고 말할 수 있는 상태야."
 
 ### 8/18 (화) — 전원
 
