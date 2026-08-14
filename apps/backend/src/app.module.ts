@@ -5,6 +5,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AnalysisModule } from './analysis/analysis.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -34,6 +35,8 @@ import { UsersModule } from './users/users.module';
       useFactory: (configService: ConfigService) =>
         configService.getOrThrow<TypeOrmModuleOptions>('database'),
     }),
+    // @Cron 리포트 작업을 모든 기능 모듈이 초기화된 뒤 등록한다.
+    ScheduleModule.forRoot(),
     AuthModule,
     UsersModule,
     ChatsModule,

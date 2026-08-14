@@ -7,11 +7,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GuardianNotification } from './entities/guardian-notification.entity';
 import { NotificationsController } from './notifications.controller';
 import { NotificationsService } from './notifications.service';
+import { GuardianNotificationRepository } from './repositories/guardian-notification.repository';
 
 // GuardianNotification Repository와 알림 요청 처리 객체를 등록한다.
 @Module({
   imports: [TypeOrmModule.forFeature([GuardianNotification])],
   controllers: [NotificationsController],
-  providers: [NotificationsService],
+  providers: [NotificationsService, GuardianNotificationRepository],
+  exports: [NotificationsService],
 })
 export class NotificationsModule {}

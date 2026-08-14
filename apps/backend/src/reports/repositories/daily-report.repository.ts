@@ -21,6 +21,15 @@ import { toSeoulBusinessDayUtcRange } from '../lib/seoul-business-date';
 export class DailyReportRepository {
   constructor(private readonly dataSource: DataSource) {}
 
+  async findDailyReport(
+    seniorId: number,
+    reportDate: string,
+  ): Promise<DailyEmotionReport | null> {
+    return this.dataSource.getRepository(DailyEmotionReport).findOne({
+      where: { seniorId, reportDate },
+    });
+  }
+
   async findScaleAnalysesForDay(
     seniorId: number,
     reportDate: string,
