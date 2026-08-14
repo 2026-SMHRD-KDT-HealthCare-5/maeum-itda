@@ -5,3 +5,5 @@ export interface NotificationThresholdValue {
 
 export const THRESHOLD_MIN = 0
 export const THRESHOLD_MAX = 100
+
+export const NOTIFICATION_THRESHOLD_QUERY_KEY = ['notification-threshold'] as const

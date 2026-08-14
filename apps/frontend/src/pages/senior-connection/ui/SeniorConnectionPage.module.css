@@ -33,3 +33,14 @@
   outline: 4px solid rgba(31, 111, 84, 0.2);
   outline-offset: 3px;
 }
+
+.statusMessage {
+  display: grid;
+  max-width: 440px;
+  margin: 0 auto;
+  gap: 12px;
+  padding: 120px 24px 24px;
+  color: var(--text);
+  font-size: 15px;
+  text-align: center;
+}

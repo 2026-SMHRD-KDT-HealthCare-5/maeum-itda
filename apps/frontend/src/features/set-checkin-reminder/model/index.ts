@@ -1,3 +1,6 @@
-// TODO: local state/hooks beyond what ui/index.tsx already manages (controlled
-// props). Not implemented yet.
-export {}
+export interface CheckinReminderValue {
+  enabled: boolean
+  time: string // "HH:mm"
+}
+
+export const CHECKIN_REMINDER_QUERY_KEY = ['checkin-reminder'] as const

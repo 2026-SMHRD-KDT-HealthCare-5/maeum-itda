@@ -1,11 +1,38 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { SendConnectionRequestAction } from '../../../features/send-connection-request'
+import {
+  CONNECTION_QUERY_KEY,
+  EMPTY_CONNECTION,
+  fetchMyConnection,
+  sendConnectionRequest,
+  cancelConnectionRequest,
+} from '../../../entities/connection'
+import { extractApiErrorMessage } from '../../../shared/api'
+import { Button } from '../../../shared/ui'
 import styles from './GuardianConnectionPage.module.css'
 
 // GUARDIAN_LINK_01 (UC-00-1) — 내 정보의 미연결 상태에서 진입하는
-// 전용 연결 요청 화면. 요청 폼과 mock 상태 관리는 feature에 위임한다.
+// 전용 연결 요청 화면. 요청 폼 UI는 feature가 담당하고, 실제 서버 상태(GET
+// /connections/me)와 요청/취소 mutation은 이 페이지가 소유한다.
 export function GuardianConnectionPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+
+  const connectionQuery = useQuery({
+    queryKey: CONNECTION_QUERY_KEY,
+    queryFn: fetchMyConnection,
+  })
+
+  const sendMutation = useMutation({
+    mutationFn: sendConnectionRequest,
+    onSuccess: (connection) => queryClient.setQueryData(CONNECTION_QUERY_KEY, connection),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: (relationshipId: number) => cancelConnectionRequest(relationshipId),
+    onSuccess: () => queryClient.setQueryData(CONNECTION_QUERY_KEY, EMPTY_CONNECTION),
+  })
 
   return (
     <main className={styles.page}>
@@ -46,7 +73,47 @@ export function GuardianConnectionPage() {
         </li>
       </ol>
 
-      <SendConnectionRequestAction />
+      {connectionQuery.isPending && (
+        <p className={styles.statusMessage}>연결 상태를 확인하는 중이에요...</p>
+      )}
+
+      {connectionQuery.isError && (
+        <div className={styles.statusMessage} role="alert">
+          <p>연결 상태를 불러오지 못했어요.</p>
+          <Button type="button" onClick={() => connectionQuery.refetch()}>
+            다시 시도
+          </Button>
+        </div>
+      )}
+
+      {connectionQuery.data?.status === 'CONNECTED' && (
+        <p className={styles.statusMessage}>이미 어르신과 연결되어 있어요.</p>
+      )}
+
+      {connectionQuery.data && connectionQuery.data.status !== 'CONNECTED' && (
+        <SendConnectionRequestAction
+          pendingRequest={
+            connectionQuery.data.status === 'REQUESTED' && connectionQuery.data.counterpart
+              ? {
+                  seniorName: connectionQuery.data.counterpart.name,
+                  requestedAt: connectionQuery.data.requestedAt ?? new Date().toISOString(),
+                }
+              : null
+          }
+          onSubmit={(seniorLoginId) => sendMutation.mutate(seniorLoginId)}
+          onCancel={() => {
+            const relationshipId = connectionQuery.data?.relationshipId
+            if (relationshipId != null) cancelMutation.mutate(relationshipId)
+          }}
+          isSubmitting={sendMutation.isPending}
+          isCancelling={cancelMutation.isPending}
+          error={
+            sendMutation.isError
+              ? extractApiErrorMessage(sendMutation.error, '연결 요청에 실패했어요.')
+              : null
+          }
+        />
+      )}
     </main>
   )
 }
