@@ -5,13 +5,20 @@ interface RespondConnectionRequestActionProps {
   guardianName: string
   onAccept: () => void
   onReject: () => void
+  isAccepting?: boolean
+  isRejecting?: boolean
+  error?: string | null
 }
 
 export function RespondConnectionRequestAction({
   guardianName,
   onAccept,
   onReject,
+  isAccepting = false,
+  isRejecting = false,
+  error = null,
 }: RespondConnectionRequestActionProps) {
+  const isBusy = isAccepting || isRejecting
   return (
     <section className={styles.request} aria-labelledby="connection-request-title">
       <div className={styles.guardianVisual} aria-hidden="true">
@@ -42,12 +49,17 @@ export function RespondConnectionRequestAction({
       </div>
 
       <div className={styles.actions}>
-        <button type="button" className={styles.accept} onClick={onAccept}>
-          수락하기
+        <button type="button" className={styles.accept} onClick={onAccept} disabled={isBusy}>
+          {isAccepting ? '수락 중...' : '수락하기'}
         </button>
-        <button type="button" className={styles.reject} onClick={onReject}>
-          거절하기
+        <button type="button" className={styles.reject} onClick={onReject} disabled={isBusy}>
+          {isRejecting ? '거절 중...' : '거절하기'}
         </button>
+        {error && (
+          <p role="alert" className={styles.errorText}>
+            {error}
+          </p>
+        )}
         <p>지금 정하지 않아도 괜찮아요. 나중에 다시 확인할 수 있어요.</p>
       </div>
     </section>
