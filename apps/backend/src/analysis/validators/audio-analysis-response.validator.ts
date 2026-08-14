@@ -103,10 +103,11 @@ function validateAnswerResult(value: unknown): AnswerAnalysisResult {
     }
     scaleAnalysisKeys.add(scaleAnalysisKey);
 
+    const analysisScore: 0 | 1 = scale.analysisScore === 0 ? 0 : 1;
     return {
       scaleType,
       questionNumber,
-      analysisScore: scale.analysisScore,
+      analysisScore,
     };
   });
 
