@@ -1,6 +1,7 @@
 """마음잇다 AI 서버 (FastAPI REST)."""
 
 import asyncio
+import base64
 import logging
 from pathlib import Path
 
@@ -11,6 +12,7 @@ from app.schemas import AnswerAnalysis, BatchAnalysisResponse
 from app.services import emotion as emotion_service
 from app.services import llm as llm_service
 from app.services import stt as stt_service
+from app.services import tts as tts_service
 from app.session_manager import SessionState
 
 logging.basicConfig(level=get_settings().log_level)
@@ -47,9 +49,7 @@ async def analyze_audio_batch(
     if any(end_type not in {"auto", "manual"} for end_type in end_types):
         raise HTTPException(status_code=422, detail="endTypes 값이 올바르지 않습니다.")
 
-    answers: list[AnswerAnalysis] = []
-    transcripts: list[str] = []
-    emotions: list[dict[str, float]] = []
+    processed_answers: list[dict] = []
 
     for audio_file, message_id in zip(audio_files, message_ids, strict=True):
         audio_bytes = await audio_file.read()
@@ -68,29 +68,52 @@ async def analyze_audio_batch(
             audio_bytes,
             16000,
         )
-        transcripts.append(stt_result.text)
-        emotions.append(emotion)
-        answers.append(
-            AnswerAnalysis(
-                messageId=message_id,
-                transcript=stt_result.text,
-                sentimentLabel=_to_sentiment_label(emotion),
-                scaleAnalyses=[],
-            )
+        processed_answers.append(
+            {"message_id": message_id, "text": stt_result.text, "emotion": emotion}
         )
 
     session = SessionState(session_id=generation_id, user_id=str(question_message_id))
     llm_result = await asyncio.to_thread(
         llm_service.generate_next_question,
-        "\n".join(transcripts),
-        _average_emotions(emotions),
+        processed_answers,
         session,
     )
     next_question = llm_result.get("ai_question")
+    if not isinstance(next_question, str) or not next_question.strip():
+        raise HTTPException(status_code=502, detail="LLM 다음 질문 생성에 실패했습니다.")
+
+    analyses_by_message_id = {
+        item["message_id"]: item["scale_analyses"]
+        for item in llm_result.get("answer_analyses", [])
+    }
+    answers = [
+        AnswerAnalysis(
+            messageId=answer["message_id"],
+            transcript=answer["text"],
+            sentimentLabel=_to_sentiment_label(answer["emotion"]),
+            scaleAnalyses=_to_scale_analyses(
+                analyses_by_message_id.get(answer["message_id"], [])
+            ),
+        )
+        for answer in processed_answers
+    ]
+
+    try:
+        tts_audio = await tts_service.synthesize_full(next_question)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("TTS 생성 실패: %s", exc)
+        raise HTTPException(status_code=502, detail="TTS 음성 생성에 실패했습니다.") from exc
+
+    if not tts_audio:
+        raise HTTPException(status_code=502, detail="TTS 음성 결과가 비어 있습니다.")
+
+    audio_format = get_settings().typecast_audio_format.lower()
 
     return BatchAnalysisResponse(
         answers=answers,
-        nextQuestion=next_question if isinstance(next_question, str) else None,
+        nextQuestion=next_question,
+        ttsAudioBase64=base64.b64encode(tts_audio).decode("ascii"),
+        ttsMimeType=_tts_mime_type(audio_format),
     )
 
 
@@ -120,12 +143,24 @@ def _resolve_audio_format(audio_file: UploadFile) -> str:
     }.get(mime_subtype, mime_subtype or "webm")
 
 
-def _average_emotions(items: list[dict[str, float]]) -> dict[str, float]:
-    labels = set().union(*(item.keys() for item in items))
+def _to_scale_analyses(raw_items: list[dict]) -> list[dict]:
+    """LLM이 snake_case로 반환한 척도 분석 항목을 백엔드 계약(camelCase)으로 변환한다."""
+    return [
+        {
+            "scaleType": item["scale_type"],
+            "questionNumber": item["question_number"],
+            "analysisScore": item["analysis_score"],
+        }
+        for item in raw_items
+    ]
+
+
+def _tts_mime_type(audio_format: str) -> str:
     return {
-        label: sum(item.get(label, 0.0) for item in items) / len(items)
-        for label in labels
-    }
+        "mp3": "audio/mpeg",
+        "wav": "audio/wav",
+        "ogg": "audio/ogg",
+    }.get(audio_format, f"audio/{audio_format}")
 
 
 if __name__ == "__main__":
