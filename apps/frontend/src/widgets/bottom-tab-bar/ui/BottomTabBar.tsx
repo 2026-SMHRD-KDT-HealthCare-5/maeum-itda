@@ -69,8 +69,10 @@ export function BottomTabBar({ items }: { items: TabItem[] }) {
           key={item.to}
           to={item.to}
         >
-          <TabIcon icon={item.icon} />
-          <span>{item.label}</span>
+          <span className={styles.iconWrap}>
+            <TabIcon icon={item.icon} />
+          </span>
+          <span className={styles.label}>{item.label}</span>
         </NavLink>
       ))}
     </nav>
