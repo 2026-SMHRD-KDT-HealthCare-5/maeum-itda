@@ -14,18 +14,18 @@ OpenAI Chat Completions를 JSON 모드로 호출해서 다음 구조로 받는�
   "empathy_note": "..."   # 내부 로깅/디버깅용, 굳이 프론트에 노출 안 해도 됨
 }
 
-구조 변경(2026-08-14, feature/ai-llm-turn-analysis — 구조만):
+구조 변경(2026-08-14, feature/ai-llm-turn-analysis):
 - 같은 질문에 답변이 여러 개(배치) 묶여 올 수 있어, 텍스트·감정을 messageId별로
   구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, emotion}]`).
-- 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점) 필드는
-  이번 단계에서 구조(입출력 형태)만 맞춘다 — 실제 채점 프롬프트는 아직 작성하지
-  않았고, `SCALE_ANALYSIS_MODE`(emotion.py의 `EMOTION_MODE`와 같은 패턴)에 따라
-  `test`면 답변마다 고정 목업 채점(`TEST_SCALE_ANALYSIS_ITEM`)을, `empty`면 빈
-  `scale_analyses`를 채우는 stub으로 대체한다. 실제 프롬프트 내용은
-  `llm_prompts.py`의 TODO에 남겨뒀고 2단계에서 반영한다.
-- `_validate_answer_analyses`는 돌려받은 messageId 집합이 요청과 정확히 일치하는지
-  검증한다. 지금은 stub이 요청 그대로를 되돌려주므로 항상 통과하지만, 2단계에서
-  실제 LLM 출력으로 교체되면 이 검증이 잘못된/누락된 messageId(환각)를 잡아낸다.
+- 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점)는 같은 LLM
+  호출의 SYSTEM_PROMPT(`llm_prompts.py`)에 채점 규칙을 포함시켜 실채점을 받는다.
+  `SCALE_ANALYSIS_MODE`(emotion.py의 `EMOTION_MODE`와 같은 패턴)가 `model`이면
+  이 실채점 결과를 쓰고, `test`/`empty`면 여전히 stub(`_stub_answer_analyses`)로
+  대체한다 — 로컬 개발/테스트에서 OpenAI 호출 없이도 파이프라인을 돌려볼 수 있게.
+- `_validate_answer_analyses`는 돌려받은 messageId 집합이 요청과 정확히 일치하는지,
+  각 scale_analyses 항목 값이 유효한지 검증한다. `model` 모드에서 LLM이 messageId를
+  잘못 세거나(환각) 범위를 벗어난 값을 주면 이 검증이 ValueError를 던지고, 바깥
+  try/except가 안전한 기본 질문 + stub 채점으로 폴백시킨다.
 """
 import json
 import logging
@@ -108,11 +108,11 @@ def _validate_answer_analyses(
 ) -> list[dict]:
     """돌려받은 answer_analyses의 messageId와 각 scale_analyses 항목 값을 검증한다.
 
-    지금은 _stub_answer_analyses가 항상 빈 scale_analyses로 요청을 그대로 되돌려주므로
-    항상 통과하지만, 2단계에서 실제 LLM 출력으로 교체되면 잘못되거나 누락된
-    messageId(환각), 잘못된 scale_type/question_number/analysis_score를 잡아낸다.
-    답변 하나의 항목이라도 잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의
-    바깥 try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses로 폴백시킨다(배치 전체 단위 —
+    SCALE_ANALYSIS_MODE=test/empty의 stub 출력은 항상 통과하고, model 모드의 실제
+    LLM 출력은 여기서 잘못되거나 누락된 messageId(환각), 잘못된
+    scale_type/question_number/analysis_score를 잡아낸다. 답변 하나의 항목이라도
+    잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의 바깥
+    try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses로 폴백시킨다(배치 전체 단위 —
     일부만 부분 수용하는 정책은 아직 미정, feature/ai-error-handling에서 다룬다).
     """
     returned_ids = [item["message_id"] for item in answer_analyses]
@@ -149,6 +149,20 @@ def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
     ]
 
 
+def _extract_answer_analyses(data: dict) -> list[dict]:
+    """SCALE_ANALYSIS_MODE=model일 때 LLM 응답에서 answer_analyses를 그대로 꺼낸다.
+
+    구조만 정규화하고(dict가 아닌 항목은 버림) messageId 누락/초과나 잘못된
+    채점값은 여기서 미리 걸러내지 않는다 — _validate_answer_analyses에 그대로
+    넘겨서 환각을 잡아내고 generate_next_question의 폴백으로 이어지게 한다.
+    """
+    return [
+        {"message_id": item.get("message_id"), "scale_analyses": item.get("scale_analyses", [])}
+        for item in data.get("answer_analyses", [])
+        if isinstance(item, dict)
+    ]
+
+
 def generate_next_question(
     answers: list[dict],
     session: SessionState,
@@ -177,16 +191,24 @@ def generate_next_question(
             data["target_scale"] = None
         if data.get("target_item") == "null":
             data["target_item"] = None
-        data["answer_analyses"] = _validate_answer_analyses(
-            requested_ids, _stub_answer_analyses(answers)
+        mode = settings.scale_analysis_mode.strip().lower()
+        raw_answer_analyses = (
+            _extract_answer_analyses(data) if mode == "model" else _stub_answer_analyses(answers)
         )
+        data["answer_analyses"] = _validate_answer_analyses(requested_ids, raw_answer_analyses)
         return data
     except Exception as e:  # noqa: BLE001
         logger.error("LLM 질문 생성 실패, 기본 질문으로 대체: %s", e)
+        # 실패 경로는 SCALE_ANALYSIS_MODE와 무관하게 항상 빈 채점으로 안전하게
+        # 대체한다 — _stub_answer_analyses는 "test"/"empty"만 알고 "model"에서는
+        # 예외를 던지므로(위 정상 경로용), 여기서 재사용하면 model 모드에서
+        # 실패가 실패를 낳는다.
         return {
             "ai_question": "그러셨군요. 오늘 하루는 어떻게 지내셨어요?",
             "target_scale": None,
             "target_item": None,
             "empathy_note": "fallback",
-            "answer_analyses": _stub_answer_analyses(answers),
+            "answer_analyses": [
+                {"message_id": answer["message_id"], "scale_analyses": []} for answer in answers
+            ],
         }
