@@ -3,6 +3,8 @@ LLM(꼬리질문 생성) 모듈 단독 검증용 CLI.
 
 app/services/llm.py를 서버 실행 없이 그대로 불러와서 실행합니다.
 .env에 실제 OPENAI_API_KEY를 채운 뒤 실행하세요.
+실제 척도 채점 결과를 보려면 .env의 SCALE_ANALYSIS_MODE=model로 설정하세요
+(기본값 test는 항상 고정 목업 채점을 반환합니다).
 
 사용법:
     # 감정 없이(중립으로 채워서) 텍스트만으로 테스트
@@ -82,7 +84,7 @@ def main() -> None:
     print(f"소요 시간: {elapsed_ms}ms")
     print(f"AI 질문: {result.get('ai_question')}")
     print(f"타깃 척도: {result.get('target_scale')} / {result.get('target_item')}")
-    print(f"척도 분석(stub): {result.get('answer_analyses')}")
+    print(f"척도 분석: {result.get('answer_analyses')}")
     if result.get("empathy_note"):
         print(f"공감 메모(내부용): {result.get('empathy_note')}")
 

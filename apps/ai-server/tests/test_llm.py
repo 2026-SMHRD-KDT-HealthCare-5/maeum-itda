@@ -183,6 +183,42 @@ class StubAnswerAnalysesTests(unittest.TestCase):
         self.assertEqual(result[1]["scale_analyses"][0]["analysis_score"], 1)
 
 
+class ExtractAnswerAnalysesTests(unittest.TestCase):
+    def test_normalizes_shape_from_llm_response(self):
+        data = {
+            "answer_analyses": [
+                {
+                    "message_id": 102,
+                    "scale_analyses": [
+                        {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
+                    ],
+                },
+                {"message_id": 103, "scale_analyses": []},
+            ]
+        }
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(
+            result,
+            [
+                {
+                    "message_id": 102,
+                    "scale_analyses": [
+                        {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
+                    ],
+                },
+                {"message_id": 103, "scale_analyses": []},
+            ],
+        )
+
+    def test_missing_answer_analyses_key_returns_empty_list(self):
+        self.assertEqual(llm._extract_answer_analyses({}), [])
+
+    def test_drops_non_dict_items(self):
+        data = {"answer_analyses": [{"message_id": 102, "scale_analyses": []}, "garbage", None]}
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(result, [{"message_id": 102, "scale_analyses": []}])
+
+
 class GenerateNextQuestionTests(unittest.TestCase):
     def _mock_client(self, content: str) -> MagicMock:
         client = MagicMock()
@@ -211,6 +247,53 @@ class GenerateNextQuestionTests(unittest.TestCase):
         client.chat.completions.create.side_effect = RuntimeError("OpenAI unavailable")
 
         with patch.object(llm, "_get_openai_client", return_value=client):
+            result = llm.generate_next_question(answers, _session())
+
+        self.assertEqual(result["empathy_note"], "fallback")
+        self.assertEqual(
+            {item["message_id"] for item in result["answer_analyses"]}, {102, 103}
+        )
+
+    def test_model_mode_uses_real_llm_scale_analyses_instead_of_stub(self):
+        answers = [_answer(102), _answer(103)]
+        content = json.dumps(
+            {
+                "ai_question": "요즘 잠은 잘 주무세요?",
+                "answer_analyses": [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "SGDS_K", "question_number": 3, "analysis_score": 1}
+                        ],
+                    },
+                    {"message_id": 103, "scale_analyses": []},
+                ],
+            }
+        )
+
+        with patch.object(llm.settings, "scale_analysis_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_next_question(answers, _session())
+
+        by_id = {item["message_id"]: item["scale_analyses"] for item in result["answer_analyses"]}
+        self.assertEqual(
+            by_id[102], [{"scale_type": "SGDS_K", "question_number": 3, "analysis_score": 1}]
+        )
+        self.assertEqual(by_id[103], [])
+
+    def test_model_mode_falls_back_when_llm_omits_a_requested_message_id(self):
+        answers = [_answer(102), _answer(103)]
+        content = json.dumps(
+            {
+                "ai_question": "요즘 잠은 잘 주무세요?",
+                "answer_analyses": [{"message_id": 102, "scale_analyses": []}],
+            }
+        )
+
+        with patch.object(llm.settings, "scale_analysis_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
             result = llm.generate_next_question(answers, _session())
 
         self.assertEqual(result["empathy_note"], "fallback")
