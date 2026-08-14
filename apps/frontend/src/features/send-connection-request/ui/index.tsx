@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { mockSendConnectionRequest, type SentConnectionRequest } from '../model'
 import styles from './SendConnectionRequestAction.module.css'
 
@@ -10,7 +10,8 @@ export function SendConnectionRequestAction() {
   const [error, setError] = useState<string | null>(null)
   const [sentRequest, setSentRequest] = useState<SentConnectionRequest | null>(null)
 
-  function handleSubmit() {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
     const trimmed = seniorUsername.trim()
     if (!trimmed) return
 
@@ -30,8 +31,8 @@ export function SendConnectionRequestAction() {
   }
 
   return (
-    <div>
-      <div className={styles.card}>
+    <div className={styles.container}>
+      <form className={styles.card} onSubmit={handleSubmit} noValidate>
         <h2 className={styles.title}>어르신 아이디</h2>
         <div className={styles.row}>
           <input
@@ -43,27 +44,39 @@ export function SendConnectionRequestAction() {
             }}
             placeholder="아이디를 입력하세요"
             aria-label="어르신 아이디"
+            aria-describedby={error ? 'senior-id-error' : 'senior-id-hint'}
+            aria-invalid={Boolean(error)}
+            disabled={Boolean(sentRequest)}
           />
           <button
-            type="button"
+            type="submit"
             className={styles.submitButton}
-            onClick={handleSubmit}
-            disabled={!seniorUsername.trim()}
+            disabled={!seniorUsername.trim() || Boolean(sentRequest)}
           >
             요청
           </button>
         </div>
-        <p className={styles.hint}>어르신이 가입 시 등록한 아이디로 찾을 수 있어요.</p>
-      </div>
-
-      {error && <p className={styles.error}>{error}</p>}
+        <p id="senior-id-hint" className={styles.hint}>
+          {sentRequest
+            ? '보낸 요청을 취소하면 다른 어르신을 찾을 수 있어요.'
+            : '어르신이 가입 시 등록한 아이디로 찾을 수 있어요.'}
+        </p>
+        {error && (
+          <p id="senior-id-error" className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
+      </form>
 
       {sentRequest && (
         <div className={styles.sentCard}>
           <h3 className={styles.sentTitle}>보낸 요청</h3>
-          <div className={styles.sentRow}>
+          <div className={styles.sentRow} aria-live="polite">
             <div>
-              <p className={styles.sentUsername}>{sentRequest.seniorUsername}</p>
+              <div className={styles.sentHeading}>
+                <p className={styles.sentUsername}>{sentRequest.seniorUsername}</p>
+                <span className={styles.pendingBadge}>수락 대기</span>
+              </div>
               <p className={styles.sentDate}>
                 {new Date(sentRequest.requestedAt).toLocaleDateString('ko-KR')} 요청
               </p>
@@ -72,6 +85,10 @@ export function SendConnectionRequestAction() {
               요청 취소
             </button>
           </div>
+          <p className={styles.cancelHint}>
+            <span aria-hidden="true">i</span>
+            요청을 취소하면 다른 어르신께 보낼 수 있어요.
+          </p>
         </div>
       )}
     </div>
