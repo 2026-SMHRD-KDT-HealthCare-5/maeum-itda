@@ -9,6 +9,9 @@ import {
 } from '../../../features/edit-basic-info'
 import {
   SetCheckinReminderAction,
+  CHECKIN_REMINDER_QUERY_KEY,
+  fetchCheckinReminder,
+  updateCheckinReminder,
   type CheckinReminderValue,
 } from '../../../features/set-checkin-reminder'
 import {
@@ -26,8 +29,8 @@ import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-c
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import styles from './MyInfoPage.module.css'
 
-// 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 안부 알림 시간은
-// 아직 API가 없어 페이지 로컬 mock 상태로 둔다(기본 정보/보호자 연결은 실제 API 연동).
+// 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 기본 정보/보호자
+// 연결/안부 알림 시간 모두 실제 API에 연동됐다.
 export function SeniorMyInfoPage() {
   const { logout } = useSession()
   const navigate = useNavigate()
@@ -48,10 +51,20 @@ export function SeniorMyInfoPage() {
     onSuccess: () => queryClient.setQueryData(CONNECTION_QUERY_KEY, EMPTY_CONNECTION),
   })
 
-  const [checkinReminder, setCheckinReminder] = useState<CheckinReminderValue>({
-    enabled: true,
-    time: '09:00',
+  const checkinReminderQuery = useQuery({
+    queryKey: CHECKIN_REMINDER_QUERY_KEY,
+    queryFn: fetchCheckinReminder,
   })
+  const updateCheckinReminderMutation = useMutation({
+    mutationFn: updateCheckinReminder,
+    onSuccess: (updated) => queryClient.setQueryData(CHECKIN_REMINDER_QUERY_KEY, updated),
+  })
+  const [checkinDraft, setCheckinDraft] = useState<CheckinReminderValue | null>(null)
+
+  function handleCheckinChange(next: CheckinReminderValue) {
+    setCheckinDraft(next)
+    updateCheckinReminderMutation.mutate(next, { onSettled: () => setCheckinDraft(null) })
+  }
 
   function handleLogout() {
     logout()
@@ -80,6 +93,7 @@ export function SeniorMyInfoPage() {
   }
 
   const profile = profileQuery.data
+  const displayedCheckinReminder = checkinDraft ?? checkinReminderQuery.data ?? null
 
   return (
     <>
@@ -155,7 +169,21 @@ export function SeniorMyInfoPage() {
           </Card>
 
           <Card>
-            <SetCheckinReminderAction value={checkinReminder} onChange={setCheckinReminder} />
+            {checkinReminderQuery.isPending && <p>안부 알림 설정을 불러오는 중이에요...</p>}
+            {checkinReminderQuery.isError && (
+              <p className={styles.saveError}>안부 알림 설정을 불러오지 못했어요.</p>
+            )}
+            {displayedCheckinReminder && (
+              <SetCheckinReminderAction
+                value={displayedCheckinReminder}
+                onChange={handleCheckinChange}
+              />
+            )}
+            {updateCheckinReminderMutation.isError && (
+              <p className={styles.saveError}>
+                {extractApiErrorMessage(updateCheckinReminderMutation.error, '저장에 실패했어요.')}
+              </p>
+            )}
           </Card>
 
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
