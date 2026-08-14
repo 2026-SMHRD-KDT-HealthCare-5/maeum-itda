@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
 import {
   EditBasicInfoAction,
@@ -135,12 +135,29 @@ export function GuardianMyInfoPage() {
               </div>
             ) : (
               <div className={styles.emptyConnection}>
-                <p className={styles.emptyConnectionText}>연결된 어르신이 없어요</p>
-                <Link to="/guardian/connection">
-                  <Button type="button" variant="outline">
-                    연결하기
-                  </Button>
-                </Link>
+                <span className={styles.emptyConnectionIcon} aria-hidden="true">
+                  <svg viewBox="0 0 32 32" fill="none">
+                    <circle cx="12" cy="11" r="4" />
+                    <path d="M5.5 23c.6-4.1 3-6.2 6.5-6.2 2.3 0 4.2.9 5.3 2.7" />
+                    <path d="M18.5 14.5h3a4 4 0 0 1 0 8h-3" />
+                    <path d="M13.5 22.5h-3a4 4 0 0 1 0-8h3" />
+                  </svg>
+                </span>
+                <div className={styles.emptyConnectionCopy}>
+                  <p className={styles.emptyConnectionText}>아직 연결된 어르신이 없어요</p>
+                  <p className={styles.emptyConnectionDescription}>
+                    어르신의 아이디로 연결을 요청하면
+                    <br />
+                    안부와 리포트를 함께 확인할 수 있어요.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className={styles.connectButton}
+                  onClick={() => navigate('/guardian/connection')}
+                >
+                  어르신 연결하기
+                </Button>
               </div>
             )}
           </Card>

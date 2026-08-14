@@ -15,48 +15,52 @@ export function DisconnectConnectionAction({
 }: DisconnectConnectionActionProps) {
   const [isConfirming, setIsConfirming] = useState(false)
 
-  if (isConfirming) {
-    return (
-      <div
-        className={[styles.confirm, variant === 'guardian' ? styles.guardianConfirm : '']
+  return (
+    <>
+      <button
+        type="button"
+        className={[styles.trigger, variant === 'guardian' ? styles.guardianTrigger : '']
           .filter(Boolean)
           .join(' ')}
-        role="alertdialog"
-        aria-label="연결 끊기 확인"
+        onClick={() => setIsConfirming(true)}
+        aria-expanded={isConfirming}
+        aria-controls="disconnect-confirmation"
       >
-        <p className={styles.confirmText}>정말 연결을 끊으시겠어요?</p>
-        <div className={styles.confirmActions}>
-          <button
-            type="button"
-            className={styles.cancelButton}
-            onClick={() => setIsConfirming(false)}
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            className={styles.confirmButton}
-            onClick={() => {
-              onDisconnect()
-              setIsConfirming(false)
-            }}
-          >
-            연결 끊기
-          </button>
-        </div>
-      </div>
-    )
-  }
+        연결 끊기
+      </button>
 
-  return (
-    <button
-      type="button"
-      className={[styles.trigger, variant === 'guardian' ? styles.guardianTrigger : '']
-        .filter(Boolean)
-        .join(' ')}
-      onClick={() => setIsConfirming(true)}
-    >
-      연결 끊기
-    </button>
+      {isConfirming && (
+        <div
+          id="disconnect-confirmation"
+          className={[styles.confirm, variant === 'guardian' ? styles.guardianConfirm : '']
+            .filter(Boolean)
+            .join(' ')}
+          role="alertdialog"
+          aria-modal={variant === 'guardian' ? true : undefined}
+          aria-label="연결 끊기 확인"
+        >
+          <p className={styles.confirmText}>정말 연결을 끊으시겠어요?</p>
+          <div className={styles.confirmActions}>
+            <button
+              type="button"
+              className={styles.cancelButton}
+              onClick={() => setIsConfirming(false)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className={styles.confirmButton}
+              onClick={() => {
+                onDisconnect()
+                setIsConfirming(false)
+              }}
+            >
+              연결 끊기
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   )
 }
