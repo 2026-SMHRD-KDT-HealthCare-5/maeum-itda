@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Toggle } from '../../../shared/ui'
+import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
-
-export interface CheckinReminderValue {
-  enabled: boolean
-  time: string // "HH:mm"
-}
 
 interface SetCheckinReminderActionProps {
   value: CheckinReminderValue
