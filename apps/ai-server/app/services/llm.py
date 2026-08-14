@@ -14,7 +14,7 @@ OpenAI Chat Completions를 JSON 모드로 호출해서 다음 구조로 받는�
   "empathy_note": "..."   # 내부 로깅/디버깅용, 굳이 프론트에 노출 안 해도 됨
 }
 
-구조 변경(2026-08-14, feature/ai-llm-turn-analysis):
+구조 변경(2026-08-14, feat/ai-llm-turn-analysis):
 - 같은 질문에 답변이 여러 개(배치) 묶여 올 수 있어, 텍스트·감정을 messageId별로
   구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, emotion}]`).
 - 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점)는 같은 LLM
