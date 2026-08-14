@@ -59,6 +59,90 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 ],
             )
 
+    def test_passes_with_valid_scale_analysis_items(self):
+        result = llm._validate_answer_analyses(
+            [102],
+            [
+                {
+                    "message_id": 102,
+                    "scale_analyses": [
+                        {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
+                    ],
+                }
+            ],
+        )
+        self.assertEqual(result[0]["scale_analyses"][0]["analysis_score"], 1)
+
+    def test_raises_on_unknown_scale_type(self):
+        with self.assertRaisesRegex(ValueError, "알 수 없는 scale_type"):
+            llm._validate_answer_analyses(
+                [102],
+                [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "SGDS-K", "question_number": 1, "analysis_score": 0}
+                        ],
+                    }
+                ],
+            )
+
+    def test_raises_when_question_number_out_of_range_for_scale(self):
+        with self.assertRaisesRegex(ValueError, "question_number 범위 초과"):
+            llm._validate_answer_analyses(
+                [102],
+                [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "GAD_7", "question_number": 10, "analysis_score": 0}
+                        ],
+                    }
+                ],
+            )
+
+    def test_raises_when_question_number_not_int(self):
+        with self.assertRaisesRegex(ValueError, "question_number가 정수가 아님"):
+            llm._validate_answer_analyses(
+                [102],
+                [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "GAD_7", "question_number": "4", "analysis_score": 0}
+                        ],
+                    }
+                ],
+            )
+
+    def test_raises_when_analysis_score_not_zero_or_one(self):
+        with self.assertRaisesRegex(ValueError, "analysis_score가 0/1이 아님"):
+            llm._validate_answer_analyses(
+                [102],
+                [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 2}
+                        ],
+                    }
+                ],
+            )
+
+    def test_raises_when_analysis_score_is_bool(self):
+        with self.assertRaisesRegex(ValueError, "analysis_score가 0/1이 아님"):
+            llm._validate_answer_analyses(
+                [102],
+                [
+                    {
+                        "message_id": 102,
+                        "scale_analyses": [
+                            {"scale_type": "GAD_7", "question_number": 4, "analysis_score": True}
+                        ],
+                    }
+                ],
+            )
+
 
 class StubAnswerAnalysesTests(unittest.TestCase):
     def test_returns_empty_scale_analyses_per_message_id(self):

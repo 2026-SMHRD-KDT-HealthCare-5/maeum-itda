@@ -76,13 +76,42 @@ def build_user_prompt(
 위 정보를 참고해서 다음 AI 질문을 JSON으로 생성하세요."""
 
 
+# 백엔드 DB의 CHECK 제약(SCALE_QUESTION_ANALYSIS 테이블)과 정확히 같은 범위를 써서,
+# AI서버를 통과한 값이 DB 저장 단계에서 다시 튕겨나가는 일이 없게 한다.
+SCALE_QUESTION_RANGES = {
+    "SGDS_K": range(1, 16),  # 1~15
+    "GAD_7": range(1, 8),  # 1~7
+    "LSNS_6": range(1, 7),  # 1~6
+}
+
+
+def _validate_scale_analysis_item(item: dict) -> None:
+    """scale_analyses 항목 하나의 scale_type/question_number/analysis_score 값을 검증한다."""
+    scale_type = item.get("scale_type")
+    question_number = item.get("question_number")
+    analysis_score = item.get("analysis_score")
+
+    if scale_type not in SCALE_QUESTION_RANGES:
+        raise ValueError(f"알 수 없는 scale_type: {scale_type!r}")
+    if not isinstance(question_number, int) or isinstance(question_number, bool):
+        raise ValueError(f"question_number가 정수가 아님: {question_number!r}")
+    if question_number not in SCALE_QUESTION_RANGES[scale_type]:
+        raise ValueError(f"{scale_type}의 question_number 범위 초과: {question_number}")
+    if isinstance(analysis_score, bool) or analysis_score not in (0, 1):
+        raise ValueError(f"analysis_score가 0/1이 아님: {analysis_score!r}")
+
+
 def _validate_answer_analyses(
     requested_ids: list[int], answer_analyses: list[dict]
 ) -> list[dict]:
-    """돌려받은 answer_analyses의 messageId가 요청과 정확히 일치하는지 검증한다.
+    """돌려받은 answer_analyses의 messageId와 각 scale_analyses 항목 값을 검증한다.
 
-    지금은 _stub_answer_analyses가 요청을 그대로 되돌려주므로 항상 통과하지만,
-    2단계에서 실제 LLM 출력으로 교체되면 잘못되거나 누락된 messageId(환각)를 잡아낸다.
+    지금은 _stub_answer_analyses가 항상 빈 scale_analyses로 요청을 그대로 되돌려주므로
+    항상 통과하지만, 2단계에서 실제 LLM 출력으로 교체되면 잘못되거나 누락된
+    messageId(환각), 잘못된 scale_type/question_number/analysis_score를 잡아낸다.
+    답변 하나의 항목이라도 잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의
+    바깥 try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses로 폴백시킨다(배치 전체 단위 —
+    일부만 부분 수용하는 정책은 아직 미정, feature/ai-error-handling에서 다룬다).
     """
     returned_ids = [item["message_id"] for item in answer_analyses]
     if sorted(returned_ids) != sorted(requested_ids):
@@ -90,6 +119,9 @@ def _validate_answer_analyses(
             "척도 분석 결과의 messageId가 요청과 다릅니다: "
             f"요청={sorted(requested_ids)}, 응답={sorted(returned_ids)}"
         )
+    for answer_analysis in answer_analyses:
+        for scale_item in answer_analysis["scale_analyses"]:
+            _validate_scale_analysis_item(scale_item)
     return answer_analyses
 
 
