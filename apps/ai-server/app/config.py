@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     emotion_fusion_text_weight: float = 0.5
     emotion_fusion_voice_weight: float = 0.5
 
+    # 척도 채점 (실제 프롬프트 작성 전까지의 stub 모드)
+    scale_analysis_mode: str = "test"          # test: 답변마다 고정 목업 채점 반환 / empty: 항상 빈 배열 반환
+
     # 서버
     host: str = "0.0.0.0"
     port: int = 8000
