@@ -55,7 +55,6 @@ class Settings(BaseSettings):
     text_emotion_model_path: str = "./models/text_emotion"
     voice_emotion_model_path: str = "./models/voice_emotion/kresnik_baseline_best.pt"
     emotion_device: str = "auto"              # auto/cuda/cpu
-    emotion_labels: str = "happy,angry,sad,anxious,neutral"
 
     # 감정 융합 가중치
     emotion_fusion_text_weight: float = 0.5
@@ -65,10 +64,6 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
     log_level: str = "INFO"
-
-    @property
-    def emotion_label_list(self) -> list[str]:
-        return [x.strip() for x in self.emotion_labels.split(",") if x.strip()]
 
 
 @lru_cache
