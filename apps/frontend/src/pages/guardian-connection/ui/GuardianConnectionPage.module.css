@@ -1,19 +1,146 @@
 .page {
-  padding: 20px 20px 100px;
   display: grid;
-  gap: 6px;
+  min-height: 100svh;
+  align-content: start;
+  gap: 24px;
+  box-sizing: border-box;
+  padding: max(24px, env(safe-area-inset-top)) 20px 48px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .title {
   margin: 0;
   color: var(--text-h);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 800;
 }
 
+.backButton {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(42, 69, 57, 0.06);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(48, 63, 55, 0.07);
+  color: var(--text-h);
+  cursor: pointer;
+}
+
+.backButton svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.backButton:focus-visible {
+  outline: 3px solid rgba(31, 111, 84, 0.2);
+  outline-offset: 3px;
+}
+
+.intro {
+  display: grid;
+  gap: 8px;
+}
+
+.eyebrow {
+  width: fit-content;
+  margin: 0 0 2px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f3ed;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.intro h2 {
+  max-width: 280px;
+  margin: 0;
+  color: var(--text-h);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+  padding: 16px 12px;
+  border: 1px solid rgba(43, 58, 51, 0.05);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.64);
+  list-style: none;
+}
+
+.steps::before {
+  position: absolute;
+  top: 29px;
+  right: calc(16.67% + 13px);
+  left: calc(16.67% + 13px);
+  height: 1px;
+  background: #d7e6de;
+  content: '';
+}
+
+.steps li {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.steps span {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border: 4px solid #f8faf8;
+  border-radius: 50%;
+  background: #dfece5;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.steps li:first-child span {
+  background: var(--primary);
+  color: #fff;
+}
+
+.steps p {
+  margin: 0;
+  color: #68766f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .description {
-  margin: 0 0 14px;
+  max-width: 430px;
+  margin: 0;
   color: var(--text);
-  font-size: 13px;
-  line-height: 1.4;
+  font-size: 15px;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+
+@media (min-width: 640px) {
+  .page {
+    padding-top: 40px;
+  }
 }

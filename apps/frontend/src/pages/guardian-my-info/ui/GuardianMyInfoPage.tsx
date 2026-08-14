@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { DisconnectConnectionAction } from '../../../features/disconnect-connection'
 import {
   EditBasicInfoAction,
@@ -14,6 +14,8 @@ import {
 import { formatConnectionDuration, type Connection } from '../../../entities/connection'
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { Button, Card } from '../../../shared/ui'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './MyInfoPage.module.css'
 
@@ -55,20 +57,32 @@ export function GuardianMyInfoPage() {
 
   if (profileQuery.isPending) {
     return (
-      <main className={styles.page}>
-        <p>내 정보를 불러오는 중이에요...</p>
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          <p className={styles.statusMessage} role="status">
+            내 정보를 불러오는 중이에요...
+          </p>
+        </main>
+        <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
+      </>
     )
   }
 
   if (profileQuery.isError || !profileQuery.data) {
     return (
-      <main className={styles.page}>
-        <p>내 정보를 불러오지 못했어요.</p>
-        <Button type="button" onClick={() => profileQuery.refetch()}>
-          다시 시도
-        </Button>
-      </main>
+      <>
+        <main className={styles.page}>
+          <h1 className={styles.pageTitle}>내 정보</h1>
+          <div className={styles.errorState} role="alert">
+            <p>내 정보를 불러오지 못했어요.</p>
+            <Button type="button" onClick={() => profileQuery.refetch()}>
+              다시 시도
+            </Button>
+          </div>
+        </main>
+        <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
+      </>
     )
   }
 
@@ -77,16 +91,16 @@ export function GuardianMyInfoPage() {
   return (
     <>
       <main className={styles.page}>
+        <h1 className={styles.pageTitle}>내 정보</h1>
         <header className={styles.header}>
-          <span className={styles.avatar} aria-hidden="true">
-            🧑
-          </span>
+          <img className={styles.avatar} src={guardianCoupleImage} alt="" />
           <h1 className={styles.name}>{profile.name} 보호자</h1>
         </header>
 
         <div className={styles.cards}>
-          <Card>
+          <Card className={styles.infoCard}>
             <EditBasicInfoAction
+              variant="guardian"
               values={{
                 username: profile.loginId,
                 name: profile.name,
@@ -99,14 +113,12 @@ export function GuardianMyInfoPage() {
             )}
           </Card>
 
-          <Card>
+          <Card className={styles.connectionCard}>
             <h2 className={styles.cardTitle}>연결된 어르신</h2>
             {isConnected ? (
               <div className={styles.connectedRow}>
                 <div className={styles.connectedInfo}>
-                  <span className={styles.connectedAvatar} aria-hidden="true">
-                    👵
-                  </span>
+                  <img className={styles.connectedAvatar} src={seniorCoupleImage} alt="" />
                   <div>
                     <p className={styles.connectedName}>{mockSeniorName}</p>
                     <p className={styles.connectedMeta}>
@@ -115,6 +127,7 @@ export function GuardianMyInfoPage() {
                   </div>
                 </div>
                 <DisconnectConnectionAction
+                  variant="guardian"
                   onDisconnect={() =>
                     setConnection((current) => ({ ...current, status: 'disconnected' }))
                   }
@@ -122,17 +135,34 @@ export function GuardianMyInfoPage() {
               </div>
             ) : (
               <div className={styles.emptyConnection}>
-                <p className={styles.emptyConnectionText}>연결된 어르신이 없어요</p>
-                <Link to="/guardian/connection">
-                  <Button type="button" variant="outline">
-                    연결하기
-                  </Button>
-                </Link>
+                <span className={styles.emptyConnectionIcon} aria-hidden="true">
+                  <svg viewBox="0 0 32 32" fill="none">
+                    <circle cx="12" cy="11" r="4" />
+                    <path d="M5.5 23c.6-4.1 3-6.2 6.5-6.2 2.3 0 4.2.9 5.3 2.7" />
+                    <path d="M18.5 14.5h3a4 4 0 0 1 0 8h-3" />
+                    <path d="M13.5 22.5h-3a4 4 0 0 1 0-8h3" />
+                  </svg>
+                </span>
+                <div className={styles.emptyConnectionCopy}>
+                  <p className={styles.emptyConnectionText}>아직 연결된 어르신이 없어요</p>
+                  <p className={styles.emptyConnectionDescription}>
+                    어르신의 아이디로 연결을 요청하면
+                    <br />
+                    안부와 리포트를 함께 확인할 수 있어요.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className={styles.connectButton}
+                  onClick={() => navigate('/guardian/connection')}
+                >
+                  어르신 연결하기
+                </Button>
               </div>
             )}
           </Card>
 
-          <Card>
+          <Card className={styles.notificationCard}>
             <SetNotificationThresholdAction
               value={notificationThreshold}
               onChange={setNotificationThreshold}
