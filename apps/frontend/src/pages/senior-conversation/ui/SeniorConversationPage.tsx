@@ -66,13 +66,15 @@ export function SeniorConversationPage() {
     if (!session?.accessToken) return
     const accessToken = session.accessToken
 
-    socket.on('ai:question', (payload) => {
+    const handleAiQuestion: Parameters<typeof socket.on<'ai:question'>>[1] = (payload) => {
       setCurrentQuestion(payload)
       setIdleNotice(null)
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
-    })
-    socket.on('audio:transcript', (payload) => {
+    }
+    const handleAudioTranscript: Parameters<typeof socket.on<'audio:transcript'>>[1] = (
+      payload,
+    ) => {
       const contentByMessageId = new Map(
         payload.transcripts.map((transcript) => [transcript.messageId, transcript.content]),
       )
@@ -87,13 +89,21 @@ export function SeniorConversationPage() {
             : message,
         ),
       )
-    })
-    socket.on('chat:idle-warning', (payload) => setIdleNotice(payload.message))
-    socket.on('chat:ended', () => {
+    }
+    const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
+      setIdleNotice(payload.message)
+    const handleChatEnded: Parameters<typeof socket.on<'chat:ended'>>[1] = () => {
       setCurrentQuestion(null)
       navigate('/senior')
-    })
-    socket.on('error', (payload) => setConnectionError(payload.message))
+    }
+    const handleError: Parameters<typeof socket.on<'error'>>[1] = (payload) =>
+      setConnectionError(payload.message)
+
+    socket.on('ai:question', handleAiQuestion)
+    socket.on('audio:transcript', handleAudioTranscript)
+    socket.on('chat:idle-warning', handleIdleWarning)
+    socket.on('chat:ended', handleChatEnded)
+    socket.on('error', handleError)
 
     socket
       .connect(accessToken)
@@ -108,7 +118,14 @@ export function SeniorConversationPage() {
         )
       })
 
-    return () => socket.disconnect()
+    return () => {
+      socket.off('ai:question', handleAiQuestion)
+      socket.off('audio:transcript', handleAudioTranscript)
+      socket.off('chat:idle-warning', handleIdleWarning)
+      socket.off('chat:ended', handleChatEnded)
+      socket.off('error', handleError)
+      socket.disconnect()
+    }
   }, [session?.accessToken, socket, navigate])
 
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
