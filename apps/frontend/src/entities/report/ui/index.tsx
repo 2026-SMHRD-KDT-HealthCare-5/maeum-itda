@@ -4,7 +4,7 @@ import emotionBadImage from '../../../shared/assets/character/character-daseul-e
 import emotionGoodImage from '../../../shared/assets/character/character-daseul-emotion-good.png'
 import emotionNormalImage from '../../../shared/assets/character/character-daseul-emotion-normal.png'
 import emotionNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
-import type { EmotionLevel } from '../model'
+import { getEmotionLevel, type EmotionLevel } from '../model'
 import styles from './ReportCards.module.css'
 
 // TODO(entities/report): fetch가 필요한 실제 화면 조합은 pages/*가 담당한다.
@@ -42,12 +42,6 @@ const emotionStateByLevel = {
     decoration: '💧',
   },
 } satisfies Record<EmotionLevel, { comment: string; image: string; decoration: string }>
-
-function getEmotionLevel(score: number): EmotionLevel {
-  if (score < 50) return '나쁨'
-  if (score < 70) return '보통'
-  return '좋음'
-}
 
 // GUARDIAN_HOME_01 "오늘의 정서 지수" / GUARDIAN_REPORT_01 "이날의 정서 지수".
 export function EmotionScoreCard({

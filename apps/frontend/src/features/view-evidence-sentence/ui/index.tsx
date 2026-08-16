@@ -51,14 +51,16 @@ export function ViewEvidenceSentenceAction({ sentence }: { sentence: EvidenceSen
           </span>
         )}
       </div>
-      <div className={styles.messageBlock}>
-        <p className={styles.qa}>
-          <span className={styles.qLabel}>Q</span> {sentence.question}
-        </p>
-        {questionTime && (
-          <time dateTime={sentence.questionCreatedAt ?? undefined}>{questionTime}</time>
-        )}
-      </div>
+      {sentence.question && (
+        <div className={styles.messageBlock}>
+          <p className={styles.qa}>
+            <span className={styles.qLabel}>Q</span> {sentence.question}
+          </p>
+          {questionTime && (
+            <time dateTime={sentence.questionCreatedAt ?? undefined}>{questionTime}</time>
+          )}
+        </div>
+      )}
       <div className={[styles.messageBlock, styles.answerBlock].join(' ')}>
         <p className={styles.qa}>
           {sentence.answer} <span className={styles.aLabel}>A</span>

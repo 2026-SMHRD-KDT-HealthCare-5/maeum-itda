@@ -235,6 +235,15 @@ export interface ChatHistoryPageResponseDto {
   nextCursor: object | null;
 }
 
+export interface ChatCalendarResponseDto {
+  /** @example 2026 */
+  year: number;
+  /** @example 8 */
+  month: number;
+  /** @example ["2026-08-03","2026-08-05","2026-08-13"] */
+  conversationDates: string[];
+}
+
 export interface VoiceAnalysisStatusResponseDto {
   /**
    * 음성 분석 상태 행 ID
@@ -289,6 +298,228 @@ export interface RetryAudioAnalysisResponseDto {
   nextQuestion: NextQuestionResponseDto | null;
 }
 
+export interface DailyReportCalendarItemDto {
+  /** @example 31 */
+  reportId: number;
+  /** @example "2026-08-13" */
+  date: string;
+  generationStatus: "WAITING" | "COMPLETED" | "FAILED";
+}
+
+export interface WeeklyReportCalendarItemDto {
+  /** @example 10 */
+  weeklyReportId: number;
+  /** @example "2026-08-03" */
+  weekStart: string;
+  /** @example "2026-08-09" */
+  weekEnd: string;
+  generationStatus: "WAITING" | "COMPLETED" | "FAILED";
+}
+
+export interface ReportCalendarResponseDto {
+  /** @example 2026 */
+  year: number;
+  /** @example 8 */
+  month: number;
+  dailyReports: DailyReportCalendarItemDto[];
+  weeklyReports: WeeklyReportCalendarItemDto[];
+}
+
+export interface DailyReportEvidenceResponseDto {
+  /** @example 101 */
+  messageId: number;
+  /** @example "어젯밤에는 잘 주무셨어요?" */
+  question?: object | null;
+  /** @example "새벽에 한 번 깼지만 괜찮아." */
+  answer: string;
+  /** @example true */
+  isRiskEvidence: boolean;
+  /** @example "부정" */
+  sentimentLabel?: "긍정" | "보통" | "부정" | null;
+  /** @example "불안" */
+  scaleLabel?: "우울" | "불안" | "고립" | null;
+  /** @format date-time */
+  questionCreatedAt?: object | null;
+  /** @format date-time */
+  answerCreatedAt: string;
+}
+
+export interface DailyReportResponseDto {
+  /** @example 31 */
+  reportId: number;
+  /**
+   * 연결된 시니어 ID
+   * @example 7
+   */
+  seniorId: number;
+  /**
+   * 서울 기준 리포트 날짜
+   * @example "2026-08-14"
+   */
+  reportDate: string;
+  /**
+   * 0~100 정서지수. 데이터가 부족하면 null
+   * @min 0
+   * @max 100
+   * @example 80
+   */
+  emotionIndex?: object | null;
+  /**
+   * 하루 대화 한 줄 요약. 생성 전이면 null
+   * @example "오늘은 가족과 산책한 이야기를 편안하게 나누셨어요."
+   */
+  oneLineSummary?: object | null;
+  /**
+   * 보호자에게 제안하는 행동. 생성 전이면 null
+   * @example "가벼운 안부 전화를 건네 보세요."
+   */
+  recommendedAction?: object | null;
+  /** @example "COMPLETED" */
+  generationStatus: "WAITING" | "COMPLETED" | "FAILED";
+  evidences: DailyReportEvidenceResponseDto[];
+  /**
+   * @format date-time
+   * @example "2026-08-15T00:00:00.000Z"
+   */
+  createdAt: string;
+}
+
+export interface WeeklyDailyReportItemDto {
+  /** @example 31 */
+  reportId?: object | null;
+  /** @example "2026-08-03" */
+  date: string;
+  /**
+   * @min 0
+   * @max 100
+   * @example 75
+   */
+  emotionIndex?: object | null;
+  /** @example "GOOD" */
+  emotionLevel?: "BAD" | "NORMAL" | "GOOD" | null;
+  /** @example "대화를 편안하게 이어가셨어요." */
+  summary?: object | null;
+}
+
+export interface WeeklyReportResponseDto {
+  /** @example 10 */
+  weeklyReportId: number;
+  /** @example 9 */
+  seniorId: number;
+  /** @example "2026-08-03" */
+  weekStart: string;
+  /** @example "2026-08-09" */
+  weekEnd: string;
+  dailyReports: WeeklyDailyReportItemDto[];
+  /** @example 5 */
+  validDays: number;
+  /** @example 65 */
+  averageScore?: object | null;
+  /** @example 93 */
+  maxScore?: object | null;
+  /** @example 41 */
+  minScore?: object | null;
+  /** @example "이번 주에는 전반적으로 안정적인 모습을 보이셨어요." */
+  weeklySummary: string;
+  /** @example "COMPLETED" */
+  generationStatus: "WAITING" | "COMPLETED" | "FAILED";
+  /**
+   * @format date-time
+   * @example "2026-08-10T00:10:00.000Z"
+   */
+  createdAt: string;
+  /**
+   * @format date-time
+   * @example "2026-08-10T00:10:00.000Z"
+   */
+  updatedAt: string;
+}
+
+export interface VapidPublicKeyResponseDto {
+  /** 브라우저 pushManager.subscribe()에 전달할 공개키 */
+  publicKey: string;
+}
+
+export interface PushSubscriptionKeysDto {
+  /** 브라우저 PushSubscription의 p256dh 공개키 */
+  p256dh: string;
+  /** 브라우저 PushSubscription의 auth 인증값 */
+  auth: string;
+}
+
+export interface UpsertPushSubscriptionDto {
+  /**
+   * Push Service가 발급한 HTTPS endpoint
+   * @example "https://fcm.googleapis.com/fcm/send/example-token"
+   */
+  endpoint: string;
+  /**
+   * 브라우저가 제공한 만료 시각(ms). 보통 null
+   * @example null
+   */
+  expirationTime?: object | null;
+  keys: PushSubscriptionKeysDto;
+}
+
+export interface PushSubscriptionResponseDto {
+  /** @example 1 */
+  subscriptionId: number;
+  /** @example "https://fcm.googleapis.com/fcm/send/example-token" */
+  endpoint: string;
+  /** @example null */
+  expirationTime?: object | null;
+  /** @format date-time */
+  createdAt: string;
+  /** @format date-time */
+  updatedAt: string;
+}
+
+export interface DeletePushSubscriptionDto {
+  /**
+   * 해제할 현재 브라우저 PushSubscription endpoint
+   * @example "https://fcm.googleapis.com/fcm/send/example-token"
+   */
+  endpoint: string;
+}
+
+export interface NotificationTargetDto {
+  type: "DAILY_REPORT" | "WEEKLY_REPORT";
+  /** @example 31 */
+  reportId?: object | null;
+  /** @example "2026-08-13" */
+  reportDate?: object | null;
+  /** @example 10 */
+  weeklyReportId?: object | null;
+  /** @example "2026-08-03" */
+  weekStart?: object | null;
+}
+
+export interface NotificationItemDto {
+  /** @example 15 */
+  alertId: number;
+  type: "EMOTION_INDEX_DROP" | "WEEKLY_REPORT_READY";
+  /** @example "정서지수 하락 감지" */
+  title: string;
+  /** @example "어르신의 정서지수가 설정한 기준보다 낮아요." */
+  content: string;
+  /** @example false */
+  isRead: boolean;
+  /**
+   * @format date-time
+   * @example "2026-08-14T00:31:00.000Z"
+   */
+  createdAt: string;
+  target: NotificationTargetDto;
+}
+
+export interface NotificationListResponseDto {
+  notifications: NotificationItemDto[];
+  /** @example 7 */
+  nextCursor?: object | null;
+  /** @example 2 */
+  unreadCount: number;
+}
+
 export interface ConnectionCounterpartResponseDto {
   /** @example 2 */
   userId: number;
@@ -318,6 +549,76 @@ export interface CreateConnectionRequestDto {
    * @example "senior01"
    */
   seniorLoginId: string;
+}
+
+export interface GuardianDashboardPersonDto {
+  /** @example 10 */
+  userId: number;
+  /** @example "테스트가디언" */
+  name: string;
+}
+
+export interface GuardianDashboardSeniorDto {
+  /** @example 10 */
+  userId: number;
+  /** @example "테스트가디언" */
+  name: string;
+  /** @format date-time */
+  connectedAt: string;
+  /**
+   * 연결 승인일을 1일째로 계산한 함께한 일수
+   * @example 30
+   */
+  daysTogether: number;
+}
+
+export interface GuardianDashboardDailyReportDto {
+  /** @example 9 */
+  reportId?: object | null;
+  /**
+   * @format date
+   * @example "2026-08-13"
+   */
+  reportDate: string;
+  /**
+   * @min 0
+   * @max 100
+   * @example 49
+   */
+  emotionIndex?: object | null;
+  /** @example "BAD" */
+  emotionLevel?: "BAD" | "NORMAL" | "GOOD" | null;
+  /** @example "평소보다 정서지수가 낮게 나타났어요." */
+  oneLineSummary?: object | null;
+  /** @example "가볍게 안부를 확인해 주세요." */
+  recommendedAction?: object | null;
+  generationStatus?: "WAITING" | "COMPLETED" | "FAILED" | null;
+}
+
+export interface GuardianDashboardTrendPointDto {
+  /**
+   * @format date
+   * @example "2026-08-13"
+   */
+  date: string;
+  /**
+   * @min 0
+   * @max 100
+   * @example 49
+   */
+  emotionIndex?: object | null;
+}
+
+export interface GuardianDashboardResponseDto {
+  guardian: GuardianDashboardPersonDto;
+  senior: GuardianDashboardSeniorDto;
+  /**
+   * 전날 리포트의 권장 행동. 대화 없음과 분석 데이터 부족은 각각 안내 문구로 구분
+   * @example "가볍게 안부를 확인해 주세요."
+   */
+  dasolMessage: string;
+  latestDailyReport: GuardianDashboardDailyReportDto;
+  recentSevenDays: GuardianDashboardTrendPointDto[];
 }
 
 export interface GuardianAlertSettingResponseDto {
@@ -856,19 +1157,28 @@ export class Api<
      *
      * @tags 3. 대화 기록
      * @name ChatsControllerGetMessages
-     * @summary 무한 스크롤
+     * @summary 시니어 전체·날짜별 과거 대화 cursor 조회
      * @request GET:/chats/messages
      * @secure
      */
     chatsControllerGetMessages: (
       query?: {
         /**
-         * 이 ID보다 오래된 메시지를 조회한다.
+         * 서울 기준 조회 날짜. 생략하면 전체 과거 대화를 조회한다.
+         * @example "2026-08-13"
+         */
+        date?: string;
+        /**
+         * 이 메시지 ID보다 오래된 기록을 조회한다.
+         * @min 1
          * @example 101
          */
         cursor?: number;
         /**
-         * 조회 개수(기본 30, 최소 1, 최대 100)
+         * 조회 개수
+         * @min 1
+         * @max 100
+         * @default 30
          * @example 30
          */
         limit?: number;
@@ -877,6 +1187,41 @@ export class Api<
     ) =>
       this.request<ChatHistoryPageResponseDto, ApiErrorResponseDto>({
         path: `/chats/messages`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 3. 대화 기록
+     * @name ChatsControllerGetCalendar
+     * @summary 시니어 대화 존재 날짜 달력 조회
+     * @request GET:/chats/calendar
+     * @secure
+     */
+    chatsControllerGetCalendar: (
+      query: {
+        /**
+         * @min 2020
+         * @max 2100
+         * @example 2026
+         */
+        year: number;
+        /**
+         * @min 1
+         * @max 12
+         * @example 8
+         */
+        month: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ChatCalendarResponseDto, ApiErrorResponseDto>({
+        path: `/chats/calendar`,
         method: "GET",
         query: query,
         secure: true,
@@ -920,6 +1265,219 @@ export class Api<
         path: `/analysis/audio/question/${questionMessageId}/retry`,
         method: "POST",
         format: "json",
+        ...params,
+      }),
+  };
+  reports = {
+    /**
+     * No description
+     *
+     * @tags 7. 리포트
+     * @name ReportsControllerGetReportCalendar
+     * @summary 보호자 일간·주간 리포트 통합 달력 조회
+     * @request GET:/reports/calendar
+     * @secure
+     */
+    reportsControllerGetReportCalendar: (
+      query: {
+        /**
+         * 조회할 연도
+         * @min 2020
+         * @max 2100
+         * @example 2026
+         */
+        year: number;
+        /**
+         * 조회할 월
+         * @min 1
+         * @max 12
+         * @example 8
+         */
+        month: number;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<ReportCalendarResponseDto, ApiErrorResponseDto>({
+        path: `/reports/calendar`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 7. 리포트
+     * @name ReportsControllerGetDailyReport
+     * @summary 보호자 일간 정서 리포트 조회
+     * @request GET:/reports/daily
+     * @secure
+     */
+    reportsControllerGetDailyReport: (
+      query: {
+        /**
+         * 조회할 서울 기준 리포트 날짜(YYYY-MM-DD)
+         * @example "2026-08-14"
+         */
+        date: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<DailyReportResponseDto, ApiErrorResponseDto>({
+        path: `/reports/daily`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 7. 리포트
+     * @name ReportsControllerGetWeeklyReport
+     * @summary 보호자 주간 정서 리포트 조회
+     * @request GET:/reports/weekly
+     * @secure
+     */
+    reportsControllerGetWeeklyReport: (
+      query: {
+        /**
+         * 서울 기준 조회 주의 월요일(YYYY-MM-DD)
+         * @example "2026-08-03"
+         */
+        weekStart: string;
+      },
+      params: RequestParams = {},
+    ) =>
+      this.request<WeeklyReportResponseDto, ApiErrorResponseDto>({
+        path: `/reports/weekly`,
+        method: "GET",
+        query: query,
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+  };
+  notifications = {
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerGetVapidPublicKey
+     * @summary 브라우저 웹 푸시 구독용 VAPID 공개키 조회
+     * @request GET:/notifications/push/vapid-public-key
+     * @secure
+     */
+    notificationsControllerGetVapidPublicKey: (params: RequestParams = {}) =>
+      this.request<VapidPublicKeyResponseDto, ApiErrorResponseDto>({
+        path: `/notifications/push/vapid-public-key`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerUpsertPushSubscription
+     * @summary 보호자 웹 푸시 구독 등록·갱신
+     * @request PUT:/notifications/push-subscriptions
+     * @secure
+     */
+    notificationsControllerUpsertPushSubscription: (
+      data: UpsertPushSubscriptionDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<PushSubscriptionResponseDto, ApiErrorResponseDto>({
+        path: `/notifications/push-subscriptions`,
+        method: "PUT",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerDeletePushSubscription
+     * @summary 현재 브라우저 웹 푸시 구독 해제
+     * @request DELETE:/notifications/push-subscriptions
+     * @secure
+     */
+    notificationsControllerDeletePushSubscription: (
+      data: DeletePushSubscriptionDto,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/notifications/push-subscriptions`,
+        method: "DELETE",
+        body: data,
+        secure: true,
+        type: ContentType.Json,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerGetNotifications
+     * @summary 보호자 알림 목록 조회
+     * @request GET:/notifications
+     * @secure
+     */
+    notificationsControllerGetNotifications: (params: RequestParams = {}) =>
+      this.request<NotificationListResponseDto, ApiErrorResponseDto>({
+        path: `/notifications`,
+        method: "GET",
+        secure: true,
+        format: "json",
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerMarkAsRead
+     * @summary 보호자 알림 한 건 읽음 처리
+     * @request PATCH:/notifications/{alertId}/read
+     * @secure
+     */
+    notificationsControllerMarkAsRead: (
+      alertId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/notifications/${alertId}/read`,
+        method: "PATCH",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 8. 보호자 알림
+     * @name NotificationsControllerMarkAllAsRead
+     * @summary 보호자 알림 모두 읽음 처리
+     * @request PATCH:/notifications/read-all
+     * @secure
+     */
+    notificationsControllerMarkAllAsRead: (params: RequestParams = {}) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/notifications/read-all`,
+        method: "PATCH",
+        secure: true,
         ...params,
       }),
   };
@@ -1040,6 +1598,25 @@ export class Api<
         path: `/connections/requests/${relationshipId}`,
         method: "DELETE",
         secure: true,
+        ...params,
+      }),
+  };
+  guardian = {
+    /**
+     * No description
+     *
+     * @tags 6. 보호자 대시보드
+     * @name GuardianDashboardControllerGetDashboard
+     * @summary 보호자 홈 대시보드 통합 조회
+     * @request GET:/guardian/dashboard
+     * @secure
+     */
+    guardianDashboardControllerGetDashboard: (params: RequestParams = {}) =>
+      this.request<GuardianDashboardResponseDto, ApiErrorResponseDto>({
+        path: `/guardian/dashboard`,
+        method: "GET",
+        secure: true,
+        format: "json",
         ...params,
       }),
   };

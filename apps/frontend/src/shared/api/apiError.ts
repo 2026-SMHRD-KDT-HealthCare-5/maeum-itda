@@ -17,3 +17,10 @@ export function extractApiErrorMessage(error: unknown, fallback: string): string
 
   return fallback
 }
+
+// apiClient가 던지는 HttpResponse는 Response를 상속해 status를 그대로 갖고 있다 —
+// "해당 날짜/주에 리포트가 아직 없음"처럼 404가 곧 정상적인 빈 상태인 화면에서
+// 에러 배너 대신 빈 상태를 보여줄지 구분하는 데 쓴다.
+export function isNotFoundError(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && 'status' in error && error.status === 404)
+}

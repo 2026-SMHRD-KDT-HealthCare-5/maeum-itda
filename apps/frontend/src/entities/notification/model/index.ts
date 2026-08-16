@@ -1,15 +1,13 @@
-// GUARDIAN_NOTIFICATION_01 (UC-11) 기준.
-// target 스키마는 결정사항 로그 §2에서 아직 미결 — 화면 목업엔 알림 유형이
-// 3종 이상(정서지수 하락/안부 대화 미완료/일간 리포트 도착) 보이지만 API
-// 명세는 dailyReport 하나만 정의되어 있음. 유형별 target 확장 시 이 타입도
-// 갱신해야 함.
-// 2026-08-11: Figma 목업에 "주간 리포트 도착" 알림도 있어 weeklyReport를
-// 추가했다 — 정서지수 하락/안부 대화 미완료 알림의 target 구조는 여전히 미결.
+// GUARDIAN_NOTIFICATION_01 (UC-10, UC-11) — GET /notifications 실계약 기준.
+// 정서지수 하락/안부 대화 미완료 등 알림 유형과 무관하게 target은 이동할 리포트
+// 종류(일간/주간)만 구분한다 — 백엔드 NotificationTargetDto와 동일한 모양.
 export interface Notification {
-  id: string
+  id: number
   title: string
   content: string
   isRead: boolean
   createdAt: string
-  target: { type: 'dailyReport'; reportId: string } | { type: 'weeklyReport'; weekStart: string }
+  target:
+    | { type: 'DAILY_REPORT'; reportId: number | null; reportDate: string | null }
+    | { type: 'WEEKLY_REPORT'; weeklyReportId: number | null; weekStart: string | null }
 }
