@@ -1,25 +1,22 @@
-import { useState, type KeyboardEvent } from 'react'
+import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { Notification } from '../../../entities/notification'
-import { formatNotificationDate, groupByDay, mockNotifications, reportLinkPath } from '../model'
+import { formatNotificationDate, groupByDay, reportLinkPath } from '../model'
 import styles from './MarkNotificationReadAction.module.css'
 
-// GUARDIAN_NOTIFICATION_01 (UC-10, UC-11)
-export function MarkNotificationReadAction() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications)
+interface MarkNotificationReadActionProps {
+  notifications: Notification[]
+  onMarkRead: (notification: Notification) => void
+  onMarkAllRead: () => void
+}
 
-  function markAllRead() {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, isRead: true })),
-    )
-  }
-
-  function markNotificationRead(notification: Notification) {
-    setNotifications((current) =>
-      current.map((item) => (item.id === notification.id ? { ...item, isRead: true } : item)),
-    )
-  }
-
+// GUARDIAN_NOTIFICATION_01 (UC-10, UC-11) — 서버 상태(조회/읽음 처리 mutation)는
+// pages/guardian-notification이 소유하고, 이 컴포넌트는 표시와 사용자 조작만 맡는다.
+export function MarkNotificationReadAction({
+  notifications,
+  onMarkRead,
+  onMarkAllRead,
+}: MarkNotificationReadActionProps) {
   if (notifications.length === 0) {
     return (
       <div className={styles.notificationList}>
@@ -44,7 +41,7 @@ export function MarkNotificationReadAction() {
         <button
           type="button"
           className={styles.markAllButton}
-          onClick={markAllRead}
+          onClick={onMarkAllRead}
           disabled={unreadCount === 0}
         >
           모두 읽음
@@ -59,7 +56,7 @@ export function MarkNotificationReadAction() {
               <NotificationRow
                 key={notification.id}
                 notification={notification}
-                onRead={markNotificationRead}
+                onRead={onMarkRead}
               />
             ))}
           </ul>
@@ -74,7 +71,7 @@ export function MarkNotificationReadAction() {
               <NotificationRow
                 key={notification.id}
                 notification={notification}
-                onRead={markNotificationRead}
+                onRead={onMarkRead}
               />
             ))}
           </ul>

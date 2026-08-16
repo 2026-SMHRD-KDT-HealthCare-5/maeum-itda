@@ -14,13 +14,53 @@ export type SentimentLabel = '긍정' | '보통' | '부정'
 export type EvidenceScale = '우울' | '불안' | '고립'
 
 export interface EvidenceSentence {
-  question: string
+  messageId: number
+  // 답변 앞에 질문이 없을 수 있어(첫 turn 등) nullable이다 — 백엔드 계약과 동일.
+  question: string | null
   answer: string
   isRiskEvidence: boolean
   sentimentLabel: SentimentLabel | null
   scaleLabel?: EvidenceScale | null
   questionCreatedAt?: string | null
   answerCreatedAt?: string | null
+}
+
+// entities/report/ui의 EmotionScoreCard와 GET /reports/daily 응답 매핑(entities/report/api)이
+// 공유하는 점수->3단계 구간 규칙 — 백엔드가 emotionLevel을 안 주는 API(일간 리포트 등)에서도
+// 화면과 동일한 기준으로 판정하려면 이 한 곳만 바꾸면 되게 한다.
+export function getEmotionLevel(score: number): EmotionLevel {
+  if (score < 50) return '나쁨'
+  if (score < 70) return '보통'
+  return '좋음'
+}
+
+const EMOTION_LEVEL_FROM_API: Record<'BAD' | 'NORMAL' | 'GOOD', EmotionLevel> = {
+  BAD: '나쁨',
+  NORMAL: '보통',
+  GOOD: '좋음',
+}
+
+// 백엔드 EmotionLevel enum(BAD/NORMAL/GOOD)을 화면 표기(나쁨/보통/좋음)로 맞춘다.
+export function emotionLevelFromApi(
+  level: 'BAD' | 'NORMAL' | 'GOOD' | null | undefined,
+): EmotionLevel | null {
+  return level ? EMOTION_LEVEL_FROM_API[level] : null
+}
+
+// GUARDIAN_HOME_01 — GET /guardian/dashboard 통합 조회 결과.
+export interface GuardianDashboard {
+  guardianName: string
+  seniorName: string
+  seniorConnectedAt: string
+  daysTogether: number
+  dasolMessage: string
+  latestDailyReport: {
+    emotionScore: number | null
+    emotionLevel: EmotionLevel | null
+    conversationSummary: string | null
+    recommendedAction: string | null
+  }
+  recentSevenDays: Array<{ date: string; emotionScore: number | null }>
 }
 
 export interface DailyReport {

@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SelectReportDateAction, toDateKey } from '../../../features/select-report-date'
@@ -5,8 +6,12 @@ import {
   ConversationSummaryCard,
   EmotionScoreCard,
   RecommendedActionCard,
+  fetchDailyReport,
+  fetchReportCalendar,
 } from '../../../entities/report'
-import { Card } from '../../../shared/ui'
+import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
+import { useDelayedPending } from '../../../shared/lib'
+import { Button, Card, LoadingSpinner } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.png'
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
 import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.png'
@@ -17,30 +22,28 @@ import styles from './GuardianReportPage.module.css'
 
 // GUARDIAN_REPORT_01 (UC-08, UC-09) — 결정사항 로그 §7에서 일간/주간 탭
 // 위젯과 "이날의 정서 지수"/"다슬이의 한마디"/"이날의 대화 요약" 카드를
-// 추가했다. 실제 API 연결 전이라 이날의 리포트는 페이지 로컬 mock이다.
-const mockDailyReport = {
-  emotionScore: 93,
-  emotionLevel: '좋음' as const,
-  comment: '오늘은 어르신의 목소리가 밝고 활기가 느껴졌어요.',
-  conversationSummary:
-    '어르신은 아침에 동네 공원을 산책하고 집에 돌아와 화분에 물을 주셨다고 말씀하셨어요. 무릎이 조금 불편했지만 쉬고 나니 괜찮아졌고, 오후에는 가족 생각이 나서 사진을 보며 시간을 보내셨다고 해요. 대화 전반에서 차분하고 안정적인 모습을 보이셨습니다.',
-  recommendedAction:
-    '오늘은 가족을 그리워하는 마음을 여러 번 표현하셨어요. 저녁 무렵 짧게 안부 전화를 드리고, 산책 중 보신 풍경이나 요즘 돌보고 계신 화분에 관해 물어봐 주세요. 무릎이 계속 불편한지도 함께 확인해 주시면 좋겠습니다.',
-}
-
-const mockReportsByDate: Record<string, typeof mockDailyReport> = {
-  '2026-08-12': mockDailyReport,
-}
-const datesWithReport = new Set(Object.keys(mockReportsByDate))
-
+// 추가했다. GET /reports/daily, /reports/calendar 실연동.
 export function GuardianReportPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedDate = searchParams.get('date')
   const [selectedDate, setSelectedDate] = useState(() =>
     requestedDate ? new Date(`${requestedDate}T00:00:00`) : new Date(),
   )
-  const weekStart = toDateKey(selectedDate)
-  const report = mockReportsByDate[toDateKey(selectedDate)]
+  const dateKey = toDateKey(selectedDate)
+
+  const calendarQuery = useQuery({
+    queryKey: ['report-calendar', selectedDate.getFullYear(), selectedDate.getMonth()],
+    queryFn: () => fetchReportCalendar(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
+  })
+  const dailyReportQuery = useQuery({
+    queryKey: ['daily-report', dateKey],
+    queryFn: () => fetchDailyReport(dateKey),
+    retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
+  })
+
+  const showSpinner = useDelayedPending(dailyReportQuery.isPending)
+  const report = dailyReportQuery.data
+  const reportMissing = dailyReportQuery.isError && isNotFoundError(dailyReportQuery.error)
 
   function selectDate(date: Date) {
     setSelectedDate(date)
@@ -51,27 +54,38 @@ export function GuardianReportPage() {
   return (
     <>
       <main className={styles.page}>
-        <ReportPeriodTabs active="daily" weekStart={weekStart} />
+        <ReportPeriodTabs active="daily" weekStart={dateKey} />
 
         <SelectReportDateAction
           selectedDate={selectedDate}
           onSelectDate={selectDate}
-          datesWithReport={datesWithReport}
+          datesWithReport={calendarQuery.data?.datesWithDailyReport ?? new Set()}
         />
 
-        {report ? (
+        {showSpinner && <LoadingSpinner overlay label="리포트를 불러오고 있어요" />}
+
+        {!showSpinner && dailyReportQuery.isError && !reportMissing && (
+          <div className={styles.statusMessage} role="alert">
+            <p>{extractApiErrorMessage(dailyReportQuery.error, '리포트를 불러오지 못했어요.')}</p>
+            <Button type="button" onClick={() => dailyReportQuery.refetch()}>
+              다시 시도
+            </Button>
+          </div>
+        )}
+
+        {!showSpinner && report && (
           <>
             <Card className={styles.scoreCard}>
               <EmotionScoreCard
                 title="이날의 정서 지수"
                 score={report.emotionScore}
                 level={report.emotionLevel}
-                comment={report.comment}
+                comment={report.conversationSummary}
                 variant="dashboard"
               />
             </Card>
 
-            <ConversationTimeline />
+            <ConversationTimeline evidences={report.evidenceSentences} />
 
             <section className={styles.summarySection} aria-label="이날의 대화 요약">
               <Card className={styles.summaryCard}>
@@ -87,7 +101,9 @@ export function GuardianReportPage() {
               </Card>
             </section>
           </>
-        ) : (
+        )}
+
+        {!showSpinner && reportMissing && (
           <section className={styles.emptyState} aria-labelledby="guardian-report-empty-title">
             <img
               className={styles.emptyCharacter}
