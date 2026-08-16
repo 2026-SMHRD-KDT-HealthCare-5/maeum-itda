@@ -34,7 +34,7 @@ from functools import lru_cache
 from openai import OpenAI
 
 from app.config import get_settings
-from app.services.llm_prompts import SYSTEM_PROMPT
+from app.services.llm_prompts import DAILY_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT
 from app.session_manager import SessionState
 
 logger = logging.getLogger(__name__)
@@ -274,3 +274,77 @@ def generate_next_question(
                 for answer in answers
             ],
         }
+
+
+# DAILY_SUMMARY_MODE=test일 때 반환하는 고정 목업 — 실제 프롬프트 없이도
+# main.py의 응답 매핑과 백엔드 계약을 끝까지 돌려볼 수 있게 한다. conversation_summary는
+# 실제 정책(200~300자, 3~4문장)과 비슷한 분량으로 맞춰서 test 모드에서도 화면
+# 레이아웃(글자 수)을 현실적으로 확인할 수 있게 한다.
+DAILY_SUMMARY_STUB = {
+    "conversation_summary": (
+        "오늘은 어르신과 산책 이야기를 나눴어요. 날씨가 좋아서 오랜만에 동네를 "
+        "한 바퀴 도셨다고 하셨고, 걷는 동안 기분이 한결 가벼워지셨다고 말씀하셨어요. "
+        "최근 잠은 잘 주무시는 편이라고 하셨지만, 가끔 저녁에 혼자 계실 때 조금 "
+        "적적하다고도 하셨어요. 전반적으로는 밝은 톤으로 대화를 이어가셨습니다."
+    ),
+    "recommended_action": "오늘 나눈 이야기에 대해 안부 전화를 한 통 드려보시는 건 어떨까요?",
+}
+
+
+def _has_senior_turn(turns: list[dict]) -> bool:
+    return any(turn.get("speaker_type") == "SENIOR" for turn in turns)
+
+
+def _format_daily_turn(turn: dict) -> str:
+    sentiment = turn.get("sentiment_label")
+    suffix = f" (감정: {sentiment})" if sentiment else ""
+    return f"[{turn['speaker_type']}] {turn['content']}{suffix}"
+
+
+def build_daily_summary_user_prompt(turns: list[dict]) -> str:
+    turn_lines = "\n".join(_format_daily_turn(turn) for turn in turns)
+    return f"""\
+[오늘 하루 대화 전체(시간 순서)]
+{turn_lines}
+
+위 대화를 참고해서 conversation_summary와 recommended_action을 JSON으로 생성하세요."""
+
+
+def generate_daily_summary(turns: list[dict]) -> dict:
+    """UC-06-4(FR-03-06): 하루치 대화로 conversationSummary/recommendedAction을 생성한다.
+
+    turns: [{"speaker_type": "SENIOR"|"AI", "content": str, "sentiment_label": str|None}, ...]
+    유효한 시니어 발화가 하나도 없으면(대안흐름 A1) LLM을 호출하지 않고 곧바로
+    둘 다 None을 돌려준다.
+    """
+    if not _has_senior_turn(turns):
+        return {"conversation_summary": None, "recommended_action": None}
+
+    mode = settings.daily_summary_mode.strip().lower()
+    if mode == "test":
+        return dict(DAILY_SUMMARY_STUB)
+    if mode != "model":
+        raise ValueError("DAILY_SUMMARY_MODE must be one of: test, model")
+
+    client = _get_openai_client()
+    user_prompt = build_daily_summary_user_prompt(turns)
+    try:
+        resp = client.chat.completions.create(
+            model=settings.openai_llm_model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": DAILY_SUMMARY_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.5,
+        )
+        data = json.loads(resp.choices[0].message.content)
+        summary = data.get("conversation_summary")
+        action = data.get("recommended_action")
+        return {
+            "conversation_summary": summary if isinstance(summary, str) and summary.strip() else None,
+            "recommended_action": action if isinstance(action, str) and action.strip() else None,
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.error("일간 요약 생성 실패, null로 대체: %s", e)
+        return {"conversation_summary": None, "recommended_action": None}

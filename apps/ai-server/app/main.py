@@ -9,7 +9,12 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from app.config import get_settings
-from app.schemas import AnswerAnalysis, BatchAnalysisResponse
+from app.schemas import (
+    AnswerAnalysis,
+    BatchAnalysisResponse,
+    DailySummaryRequest,
+    DailySummaryResponse,
+)
 from app.services import emotion as emotion_service
 from app.services import llm as llm_service
 from app.services import stt as stt_service
@@ -131,6 +136,31 @@ async def analyze_audio_batch(
         nextQuestion=next_question,
         ttsAudioBase64=base64.b64encode(tts_audio).decode("ascii"),
         ttsMimeType=_tts_mime_type(audio_format),
+    )
+
+
+@app.post("/reports/daily-summary", response_model=DailySummaryResponse)
+async def generate_daily_summary(request: DailySummaryRequest) -> DailySummaryResponse:
+    """UC-06-4(FR-03-06): 하루치 대화로 일간 요약·추천 행동을 생성한다.
+
+    백엔드가 그날(reportDate) 시니어·AI 발화 전체를 시간순으로 모아 보내면,
+    유효한 시니어 발화가 있을 때만 LLM으로 conversationSummary/recommendedAction을
+    만든다(없으면 대안흐름 A1에 따라 생성을 생략하고 둘 다 null). seniorId/
+    reportDate는 아직 로깅 이상의 용도로 쓰지 않는다 — 프롬프트에는 대화
+    내용만 넣는다.
+    """
+    turns = [
+        {
+            "speaker_type": turn.speakerType,
+            "content": turn.content,
+            "sentiment_label": turn.sentimentLabel,
+        }
+        for turn in request.turns
+    ]
+    result = await asyncio.to_thread(llm_service.generate_daily_summary, turns)
+    return DailySummaryResponse(
+        conversationSummary=result["conversation_summary"],
+        recommendedAction=result["recommended_action"],
     )
 
 

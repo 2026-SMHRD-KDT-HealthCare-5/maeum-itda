@@ -408,5 +408,86 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")
 
 
+class DailySummaryApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_generates_summary_from_conversation_turns(self):
+        with patch(
+            "app.main.llm_service.generate_daily_summary",
+            return_value={
+                "conversation_summary": "오늘은 산책 이야기를 나누셨어요.",
+                "recommended_action": "안부 전화를 드려보세요.",
+            },
+        ) as generate:
+            response = self.client.post(
+                "/reports/daily-summary",
+                json={
+                    "seniorId": 7,
+                    "reportDate": "2026-08-17",
+                    "turns": [
+                        {"speakerType": "AI", "content": "오늘 하루 어떠셨어요?"},
+                        {
+                            "speakerType": "SENIOR",
+                            "content": "산책 다녀왔어요.",
+                            "sentimentLabel": "POSITIVE",
+                        },
+                    ],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "conversationSummary": "오늘은 산책 이야기를 나누셨어요.",
+                "recommendedAction": "안부 전화를 드려보세요.",
+            },
+        )
+        called_turns = generate.call_args[0][0]
+        self.assertEqual(
+            called_turns,
+            [
+                {"speaker_type": "AI", "content": "오늘 하루 어떠셨어요?", "sentiment_label": None},
+                {
+                    "speaker_type": "SENIOR",
+                    "content": "산책 다녀왔어요.",
+                    "sentiment_label": "POSITIVE",
+                },
+            ],
+        )
+
+    def test_returns_null_fields_when_generation_skipped(self):
+        with patch(
+            "app.main.llm_service.generate_daily_summary",
+            return_value={"conversation_summary": None, "recommended_action": None},
+        ):
+            response = self.client.post(
+                "/reports/daily-summary",
+                json={
+                    "seniorId": 7,
+                    "reportDate": "2026-08-17",
+                    "turns": [{"speakerType": "AI", "content": "오늘 하루 어떠셨어요?"}],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(), {"conversationSummary": None, "recommendedAction": None}
+        )
+
+    def test_rejects_invalid_speaker_type(self):
+        response = self.client.post(
+            "/reports/daily-summary",
+            json={
+                "seniorId": 7,
+                "reportDate": "2026-08-17",
+                "turns": [{"speakerType": "GUARDIAN", "content": "..."}],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+
+
 if __name__ == "__main__":
     unittest.main()
