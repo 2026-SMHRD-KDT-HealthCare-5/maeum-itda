@@ -7,6 +7,7 @@ import type { AnalysisService } from '../../analysis/analysis.service';
 import type { ChatConnectionStateService } from '../chat-connection-state.service';
 import type { QuestionAnswerQueueService } from '../question-answer-queue.service';
 import type { AudioTransferStateService } from '../audio-transfer-state.service';
+import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 
 describe('AudioBinaryHandler', () => {
   const metadata = {
@@ -51,6 +52,7 @@ describe('AudioBinaryHandler', () => {
       markProcessed: jest.fn(),
       clearClient: jest.fn(),
     };
+    const lastTurnRecalcTimerService = { arm: jest.fn() };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
       answerRepository as unknown as AudioAnswerRepository,
@@ -58,6 +60,8 @@ describe('AudioBinaryHandler', () => {
       analysisService as unknown as AnalysisService,
       connectionStateService as unknown as ChatConnectionStateService,
       transferStateService as unknown as AudioTransferStateService,
+      undefined,
+      lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
     );
 
     return {
@@ -70,6 +74,7 @@ describe('AudioBinaryHandler', () => {
       analysisService,
       connectionStateService,
       transferStateService,
+      lastTurnRecalcTimerService,
     };
   }
 
@@ -177,6 +182,32 @@ describe('AudioBinaryHandler', () => {
         payload: expect.objectContaining({ code: 'AUDIO_SAVE_FAILED' }),
       }),
     );
+  });
+
+  it('다음 질문을 전송하면 마지막 턴 재계산 타이머를 다시 시작한다', async () => {
+    const context = createContext();
+    context.analysisService.isFastApiConnected.mockReturnValue(true);
+    context.analysisService.processPendingAnswerBatch.mockResolvedValue({
+      answerTranscripts: [],
+      nextQuestion: {
+        messageId: 103,
+        generationId: 'generation-002',
+        content: '산책하면서 무엇이 좋으셨어요?',
+      },
+    });
+    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
+      isBatchOwner: true,
+      ready: Promise.resolve({
+        questionMessageId: 101,
+        seniorId: 7,
+        continueConversation: true,
+      }),
+    });
+
+    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(7);
   });
 
   it('다음 질문이 없는 늦은 답변이어도 STT 결과는 audio:transcript로 전송한다', async () => {

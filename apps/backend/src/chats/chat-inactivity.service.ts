@@ -5,6 +5,7 @@
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
+import { EmotionIndexRecalcTriggerService } from '../reports/emotion-index-recalc-trigger.service';
 import { AudioTransferStateService } from './audio-transfer-state.service';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
@@ -28,6 +29,7 @@ export class ChatInactivityService {
     private readonly audioMetadataHandler: AudioMetadataHandler,
     private readonly audioTransferStateService: AudioTransferStateService,
     private readonly chatConnectionStateService: ChatConnectionStateService,
+    private readonly recalcTriggerService?: EmotionIndexRecalcTriggerService,
   ) {}
 
   startWaitingForAnswer(client: WebSocket): void {
@@ -66,6 +68,12 @@ export class ChatInactivityService {
         false,
       );
     }
+    // markChatEnded가 seniorId 매핑을 지우므로 그 전에 읽어야 한다.
+    const seniorId = this.chatConnectionStateService.getSeniorId(client);
+    if (seniorId !== undefined) {
+      this.recalcTriggerService?.recalcToday(seniorId);
+    }
+
     this.clearClient(client);
     this.audioMetadataHandler.clearClient(client);
     this.audioTransferStateService.clearClient(client);

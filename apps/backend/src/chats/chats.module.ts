@@ -6,6 +6,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalysisModule } from '../analysis/analysis.module';
+import { ReportsModule } from '../reports/reports.module';
 import { ChatsController } from './chats.controller';
 import { ChatsGateway } from './chats.gateway';
 import { ChatsService } from './chats.service';
@@ -25,6 +26,7 @@ import { AudioTransferStateService } from './audio-transfer-state.service';
 import { ChatInactivityService } from './chat-inactivity.service';
 import { ChatHistoryQueryService } from './chat-history-query.service';
 import { ChatHistoryRepository } from './repositories/chat-history.repository';
+import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 
 // 인증·AI 분석·DB Repository를 가져오고 채팅의 입구와 업무 객체를 등록한다.
 // NestJS DI 컨테이너는 등록된 객체의 생성자를 확인해 필요한 의존성을 주입한다.
@@ -32,6 +34,7 @@ import { ChatHistoryRepository } from './repositories/chat-history.repository';
   imports: [
     AuthModule,
     AnalysisModule,
+    ReportsModule,
     TypeOrmModule.forFeature([ConversationMessage, MessageRelationship]),
   ],
   controllers: [ChatsController],
@@ -52,6 +55,7 @@ import { ChatHistoryRepository } from './repositories/chat-history.repository';
     QuestionAnswerQueueService,
     AudioTransferStateService,
     ChatInactivityService,
+    LastTurnRecalcTimerService,
   ],
 })
 export class ChatsModule {}

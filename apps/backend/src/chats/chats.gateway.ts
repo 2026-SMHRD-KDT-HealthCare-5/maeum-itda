@@ -19,6 +19,7 @@ import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import { ChatEndHandler } from './handlers/chat-end.handler';
 import { ChatInactivityService } from './chat-inactivity.service';
+import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 import {
   ClientWsEventParseError,
   parseAuthenticatedClientEvent,
@@ -66,6 +67,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     audioBinaryHandler: AudioBinaryHandler,
     chatConnectionStateService: ChatConnectionStateService,
     private readonly chatInactivityService?: ChatInactivityService,
+    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
   ) {
     this.chatAuthHandler = chatAuthHandler;
     this.chatStartHandler = chatStartHandler;
@@ -179,6 +181,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         content: restored.content,
       });
       this.chatInactivityService?.startWaitingForAnswer(client);
+      this.lastTurnRecalcTimerService?.arm(authenticatedUser.sub);
     }
 
     // JWT 검증 중 도착한 메시지를 수신 순서대로 처리한다.

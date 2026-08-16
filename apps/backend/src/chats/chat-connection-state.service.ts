@@ -114,6 +114,13 @@ export class ChatConnectionStateService {
     return this.currentQuestionByClient.get(client);
   }
 
+  // 역할: 대화 종료/유휴 타임아웃 시점에 정서지수 즉시 재계산을 트리거할 seniorId를 조회한다.
+  // 연결 흐름: ChatEndHandler/ChatInactivityService → markChatEnded 이전에 호출해야 한다
+  // (markChatEnded가 이 매핑을 지운다).
+  getSeniorId(client: WebSocket): number | undefined {
+    return this.seniorIdByClient.get(client);
+  }
+
   // 역할: chat:end 이후 진행 중 분석은 저장하되 다음 ai:question은 보내지 않도록 표시한다.
   markChatEnded(client: WebSocket): void {
     const seniorId = this.seniorIdByClient.get(client);

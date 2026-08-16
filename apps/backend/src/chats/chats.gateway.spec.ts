@@ -8,6 +8,7 @@ import type { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import type { ChatConnectionStateService } from './chat-connection-state.service';
 import type { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import type { ChatEndHandler } from './handlers/chat-end.handler';
+import type { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 
 describe('ChatsGateway', () => {
   afterEach(() => {
@@ -61,6 +62,7 @@ describe('ChatsGateway', () => {
       clearClient: jest.fn(),
       restoreClient: jest.fn(),
     };
+    const lastTurnRecalcTimerService = { arm: jest.fn() };
     const gateway = new ChatsGateway(
       chatAuthHandler as unknown as ChatAuthHandler,
       chatStartHandler as unknown as ChatStartHandler,
@@ -68,6 +70,8 @@ describe('ChatsGateway', () => {
       audioMetadataHandler as unknown as AudioMetadataHandler,
       audioBinaryHandler as unknown as AudioBinaryHandler,
       chatConnectionStateService as unknown as ChatConnectionStateService,
+      undefined,
+      lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
     );
     return {
       gateway,
@@ -76,6 +80,8 @@ describe('ChatsGateway', () => {
       chatEndHandler,
       audioMetadataHandler,
       audioBinaryHandler,
+      chatConnectionStateService,
+      lastTurnRecalcTimerService,
     };
   }
 
@@ -178,5 +184,22 @@ describe('ChatsGateway', () => {
       client.client,
       binary,
     );
+  });
+
+  it('단기 재접속으로 질문이 복원되면 마지막 턴 재계산 타이머를 다시 시작한다', async () => {
+    const authenticatedUser = { sub: 1, role: UserRole.SENIOR };
+    const context = createGateway(authenticatedUser);
+    context.chatConnectionStateService.restoreClient.mockReturnValue({
+      questionMessageId: 101,
+      generationId: 'generation-001',
+      content: '오늘 하루는 어땠나요?',
+    });
+    const client = createClient();
+
+    context.gateway.handleConnection(client.client);
+    client.receiveJson(authEvent);
+    await Promise.resolve();
+
+    expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(1);
   });
 });
