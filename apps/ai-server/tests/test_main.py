@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from app.config import get_settings
 from app.main import _tts_mime_type, app
 from app.services.stt import SttResult
+from app.session_manager import SessionState
 
 
 class AudioBatchApiTests(unittest.TestCase):
@@ -185,6 +186,78 @@ class AudioBatchApiTests(unittest.TestCase):
 
         called_answers = generate.call_args[0][0]
         self.assertEqual([answer["message_id"] for answer in called_answers], [102, 103])
+
+    def test_audio_batch_defaults_session_context_when_backend_omits_it(self):
+        """백엔드가 아직 prevSessionSummary/pendingScaleItems를 안 보내는 8/16 시점에도
+        기존과 동일하게 빈 값(SessionState 기본값)으로 동작해야 한다."""
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책은 어떠셨어요?"},
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        session = generate.call_args[0][1]
+        self.assertIsInstance(session, SessionState)
+        self.assertEqual(session.prev_session_summary, "")
+        self.assertEqual(session.pending_scale_items, {})
+
+    def test_audio_batch_fills_session_context_from_backend_fields(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책은 어떠셨어요?"},
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ),
+        ):
+            fields = self._multipart() + [
+                ("prevSessionSummary", (None, "어제는 산책을 다녀오셨다고 함")),
+                ("pendingScaleItems", (None, '{"SGDS_K": ["1", "2"]}')),
+            ]
+            response = self.client.post("/analysis/audio/batch", files=fields)
+
+        self.assertEqual(response.status_code, 200, response.text)
+        session = generate.call_args[0][1]
+        self.assertEqual(session.prev_session_summary, "어제는 산책을 다녀오셨다고 함")
+        self.assertEqual(session.pending_scale_items, {"SGDS_K": ["1", "2"]})
+
+    def test_audio_batch_rejects_malformed_pending_scale_items(self):
+        with patch("app.main.stt_service.transcribe") as transcribe:
+            fields = self._multipart() + [
+                ("pendingScaleItems", (None, "not-json")),
+            ]
+            response = self.client.post("/analysis/audio/batch", files=fields)
+
+        self.assertEqual(response.status_code, 422)
+        transcribe.assert_not_called()
 
     def test_rejects_invalid_end_type_before_external_services(self):
         with patch("app.main.stt_service.transcribe") as transcribe:

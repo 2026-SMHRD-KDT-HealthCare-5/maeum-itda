@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import json
 import logging
 from pathlib import Path
 
@@ -35,8 +36,14 @@ async def analyze_audio_batch(
     audio_transfer_ids: list[str] = Form(alias="audioTransferIds"),
     captured_ats: list[str] = Form(alias="capturedAts"),
     end_types: list[str] = Form(alias="endTypes"),
+    prev_session_summary: str = Form(alias="prevSessionSummary", default=""),
+    pending_scale_items: str = Form(alias="pendingScaleItems", default="{}"),
 ) -> BatchAnalysisResponse:
-    """WebSocket 대신 한 질문의 음성 묶음을 REST로 분석한다."""
+    """WebSocket 대신 한 질문의 음성 묶음을 REST로 분석한다.
+
+    prevSessionSummary/pendingScaleItems는 백엔드가 아직 채워 보내지 않으므로
+    (8/18 연동 예정) 기본값(빈 문자열/빈 객체)으로도 기존과 동일하게 동작해야 한다.
+    """
     lengths = {
         len(audio_files),
         len(message_ids),
@@ -48,6 +55,8 @@ async def analyze_audio_batch(
         raise HTTPException(status_code=422, detail="반복 필드 개수가 일치하지 않습니다.")
     if any(end_type not in {"auto", "manual"} for end_type in end_types):
         raise HTTPException(status_code=422, detail="endTypes 값이 올바르지 않습니다.")
+
+    pending_scale_items_dict = _parse_pending_scale_items(pending_scale_items)
 
     processed_answers: list[dict] = []
 
@@ -72,7 +81,12 @@ async def analyze_audio_batch(
             {"message_id": message_id, "text": stt_result.text, "emotion": emotion}
         )
 
-    session = SessionState(session_id=generation_id, user_id=str(question_message_id))
+    session = SessionState(
+        session_id=generation_id,
+        user_id=str(question_message_id),
+        prev_session_summary=prev_session_summary,
+        pending_scale_items=pending_scale_items_dict,
+    )
     llm_result = await asyncio.to_thread(
         llm_service.generate_next_question,
         processed_answers,
@@ -128,6 +142,32 @@ def _to_sentiment_label(emotion: dict[str, float]) -> str:
         {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative},
         key=lambda label: {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative}[label],
     )
+
+
+def _parse_pending_scale_items(raw: str) -> dict[str, list[str]]:
+    """`{"SGDS_K": ["1", "3"], ...}` 형태의 JSON 문자열을 파싱한다.
+
+    백엔드가 아직 이 필드를 보내지 않는 동안은 기본값("{}")이 그대로 들어와
+    빈 dict가 되고, llm.py의 프롬프트 구성은 이전처럼 "채점된 문항 없음"으로 취급한다.
+    """
+    try:
+        parsed = json.loads(raw) if raw else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=422, detail="pendingScaleItems가 올바른 JSON이 아닙니다."
+        ) from exc
+
+    if not isinstance(parsed, dict) or not all(
+        isinstance(scale_type, str)
+        and isinstance(items, list)
+        and all(isinstance(item, str) for item in items)
+        for scale_type, items in parsed.items()
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="pendingScaleItems는 {scaleType: [questionNumber, ...]} 형태의 JSON 객체여야 합니다.",
+        )
+    return parsed
 
 
 def _resolve_audio_format(audio_file: UploadFile) -> str:
