@@ -31,6 +31,12 @@ export function createSilenceWatcher(
   { silenceMs, onSilence }: SilenceWatcherOptions,
 ): SilenceWatcherHandle {
   const audioContext = new AudioContext()
+  // iOS Safari 등은 사용자 제스처 없이 만든 AudioContext를 'suspended'로 시작할
+  // 수 있다 — resume() 없이 두면 analyser가 데이터를 못 받아 묵음 감지 자체가
+  // 조용히 죽는다.
+  if (audioContext.state === 'suspended') {
+    void audioContext.resume()
+  }
   const source = audioContext.createMediaStreamSource(stream)
   const analyser = audioContext.createAnalyser()
   analyser.fftSize = 2048

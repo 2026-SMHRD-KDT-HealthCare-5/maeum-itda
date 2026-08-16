@@ -95,10 +95,13 @@ export function SeniorConversationPage() {
     return () => socket.disconnect()
   }, [session?.accessToken, socket, navigate])
 
-  const { phase, finishAnswer } = useRecordVoiceAnswer({
+  const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
     onAnswerQueued: (message) => setMessages((prev) => [...prev, message]),
+    // AiQuestionPayload에 TTS 오디오 필드가 아직 없어(백엔드 8/18 예정) 항상
+    // null — 그 전까지는 기존처럼 질문 도착 즉시 마이크가 열린다.
+    ttsAudio: null,
   })
 
   const character = characterByState[phase]
@@ -153,6 +156,7 @@ export function SeniorConversationPage() {
               characterImageSrc={character.src}
               characterState={phase}
               onFinishAnswer={finishAnswer}
+              ttsAutoplayBlocked={ttsAutoplayBlocked}
             />
           </>
         )}
