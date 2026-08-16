@@ -5,6 +5,10 @@ type RecordVoiceAnswerActionProps = {
   characterImageSrc: string
   characterState: 'listening' | 'question' | 'thinking'
   onFinishAnswer: () => void
+  // TTS 자동재생이 막혀(iOS 등) 소리 없이 텍스트로만 전달됐을 때 true —
+  // "말하고 있어요" 대신 "글로 전해요" 안내로 바꿔 사용자가 위 말풍선을
+  // 확인하도록 유도한다.
+  ttsAutoplayBlocked?: boolean
 }
 
 export function RecordVoiceAnswerAction({
@@ -12,6 +16,7 @@ export function RecordVoiceAnswerAction({
   characterImageSrc,
   characterState,
   onFinishAnswer,
+  ttsAutoplayBlocked = false,
 }: RecordVoiceAnswerActionProps) {
   const isResponding = characterState === 'listening'
   const statusText =
@@ -19,7 +24,9 @@ export function RecordVoiceAnswerAction({
       ? '답변을 정리하고 있어요'
       : isResponding
         ? '어르신 말씀을 듣고 있어요'
-        : '다슬이가 이야기하고 있어요'
+        : ttsAutoplayBlocked
+          ? '다슬이가 위 글로 이야기하고 있어요'
+          : '다슬이가 이야기하고 있어요'
 
   return (
     <section className={styles.controls} aria-labelledby="conversation-status">

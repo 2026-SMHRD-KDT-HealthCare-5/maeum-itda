@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { AiQuestionPayload, AudioAckPayload, AudioEndType } from '../../../shared/types'
 import type { ChatSocket } from '../../../shared/api'
 import type { ChatMessage } from '../../../entities/conversation'
+import { playTtsAudioOnce } from '../../../shared/lib'
 import { sendVoiceAnswer } from '../api'
 import { createSilenceWatcher, pickSupportedAudioMimeType, type SilenceWatcherHandle } from '../lib'
 
@@ -18,12 +19,19 @@ export interface UseRecordVoiceAnswerOptions {
   // audio:ack로 messageId가 확정된 시니어 답변을 대화 목록에 추가한다.
   // content는 STT 완료 전이라 null이다(docs/ws-protocol.md §5.4).
   onAnswerQueued: (message: ChatMessage) => void
+  // 이번 질문의 TTS 오디오(있으면) — 재생이 끝난 뒤에만 마이크를 열어 TTS
+  // 소리가 마이크에 그대로 들어가 에코가 생기는 걸 막는다. 백엔드가 아직
+  // tts:audio로 실제 오디오를 보내지 않는 동안(8/18 예정)은 항상 null이고,
+  // 이 경우 기존처럼 질문 도착 즉시 마이크를 연다.
+  ttsAudio?: { base64: string; mimeType: string } | null
 }
 
 export interface UseRecordVoiceAnswerResult {
   phase: RecordingPhase
   // "지금 답변 마치기" 버튼에 그대로 연결한다.
   finishAnswer: () => void
+  // 이번 질문의 TTS 자동재생이 막혀(iOS 등) 소리 없이 텍스트로만 전달됐는지.
+  ttsAutoplayBlocked: boolean
 }
 
 const AUTO_SILENCE_MS = 10_000
@@ -36,8 +44,10 @@ export function useRecordVoiceAnswer({
   socket,
   currentQuestion,
   onAnswerQueued,
+  ttsAudio = null,
 }: UseRecordVoiceAnswerOptions): UseRecordVoiceAnswerResult {
   const [phase, setPhase] = useState<RecordingPhase>('question')
+  const [ttsAutoplayBlocked, setTtsAutoplayBlocked] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const silenceWatcherRef = useRef<SilenceWatcherHandle | null>(null)
@@ -55,11 +65,18 @@ export function useRecordVoiceAnswer({
   useEffect(() => {
     if (!currentQuestion?.generationId) return
     let cancelled = false
+    const ttsPlayback = ttsAudio ? playTtsAudioOnce(ttsAudio.base64, ttsAudio.mimeType) : null
 
     async function startRecording() {
       // 동기적인 effect 본문이 아니라 이 비동기 콜백 안에서 상태를 바꿔야
       // 불필요한 cascading render 경고(react-hooks/set-state-in-effect)를 피한다.
       setPhase('question')
+      setTtsAutoplayBlocked(false)
+      if (ttsPlayback) {
+        const { autoplayBlocked } = await ttsPlayback.finished
+        if (cancelled) return
+        setTtsAutoplayBlocked(autoplayBlocked)
+      }
       let stream: MediaStream
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -92,13 +109,14 @@ export function useRecordVoiceAnswer({
     void startRecording()
     return () => {
       cancelled = true
+      ttsPlayback?.stop()
       silenceWatcherRef.current?.stop()
       silenceWatcherRef.current = null
       if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
       streamRef.current?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
     }
-  }, [currentQuestion?.generationId])
+  }, [currentQuestion?.generationId, ttsAudio])
 
   useEffect(() => {
     function handleAck(payload: AudioAckPayload) {
@@ -141,5 +159,5 @@ export function useRecordVoiceAnswer({
     recorder.stop()
   }
 
-  return { phase, finishAnswer: () => finish('manual') }
+  return { phase, finishAnswer: () => finish('manual'), ttsAutoplayBlocked }
 }
