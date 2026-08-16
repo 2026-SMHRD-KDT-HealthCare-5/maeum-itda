@@ -76,3 +76,59 @@ export function createSilenceWatcher(
     },
   }
 }
+
+export interface VoiceActivityWatcherHandle {
+  stop: () => void
+}
+
+// 아직 녹음 중이 아닌 구간(다음 질문을 기다리는 '생각 중', 또는 TTS가 재생 중인
+// '질문' 구간)에 시니어가 말을 시작하는 첫 순간을 감지한다 — 감지되면
+// onVoiceDetected를 한 번만 부르고 스스로 멈춘다(끼어들기/barge-in 트리거).
+// createSilenceWatcher와 반대 방향 조건(첫 큰 소리를 기다림)이라 별도 함수로 둔다.
+export function createVoiceActivityWatcher(
+  stream: MediaStream,
+  { onVoiceDetected }: { onVoiceDetected: () => void },
+): VoiceActivityWatcherHandle {
+  const audioContext = new AudioContext()
+  if (audioContext.state === 'suspended') {
+    void audioContext.resume()
+  }
+  const source = audioContext.createMediaStreamSource(stream)
+  const analyser = audioContext.createAnalyser()
+  analyser.fftSize = 2048
+  source.connect(analyser)
+
+  const buffer = new Uint8Array(analyser.fftSize)
+  let stopped = false
+
+  function finish() {
+    stopped = true
+    source.disconnect()
+    void audioContext.close()
+  }
+
+  function tick() {
+    if (stopped) return
+    analyser.getByteTimeDomainData(buffer)
+    let sumSquares = 0
+    for (const sample of buffer) {
+      const normalized = (sample - 128) / 128
+      sumSquares += normalized * normalized
+    }
+    const rms = Math.sqrt(sumSquares / buffer.length)
+
+    if (rms >= SILENCE_RMS_THRESHOLD) {
+      finish()
+      onVoiceDetected()
+      return
+    }
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+
+  return {
+    stop: () => {
+      if (!stopped) finish()
+    },
+  }
+}

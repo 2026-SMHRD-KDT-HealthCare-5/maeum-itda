@@ -100,7 +100,9 @@ export function SeniorConversationPage() {
     currentQuestion,
     onAnswerQueued: (message) => setMessages((prev) => [...prev, message]),
     // AiQuestionPayload에 TTS 오디오 필드가 아직 없어(백엔드 8/18 예정) 항상
-    // null — 그 전까지는 기존처럼 질문 도착 즉시 마이크가 열린다.
+    // null — TTS가 없으니 재생을 기다리지 않고 곧바로 마이크가 열린다. 다음
+    // 질문을 기다리는 동안 끼어드는 발화를 추가 답변으로 받는 동작은 TTS 유무와
+    // 무관하게 이미 지금부터 동작한다.
     ttsAudio: null,
   })
 
