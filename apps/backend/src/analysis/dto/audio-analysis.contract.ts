@@ -54,7 +54,8 @@ export interface QuestionAnswerAnalysisResult {
 
 // DB 저장 완료 후 WebSocket으로 다음 질문을 보낼 때 사용하는 NestJS 내부 결과다.
 export interface CompletedAudioAnalysis {
-  answerMessageIds: number[];
+  // 다음 질문 유무와 무관하게(늦은 답변 포함) audio:transcript로 그대로 전달한다.
+  answerTranscripts: Array<{ messageId: number; content: string }>;
   nextQuestion: {
     messageId: number;
     generationId: string;

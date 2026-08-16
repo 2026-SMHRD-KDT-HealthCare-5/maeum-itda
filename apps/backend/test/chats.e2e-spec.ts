@@ -99,23 +99,29 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
     markProcessing: jest.fn().mockResolvedValue(undefined),
     markFailed: jest.fn().mockResolvedValue(undefined),
     findStatus: jest.fn(),
-    saveCompleted: jest
-      .fn()
-      .mockImplementation(
-        (
-          _batch,
-          nextGenerationId: string,
-          result: { nextQuestion: string | null },
-        ) =>
-          Promise.resolve({
-            answerMessageIds: [102],
-            nextQuestion: {
-              messageId: 201,
-              generationId: nextGenerationId,
-              content: result.nextQuestion,
-            },
-          }),
-      ),
+    saveCompleted: jest.fn().mockImplementation(
+      (
+        _batch,
+        nextGenerationId: string,
+        result: {
+          answers: Array<{ messageId: number; transcript: string }>;
+          nextQuestion: string | null;
+        },
+      ) =>
+        Promise.resolve({
+          answerTranscripts: result.answers.map(
+            ({ messageId, transcript }) => ({
+              messageId,
+              content: transcript,
+            }),
+          ),
+          nextQuestion: {
+            messageId: 201,
+            generationId: nextGenerationId,
+            content: result.nextQuestion,
+          },
+        }),
+    ),
   };
 
   beforeAll(async () => {
@@ -261,6 +267,13 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
     await expect(events.next('audio:ack')).resolves.toEqual(
       expect.objectContaining({
         payload: { audioTransferId: 'audio-transfer-001', messageId: 102 },
+      }),
+    );
+    await expect(events.next('audio:transcript', 15_000)).resolves.toEqual(
+      expect.objectContaining({
+        payload: {
+          transcripts: [{ messageId: 102, content: '오늘 산책을 다녀왔어요.' }],
+        },
       }),
     );
     const nextQuestion = await events.next('ai:question', 15_000);

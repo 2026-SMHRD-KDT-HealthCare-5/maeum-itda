@@ -1,32 +1,10 @@
 import { WS_BASE_URL } from '../config'
-import type {
-  AiQuestionPayload,
-  AudioAckPayload,
-  AudioEndType,
-  AuthErrorPayload,
-  AuthSuccessPayload,
-  ChatEndedPayload,
-  ChatIdleWarningPayload,
-  ChatRestoredPayload,
-  WsErrorPayload,
-  WsEvent,
-} from '../types'
+import type { AudioEndType, ServerWsEventMap, WsEvent } from '../types'
 
-// docs/ws-protocol.md §5 기준 서버 → 클라이언트 이벤트와 payload 형태.
-interface ServerEventMap {
-  'auth:success': AuthSuccessPayload
-  'auth:error': AuthErrorPayload
-  'chat:started': Record<string, never>
-  'ai:question': AiQuestionPayload
-  'audio:ack': AudioAckPayload
-  'chat:idle-warning': ChatIdleWarningPayload
-  'chat:ended': ChatEndedPayload
-  'chat:restored': ChatRestoredPayload
-  error: WsErrorPayload
-}
-
-type ServerEventName = keyof ServerEventMap
-type Listener<E extends ServerEventName> = (payload: ServerEventMap[E]) => void
+// 이벤트명·payload 형태는 packages/shared-types의 ServerWsEventMap이 기준이다
+// (여기서 따로 유지하면 새 이벤트 추가 때마다 둘 다 고쳐야 해서 드리프트가 생긴다).
+type ServerEventName = keyof ServerWsEventMap
+type Listener<E extends ServerEventName> = (payload: ServerWsEventMap[E]) => void
 
 export interface AudioAnswerMetadata {
   audioTransferId: string

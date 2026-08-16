@@ -205,13 +205,21 @@ export class AudioBinaryHandler {
         batch.questionMessageId,
       );
       if (
-        completed?.nextQuestion === null ||
         completed === null ||
         this.chatConnectionStateService.isChatEnded(client) ||
         !this.isClientOpen(client)
       ) {
         return;
       }
+      // 다음 질문 유무와 무관하게(늦은 답변이라 다음 질문이 없는 경우도 포함)
+      // STT(LLM 교정 포함) 결과를 먼저 전달한다 — 결정사항 로그 §0 "STT 결과는
+      // 다음 질문 생성 시점에 함께 전달".
+      if (completed.answerTranscripts.length > 0) {
+        sendWsEvent(client, 'audio:transcript', {
+          transcripts: completed.answerTranscripts,
+        });
+      }
+      if (completed.nextQuestion === null) return;
       this.chatConnectionStateService.setCurrentQuestion(
         client,
         completed.nextQuestion,

@@ -34,7 +34,7 @@ from functools import lru_cache
 from openai import OpenAI
 
 from app.config import get_settings
-from app.services.llm_prompts import SYSTEM_PROMPT
+from app.services.llm_prompts import DAILY_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT
 from app.session_manager import SessionState
 
 logger = logging.getLogger(__name__)
@@ -163,6 +163,60 @@ def _extract_answer_analyses(data: dict) -> list[dict]:
     ]
 
 
+def _extract_corrected_transcripts(data: dict) -> dict[int, str]:
+    """LLM 응답에서 messageId별 corrected_transcript만 뽑아 dict로 돌려준다.
+
+    SCALE_ANALYSIS_MODE와 무관하게 LLM 호출 자체는 항상 일어나므로(다음 질문
+    생성을 위해), 이 함수는 STT_CORRECTION_MODE가 "model"일 때만 호출된다 —
+    별도의 검증은 하지 않고 형식이 이상한 항목(messageId 누락, 빈 문자열 등)은
+    조용히 건너뛴다. 최종적으로 쓸지 말지는 _resolve_corrected_transcript가
+    STT 원문과 비교해 결정한다.
+    """
+    result: dict[int, str] = {}
+    for item in data.get("answer_analyses", []):
+        if not isinstance(item, dict):
+            continue
+        message_id = item.get("message_id")
+        corrected = item.get("corrected_transcript")
+        if isinstance(message_id, int) and isinstance(corrected, str) and corrected.strip():
+            result[message_id] = corrected
+    return result
+
+
+def _resolve_corrected_transcript(corrected: str | None, original_text: str) -> str:
+    """STT_CORRECTION_MODE=model일 때 messageId 하나의 최종 transcript를 정한다.
+
+    LLM이 그 messageId를 교정하지 않고 빠뜨렸으면(_extract_corrected_transcripts가
+    걸러낸 경우) STT 원문을 그대로 쓴다 — 교정 누락이 발화 자체의 유실로 이어지면
+    안 된다.
+    """
+    return corrected if corrected is not None else original_text
+
+
+def _apply_corrected_transcripts(
+    answer_analyses: list[dict], answers: list[dict], data: dict
+) -> list[dict]:
+    """answer_analyses 각 항목에 corrected_transcript를 채워 넣는다.
+
+    STT_CORRECTION_MODE가 "model"이 아니면(기본값 "test") LLM이 뭐라고 답했든
+    무시하고 STT 원문을 그대로 쓴다 — 로컬에서 교정 품질을 신뢰하기 전까지
+    안전한 기본값을 유지하기 위함(scale_analysis_mode와 같은 패턴).
+    """
+    mode = settings.stt_correction_mode.strip().lower()
+    original_text_by_id = {answer["message_id"]: answer["text"] for answer in answers}
+    corrected_by_id = _extract_corrected_transcripts(data) if mode == "model" else {}
+    return [
+        {
+            **item,
+            "corrected_transcript": _resolve_corrected_transcript(
+                corrected_by_id.get(item["message_id"]),
+                original_text_by_id.get(item["message_id"], ""),
+            ),
+        }
+        for item in answer_analyses
+    ]
+
+
 def generate_next_question(
     answers: list[dict],
     session: SessionState,
@@ -195,7 +249,10 @@ def generate_next_question(
         raw_answer_analyses = (
             _extract_answer_analyses(data) if mode == "model" else _stub_answer_analyses(answers)
         )
-        data["answer_analyses"] = _validate_answer_analyses(requested_ids, raw_answer_analyses)
+        validated_answer_analyses = _validate_answer_analyses(requested_ids, raw_answer_analyses)
+        data["answer_analyses"] = _apply_corrected_transcripts(
+            validated_answer_analyses, answers, data
+        )
         return data
     except Exception as e:  # noqa: BLE001
         logger.error("LLM 질문 생성 실패, 기본 질문으로 대체: %s", e)
@@ -209,6 +266,85 @@ def generate_next_question(
             "target_item": None,
             "empathy_note": "fallback",
             "answer_analyses": [
-                {"message_id": answer["message_id"], "scale_analyses": []} for answer in answers
+                {
+                    "message_id": answer["message_id"],
+                    "corrected_transcript": answer["text"],
+                    "scale_analyses": [],
+                }
+                for answer in answers
             ],
         }
+
+
+# DAILY_SUMMARY_MODE=test일 때 반환하는 고정 목업 — 실제 프롬프트 없이도
+# main.py의 응답 매핑과 백엔드 계약을 끝까지 돌려볼 수 있게 한다. conversation_summary는
+# 실제 정책(200~300자, 3~4문장)과 비슷한 분량으로 맞춰서 test 모드에서도 화면
+# 레이아웃(글자 수)을 현실적으로 확인할 수 있게 한다.
+DAILY_SUMMARY_STUB = {
+    "conversation_summary": (
+        "오늘은 어르신과 산책 이야기를 나눴어요. 날씨가 좋아서 오랜만에 동네를 "
+        "한 바퀴 도셨다고 하셨고, 걷는 동안 기분이 한결 가벼워지셨다고 말씀하셨어요. "
+        "최근 잠은 잘 주무시는 편이라고 하셨지만, 가끔 저녁에 혼자 계실 때 조금 "
+        "적적하다고도 하셨어요. 전반적으로는 밝은 톤으로 대화를 이어가셨습니다."
+    ),
+    "recommended_action": "오늘 나눈 이야기에 대해 안부 전화를 한 통 드려보시는 건 어떨까요?",
+}
+
+
+def _has_senior_turn(turns: list[dict]) -> bool:
+    return any(turn.get("speaker_type") == "SENIOR" for turn in turns)
+
+
+def _format_daily_turn(turn: dict) -> str:
+    sentiment = turn.get("sentiment_label")
+    suffix = f" (감정: {sentiment})" if sentiment else ""
+    return f"[{turn['speaker_type']}] {turn['content']}{suffix}"
+
+
+def build_daily_summary_user_prompt(turns: list[dict]) -> str:
+    turn_lines = "\n".join(_format_daily_turn(turn) for turn in turns)
+    return f"""\
+[오늘 하루 대화 전체(시간 순서)]
+{turn_lines}
+
+위 대화를 참고해서 conversation_summary와 recommended_action을 JSON으로 생성하세요."""
+
+
+def generate_daily_summary(turns: list[dict]) -> dict:
+    """UC-06-4(FR-03-06): 하루치 대화로 conversationSummary/recommendedAction을 생성한다.
+
+    turns: [{"speaker_type": "SENIOR"|"AI", "content": str, "sentiment_label": str|None}, ...]
+    유효한 시니어 발화가 하나도 없으면(대안흐름 A1) LLM을 호출하지 않고 곧바로
+    둘 다 None을 돌려준다.
+    """
+    if not _has_senior_turn(turns):
+        return {"conversation_summary": None, "recommended_action": None}
+
+    mode = settings.daily_summary_mode.strip().lower()
+    if mode == "test":
+        return dict(DAILY_SUMMARY_STUB)
+    if mode != "model":
+        raise ValueError("DAILY_SUMMARY_MODE must be one of: test, model")
+
+    client = _get_openai_client()
+    user_prompt = build_daily_summary_user_prompt(turns)
+    try:
+        resp = client.chat.completions.create(
+            model=settings.openai_llm_model,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": DAILY_SUMMARY_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.5,
+        )
+        data = json.loads(resp.choices[0].message.content)
+        summary = data.get("conversation_summary")
+        action = data.get("recommended_action")
+        return {
+            "conversation_summary": summary if isinstance(summary, str) and summary.strip() else None,
+            "recommended_action": action if isinstance(action, str) and action.strip() else None,
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.error("일간 요약 생성 실패, null로 대체: %s", e)
+        return {"conversation_summary": None, "recommended_action": None}
