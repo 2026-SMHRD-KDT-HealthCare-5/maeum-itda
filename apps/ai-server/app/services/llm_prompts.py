@@ -136,7 +136,8 @@ SYSTEM_PROMPT = f"""\
 # 안전한 기본값(test)을 유지하기 위함.
 #
 # 알려진 남은 갭(오늘 스코프 밖): apps/ai-server/app/main.py는 REST 요청마다
-# SessionState를 새로 만들고(session_manager.py의 싱글턴 미사용), pending_scale_items도
-# 항상 빈 dict로 넘어온다 — 즉 이 프롬프트가 "오늘 이미 채점된 문항"을 실제로
-# 알 방법이 아직 없다. 문항 순서를 고정해도 이 stateless 문제는 별개로 남아있고,
-# 백엔드가 세션/문항 커버리지를 REST 계약에 실어 보내야 해결된다.
+# SessionState를 새로 만든다(session_manager.py의 싱글턴 미사용). pendingScaleItems/
+# prevSessionSummary Form 필드는 받아서 채우도록 8/16에 구현했지만, 백엔드가 실제
+# 값을 채워 보내는 연동(오늘 채점된 문항·최근 요약 DB 조회)은 아직 없어 항상 빈
+# 값이 들어온다 — 8/18에 백엔드 쪽 연동이 붙어야 이 프롬프트가 "오늘 이미 채점된
+# 문항"을 실제로 알게 된다.
