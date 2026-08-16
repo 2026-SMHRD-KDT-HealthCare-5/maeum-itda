@@ -18,6 +18,7 @@ import { sendWsError, sendWsEvent, type WsErrorPayload } from '../ws-event';
 import { AudioMetadataHandler } from './audio-metadata.handler';
 import { AudioTransferStateService } from '../audio-transfer-state.service';
 import { ChatInactivityService } from '../chat-inactivity.service';
+import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
@@ -38,6 +39,7 @@ export class AudioBinaryHandler {
     private readonly chatConnectionStateService: ChatConnectionStateService,
     private readonly audioTransferStateService: AudioTransferStateService,
     private readonly chatInactivityService?: ChatInactivityService,
+    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
   ) {}
 
   // 역할: 음성 한 건은 즉시 저장·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
@@ -216,6 +218,8 @@ export class AudioBinaryHandler {
       );
       sendWsEvent(client, 'ai:question', completed.nextQuestion);
       this.chatInactivityService?.startWaitingForAnswer(client);
+      // 새 턴이 생길 때마다 "마지막 턴 후 10분 무재접속" 타이머를 다시 시작한다.
+      this.lastTurnRecalcTimerService?.arm(batch.seniorId);
     } catch {
       if (this.isClientOpen(client)) {
         this.sendError(

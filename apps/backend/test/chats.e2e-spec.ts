@@ -29,7 +29,9 @@ import { AudioTransferStateService } from '../src/chats/audio-transfer-state.ser
 import { ChatInactivityService } from '../src/chats/chat-inactivity.service';
 import { AudioAnswerRepository } from '../src/chats/repositories/audio-answer.repository';
 import { ConversationMessageRepository } from '../src/chats/repositories/conversation-message.repository';
+import { LastTurnRecalcTimerService } from '../src/chats/last-turn-recalc-timer.service';
 import { rawDataToString } from '../src/chats/ws-event';
+import { EmotionIndexRecalcTriggerService } from '../src/reports/emotion-index-recalc-trigger.service';
 import { UserRole } from '../src/users/entities/user.entity';
 
 interface ReceivedWsEvent {
@@ -156,10 +158,15 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
         QuestionAnswerQueueService,
         AudioTransferStateService,
         ChatInactivityService,
+        LastTurnRecalcTimerService,
         ChatsService,
         AnalysisService,
         AiClient,
         TemporaryAudioRepository,
+        {
+          provide: EmotionIndexRecalcTriggerService,
+          useValue: { recalcToday: jest.fn() },
+        },
         {
           provide: AuthService,
           useValue: {

@@ -6,10 +6,12 @@
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
 import type { AccessTokenPayload } from '../../auth/auth.service';
+import { EmotionIndexRecalcTriggerService } from '../../reports/emotion-index-recalc-trigger.service';
 import { ChatsService, type StartedChat } from '../chats.service';
 import { sendWsError, sendWsEvent } from '../ws-event';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 import { ChatInactivityService } from '../chat-inactivity.service';
+import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatStartEvent } from '../client-ws-event';
 
 @Injectable()
@@ -22,6 +24,8 @@ export class ChatStartHandler {
     chatsService: ChatsService,
     chatConnectionStateService: ChatConnectionStateService,
     private readonly chatInactivityService?: ChatInactivityService,
+    private readonly recalcTriggerService?: EmotionIndexRecalcTriggerService,
+    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
   ) {
     this.chatsService = chatsService;
     this.chatConnectionStateService = chatConnectionStateService;
@@ -61,6 +65,12 @@ export class ChatStartHandler {
         startedChat,
         authenticatedUser.sub,
       );
+
+      // 같은 날 다시 대화를 시작하는 시점에 그날 리포트를 최신 상태로 갱신한다
+      // (결정사항 로그 §0 "같은 날 다시 대화하면... 재계산하고 갱신한다"). 그날
+      // 첫 대화라도 멱등이라 안전하다.
+      this.recalcTriggerService?.recalcToday(authenticatedUser.sub);
+      this.lastTurnRecalcTimerService?.arm(authenticatedUser.sub);
 
       // DB 저장이 끝난 경우에만 시작 완료와 AI 질문을 순서대로 전송
       this.handleChatStarted(client);

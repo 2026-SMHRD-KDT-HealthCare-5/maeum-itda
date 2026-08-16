@@ -6,6 +6,7 @@
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
+import { EmotionIndexRecalcTriggerService } from '../../reports/emotion-index-recalc-trigger.service';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 import { QuestionAnswerQueueService } from '../question-answer-queue.service';
 import { sendWsEvent } from '../ws-event';
@@ -23,6 +24,7 @@ export class ChatEndHandler {
     private readonly audioBinaryHandler: AudioBinaryHandler,
     private readonly chatConnectionStateService: ChatConnectionStateService,
     private readonly chatInactivityService?: ChatInactivityService,
+    private readonly recalcTriggerService?: EmotionIndexRecalcTriggerService,
   ) {}
 
   // 역할: 사용자의 수동 종료를 처리하되 WebSocket 연결은 유지하여 새 chat:start를 받을 수 있게 한다.
@@ -36,6 +38,12 @@ export class ChatEndHandler {
         currentQuestion.questionMessageId,
         false,
       );
+    }
+
+    // markChatEnded가 seniorId 매핑을 지우므로 그 전에 읽어야 한다.
+    const seniorId = this.chatConnectionStateService.getSeniorId(client);
+    if (seniorId !== undefined) {
+      this.recalcTriggerService?.recalcToday(seniorId);
     }
 
     this.audioMetadataHandler.clearClient(client);

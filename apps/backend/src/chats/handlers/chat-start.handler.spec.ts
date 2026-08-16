@@ -1,8 +1,10 @@
 import type WebSocket from 'ws';
 import { UserRole } from '../../users/entities/user.entity';
+import type { EmotionIndexRecalcTriggerService } from '../../reports/emotion-index-recalc-trigger.service';
 import type { ChatsService } from '../chats.service';
 import { ChatStartHandler } from './chat-start.handler';
 import type { ChatConnectionStateService } from '../chat-connection-state.service';
+import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatStartEvent } from '../client-ws-event';
 
 const chatStartEvent: ChatStartEvent = {
@@ -53,6 +55,39 @@ describe('ChatStartHandler', () => {
         payload: expect.objectContaining({ messageId: 101 }),
       }),
     ]);
+  });
+
+  it('대화 시작 시 정서지수 즉시 재계산과 마지막 턴 타이머를 트리거한다', async () => {
+    const chatsService = {
+      startChat: jest.fn().mockResolvedValue({
+        messageId: 101,
+        generationId: 'generation-001',
+        content: '오늘 하루는 어땠나요?',
+      }),
+    };
+    const client = { send: jest.fn<void, [string]>(), readyState: 1 };
+    const chatConnectionStateService = {
+      getCurrentQuestion: jest.fn().mockReturnValue(undefined),
+      setCurrentQuestion: jest.fn(),
+    };
+    const recalcTriggerService = { recalcToday: jest.fn() };
+    const lastTurnRecalcTimerService = { arm: jest.fn() };
+    const handler = new ChatStartHandler(
+      chatsService as unknown as ChatsService,
+      chatConnectionStateService as unknown as ChatConnectionStateService,
+      undefined,
+      recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
+      lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
+    );
+
+    await handler.handleChatStart(
+      client as unknown as WebSocket,
+      { sub: 1, role: UserRole.SENIOR },
+      chatStartEvent,
+    );
+
+    expect(recalcTriggerService.recalcToday).toHaveBeenCalledWith(1);
+    expect(lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(1);
   });
 
   it('진행 중인 대화에서 chat:start를 다시 받으면 시작을 거부한다', async () => {

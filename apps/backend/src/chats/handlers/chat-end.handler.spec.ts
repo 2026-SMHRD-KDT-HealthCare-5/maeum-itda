@@ -3,6 +3,7 @@
 역할: 수동 종료 시 질문 큐 확정, 연결 상태 정리, chat:ended 전송을 검증한다.
 */
 import type WebSocket from 'ws';
+import type { EmotionIndexRecalcTriggerService } from '../../reports/emotion-index-recalc-trigger.service';
 import type { ChatConnectionStateService } from '../chat-connection-state.service';
 import type { QuestionAnswerQueueService } from '../question-answer-queue.service';
 import type { AudioBinaryHandler } from './audio-binary.handler';
@@ -28,15 +29,28 @@ describe('ChatEndHandler', () => {
         questionMessageId: 101,
         generationId: 'generation-001',
       }),
+      getSeniorId: jest.fn().mockReturnValue(7),
       markChatEnded: jest.fn(),
     };
+    const recalcTriggerService = { recalcToday: jest.fn() };
     const handler = new ChatEndHandler(
       queue as unknown as QuestionAnswerQueueService,
       metadata as unknown as AudioMetadataHandler,
       binary as unknown as AudioBinaryHandler,
       state as unknown as ChatConnectionStateService,
+      undefined,
+      recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
     );
-    return { handler, client, send, queue, metadata, binary, state };
+    return {
+      handler,
+      client,
+      send,
+      queue,
+      metadata,
+      binary,
+      state,
+      recalcTriggerService,
+    };
   }
 
   it('남은 질문 큐와 연결 상태를 정리하고 chat:ended를 전송한다', () => {
@@ -56,5 +70,21 @@ describe('ChatEndHandler', () => {
         },
       }),
     );
+  });
+
+  it('markChatEnded 이전에 조회한 seniorId로 정서지수 즉시 재계산을 트리거한다', () => {
+    const context = createContext();
+    context.handler.handleChatEnd(context.client, chatEndEvent);
+
+    expect(context.recalcTriggerService.recalcToday).toHaveBeenCalledWith(7);
+  });
+
+  it('seniorId를 알 수 없으면 재계산을 트리거하지 않는다', () => {
+    const context = createContext();
+    context.state.getSeniorId.mockReturnValue(undefined);
+
+    context.handler.handleChatEnd(context.client, chatEndEvent);
+
+    expect(context.recalcTriggerService.recalcToday).not.toHaveBeenCalled();
   });
 });

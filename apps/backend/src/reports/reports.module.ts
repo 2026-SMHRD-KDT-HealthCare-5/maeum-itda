@@ -8,6 +8,7 @@ import { AuthModule } from '../auth/auth.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { GuardianSeniorRelationship } from '../users/entities/guardian-senior-relationship.entity';
 import { DailyReportQueryService } from './daily-report-query.service';
+import { EmotionIndexRecalcTriggerService } from './emotion-index-recalc-trigger.service';
 import { DailyEmotionReport } from './entities/daily-emotion-report.entity';
 import { DailyReportEvidence } from './entities/daily-report-evidence.entity';
 import { WeeklyEmotionReport } from './entities/weekly-emotion-report.entity';
@@ -47,6 +48,7 @@ import { WeeklyReportQueryService } from './weekly-report-query.service';
     WeeklyReportGenerationService,
     ReportGenerationCoordinatorService,
     ReportGenerationScheduler,
+    EmotionIndexRecalcTriggerService,
     DailyReportRepository,
     DailyReportEvidenceRepository,
     WeeklyReportRepository,
@@ -54,6 +56,6 @@ import { WeeklyReportQueryService } from './weekly-report-query.service';
     ReportCalendarRepository,
     ReportGenerationTargetRepository,
   ],
-  exports: [ReportsService],
+  exports: [ReportsService, EmotionIndexRecalcTriggerService],
 })
 export class ReportsModule {}
