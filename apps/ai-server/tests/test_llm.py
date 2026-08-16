@@ -219,6 +219,74 @@ class ExtractAnswerAnalysesTests(unittest.TestCase):
         self.assertEqual(result, [{"message_id": 102, "scale_analyses": []}])
 
 
+class ExtractCorrectedTranscriptsTests(unittest.TestCase):
+    def test_collects_valid_corrections_by_message_id(self):
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "corrected_transcript": "오늘 산책했어요."},
+                {"message_id": 103, "corrected_transcript": "비가 와서 속상해요."},
+            ]
+        }
+        self.assertEqual(
+            llm._extract_corrected_transcripts(data),
+            {102: "오늘 산책했어요.", 103: "비가 와서 속상해요."},
+        )
+
+    def test_skips_missing_or_blank_corrections(self):
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "corrected_transcript": ""},
+                {"message_id": 103},
+                {"message_id": 104, "corrected_transcript": "   "},
+                "garbage",
+            ]
+        }
+        self.assertEqual(llm._extract_corrected_transcripts(data), {})
+
+    def test_skips_items_without_int_message_id(self):
+        data = {"answer_analyses": [{"message_id": "102", "corrected_transcript": "텍스트"}]}
+        self.assertEqual(llm._extract_corrected_transcripts(data), {})
+
+
+class ApplyCorrectedTranscriptsTests(unittest.TestCase):
+    def test_test_mode_ignores_llm_output_and_uses_original_text(self):
+        answers = [_answer(102, "오늘 산책핬어요")]
+        data = {"answer_analyses": [{"message_id": 102, "corrected_transcript": "오늘 산책했어요."}]}
+        with patch.object(llm.settings, "stt_correction_mode", "test"):
+            result = llm._apply_corrected_transcripts(
+                [{"message_id": 102, "scale_analyses": []}], answers, data
+            )
+        self.assertEqual(result[0]["corrected_transcript"], "오늘 산책핬어요")
+
+    def test_model_mode_uses_llm_correction(self):
+        answers = [_answer(102, "오늘 산책핬어요")]
+        data = {"answer_analyses": [{"message_id": 102, "corrected_transcript": "오늘 산책했어요."}]}
+        with patch.object(llm.settings, "stt_correction_mode", "model"):
+            result = llm._apply_corrected_transcripts(
+                [{"message_id": 102, "scale_analyses": []}], answers, data
+            )
+        self.assertEqual(result[0]["corrected_transcript"], "오늘 산책했어요.")
+
+    def test_model_mode_falls_back_to_original_when_llm_omits_correction(self):
+        answers = [_answer(102, "오늘 산책핬어요")]
+        data = {"answer_analyses": [{"message_id": 102}]}
+        with patch.object(llm.settings, "stt_correction_mode", "model"):
+            result = llm._apply_corrected_transcripts(
+                [{"message_id": 102, "scale_analyses": []}], answers, data
+            )
+        self.assertEqual(result[0]["corrected_transcript"], "오늘 산책핬어요")
+
+    def test_preserves_existing_keys(self):
+        answers = [_answer(102)]
+        with patch.object(llm.settings, "stt_correction_mode", "test"):
+            result = llm._apply_corrected_transcripts(
+                [{"message_id": 102, "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM]}],
+                answers,
+                {},
+            )
+        self.assertEqual(result[0]["scale_analyses"], [llm.TEST_SCALE_ANALYSIS_ITEM])
+
+
 class GenerateNextQuestionTests(unittest.TestCase):
     def _mock_client(self, content: str) -> MagicMock:
         client = MagicMock()
@@ -300,6 +368,56 @@ class GenerateNextQuestionTests(unittest.TestCase):
         self.assertEqual(
             {item["message_id"] for item in result["answer_analyses"]}, {102, 103}
         )
+
+    def test_default_stt_correction_mode_ignores_llm_correction(self):
+        answers = [_answer(102, "오늘 산책핬어요")]
+        content = json.dumps(
+            {
+                "ai_question": "산책하면서 무엇이 좋으셨어요?",
+                "answer_analyses": [
+                    {"message_id": 102, "corrected_transcript": "오늘 산책했어요."}
+                ],
+            }
+        )
+
+        with patch.object(llm, "_get_openai_client", return_value=self._mock_client(content)):
+            result = llm.generate_next_question(answers, _session())
+
+        self.assertEqual(result["answer_analyses"][0]["corrected_transcript"], "오늘 산책핬어요")
+
+    def test_model_stt_correction_mode_uses_llm_correction(self):
+        answers = [_answer(102, "오늘 산책핬어요"), _answer(103, "비가 와서 속상해요")]
+        content = json.dumps(
+            {
+                "ai_question": "산책하면서 무엇이 좋으셨어요?",
+                "answer_analyses": [
+                    {"message_id": 102, "corrected_transcript": "오늘 산책했어요."},
+                    {"message_id": 103, "scale_analyses": []},
+                ],
+            }
+        )
+
+        with patch.object(llm.settings, "stt_correction_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_next_question(answers, _session())
+
+        by_id = {
+            item["message_id"]: item["corrected_transcript"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(by_id[102], "오늘 산책했어요.")
+        # 103은 LLM이 교정을 생략했으니 원문 그대로 유지된다.
+        self.assertEqual(by_id[103], "비가 와서 속상해요")
+
+    def test_fallback_on_openai_failure_uses_original_text_as_transcript(self):
+        answers = [_answer(102, "오늘 산책핬어요")]
+        client = MagicMock()
+        client.chat.completions.create.side_effect = RuntimeError("OpenAI unavailable")
+
+        with patch.object(llm, "_get_openai_client", return_value=client):
+            result = llm.generate_next_question(answers, _session())
+
+        self.assertEqual(result["answer_analyses"][0]["corrected_transcript"], "오늘 산책핬어요")
 
 
 if __name__ == "__main__":

@@ -72,6 +72,22 @@ export function SeniorConversationPage() {
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
     })
+    socket.on('audio:transcript', (payload) => {
+      const contentByMessageId = new Map(
+        payload.transcripts.map((transcript) => [transcript.messageId, transcript.content]),
+      )
+      setMessages((prev) =>
+        prev.map((message) =>
+          contentByMessageId.has(message.messageId)
+            ? {
+                ...message,
+                content: contentByMessageId.get(message.messageId) ?? message.content,
+                sttStatus: 'COMPLETED',
+              }
+            : message,
+        ),
+      )
+    })
     socket.on('chat:idle-warning', (payload) => setIdleNotice(payload.message))
     socket.on('chat:ended', () => {
       setCurrentQuestion(null)

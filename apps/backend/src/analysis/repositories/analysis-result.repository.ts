@@ -132,7 +132,10 @@ export class AnalysisResultRepository {
         };
       }
       return {
-        answerMessageIds: batch.answers.map(({ messageId }) => messageId),
+        answerTranscripts: result.answers.map(({ messageId, transcript }) => ({
+          messageId,
+          content: transcript,
+        })),
         nextQuestion,
       };
     });

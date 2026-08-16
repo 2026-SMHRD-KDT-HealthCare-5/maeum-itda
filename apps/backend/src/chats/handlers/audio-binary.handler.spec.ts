@@ -44,6 +44,7 @@ describe('AudioBinaryHandler', () => {
     const connectionStateService = {
       setCurrentQuestion: jest.fn(),
       matchesCurrentQuestion: jest.fn().mockReturnValue(true),
+      isChatEnded: jest.fn().mockReturnValue(false),
     };
     const transferStateService = {
       find: jest.fn().mockReturnValue(undefined),
@@ -176,6 +177,38 @@ describe('AudioBinaryHandler', () => {
         payload: expect.objectContaining({ code: 'AUDIO_SAVE_FAILED' }),
       }),
     );
+  });
+
+  it('다음 질문이 없는 늦은 답변이어도 STT 결과는 audio:transcript로 전송한다', async () => {
+    const context = createContext();
+    context.analysisService.isFastApiConnected.mockReturnValue(true);
+    context.analysisService.processPendingAnswerBatch.mockResolvedValue({
+      answerTranscripts: [{ messageId: 102, content: '오늘 산책했어요.' }],
+      nextQuestion: null,
+    });
+    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
+      isBatchOwner: true,
+      ready: Promise.resolve({
+        questionMessageId: 101,
+        continueConversation: true,
+      }),
+    });
+
+    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const events = context.send.mock.calls.map(
+      (call) => JSON.parse(call[0]) as { event?: string; payload?: unknown },
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        event: 'audio:transcript',
+        payload: {
+          transcripts: [{ messageId: 102, content: '오늘 산책했어요.' }],
+        },
+      }),
+    );
+    expect(events.some((event) => event.event === 'ai:question')).toBe(false);
   });
 
   it('답변 묶음 준비 Promise가 실패하면 AUDIO_ANALYSIS_FAILED를 전송한다', async () => {
