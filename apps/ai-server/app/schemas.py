@@ -26,3 +26,27 @@ class BatchAnalysisResponse(BaseModel):
     nextQuestion: str
     ttsAudioBase64: str
     ttsMimeType: str
+
+
+# UC-06-4(FR-03-06): 하루치 대화 한 턴. speakerType은 백엔드 SpeakerType과 맞춘다.
+class DailyConversationTurn(BaseModel):
+    speakerType: Literal["SENIOR", "AI"]
+    content: str
+    sentimentLabel: Literal["POSITIVE", "NEUTRAL", "NEGATIVE"] | None = None
+
+
+class DailySummaryRequest(BaseModel):
+    seniorId: int
+    reportDate: str  # YYYY-MM-DD(Asia/Seoul 업무일), 프롬프트에는 노출하지 않고 로깅용
+    turns: list[DailyConversationTurn]
+
+
+# 유효한 시니어 발화가 없으면(FR-03-06 대안흐름 A1) 생성을 생략하고 둘 다 null이다 —
+# 백엔드 DB의 RECOMMENDED_ACTION 컬럼도 nullable이라 그대로 맞는다.
+# conversationSummary: "한 줄 요약"(oneLineSummary) 결정이 취소되어 200~300자
+# (3~4문장) 분량으로 바뀌었다 — 필드명도 프론트 entities/report/model이 이미 쓰는
+# conversationSummary로 맞춘다. 백엔드 DB의 ONE_LINE_SUMMARY 컬럼명·길이 제약
+# (varchar 500)도 이에 맞춰 갱신이 필요하지만, 그건 별도 백엔드 작업이다.
+class DailySummaryResponse(BaseModel):
+    conversationSummary: str | None
+    recommendedAction: str | None

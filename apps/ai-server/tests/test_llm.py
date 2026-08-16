@@ -420,5 +420,88 @@ class GenerateNextQuestionTests(unittest.TestCase):
         self.assertEqual(result["answer_analyses"][0]["corrected_transcript"], "오늘 산책핬어요")
 
 
+def _turn(speaker_type: str, content: str, sentiment_label: str | None = None) -> dict:
+    return {"speaker_type": speaker_type, "content": content, "sentiment_label": sentiment_label}
+
+
+class GenerateDailySummaryTests(unittest.TestCase):
+    def _mock_client(self, content: str) -> MagicMock:
+        client = MagicMock()
+        client.chat.completions.create.return_value = MagicMock(
+            choices=[MagicMock(message=MagicMock(content=content))]
+        )
+        return client
+
+    def test_no_senior_turn_skips_generation_without_calling_llm(self):
+        turns = [_turn("AI", "오늘 하루는 어떠셨어요?")]
+
+        with patch.object(llm, "_get_openai_client") as get_client:
+            result = llm.generate_daily_summary(turns)
+
+        get_client.assert_not_called()
+        self.assertEqual(result, {"conversation_summary": None, "recommended_action": None})
+
+    def test_empty_turns_skips_generation(self):
+        result = llm.generate_daily_summary([])
+        self.assertEqual(result, {"conversation_summary": None, "recommended_action": None})
+
+    def test_default_mode_returns_fixed_stub(self):
+        turns = [_turn("SENIOR", "오늘 산책했어요.", "POSITIVE")]
+
+        with patch.object(llm, "_get_openai_client") as get_client:
+            result = llm.generate_daily_summary(turns)
+
+        get_client.assert_not_called()
+        self.assertEqual(result, llm.DAILY_SUMMARY_STUB)
+
+    def test_model_mode_uses_llm_output(self):
+        turns = [_turn("SENIOR", "오늘 산책했어요.", "POSITIVE")]
+        content = json.dumps(
+            {
+                "conversation_summary": "오늘은 산책 이야기를 즐겁게 나누셨어요.",
+                "recommended_action": "산책 다녀오신 걸 칭찬해 주시는 건 어떨까요?",
+            }
+        )
+
+        with patch.object(llm.settings, "daily_summary_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_daily_summary(turns)
+
+        self.assertEqual(result["conversation_summary"], "오늘은 산책 이야기를 즐겁게 나누셨어요.")
+        self.assertEqual(result["recommended_action"], "산책 다녀오신 걸 칭찬해 주시는 건 어떨까요?")
+
+    def test_model_mode_falls_back_to_none_on_llm_failure(self):
+        turns = [_turn("SENIOR", "오늘 산책했어요.")]
+        client = MagicMock()
+        client.chat.completions.create.side_effect = RuntimeError("OpenAI unavailable")
+
+        with patch.object(llm.settings, "daily_summary_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=client
+        ):
+            result = llm.generate_daily_summary(turns)
+
+        self.assertEqual(result, {"conversation_summary": None, "recommended_action": None})
+
+    def test_model_mode_treats_blank_fields_as_none(self):
+        turns = [_turn("SENIOR", "오늘 산책했어요.")]
+        content = json.dumps({"conversation_summary": "   ", "recommended_action": ""})
+
+        with patch.object(llm.settings, "daily_summary_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_daily_summary(turns)
+
+        self.assertEqual(result, {"conversation_summary": None, "recommended_action": None})
+
+    def test_invalid_mode_fails_fast(self):
+        turns = [_turn("SENIOR", "오늘 산책했어요.")]
+        with patch.object(llm.settings, "daily_summary_mode", "invalid"):
+            with self.assertRaisesRegex(
+                ValueError, "DAILY_SUMMARY_MODE must be one of: test, model"
+            ):
+                llm.generate_daily_summary(turns)
+
+
 if __name__ == "__main__":
     unittest.main()
