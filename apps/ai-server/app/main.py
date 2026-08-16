@@ -96,17 +96,20 @@ async def analyze_audio_batch(
     if not isinstance(next_question, str) or not next_question.strip():
         raise HTTPException(status_code=502, detail="LLM 다음 질문 생성에 실패했습니다.")
 
-    analyses_by_message_id = {
-        item["message_id"]: item["scale_analyses"]
-        for item in llm_result.get("answer_analyses", [])
+    answer_analyses_by_message_id = {
+        item["message_id"]: item for item in llm_result.get("answer_analyses", [])
     }
     answers = [
         AnswerAnalysis(
             messageId=answer["message_id"],
-            transcript=answer["text"],
+            transcript=answer_analyses_by_message_id.get(answer["message_id"], {}).get(
+                "corrected_transcript", answer["text"]
+            ),
             sentimentLabel=_to_sentiment_label(answer["emotion"]),
             scaleAnalyses=_to_scale_analyses(
-                analyses_by_message_id.get(answer["message_id"], [])
+                answer_analyses_by_message_id.get(answer["message_id"], {}).get(
+                    "scale_analyses", []
+                )
             ),
         )
         for answer in processed_answers

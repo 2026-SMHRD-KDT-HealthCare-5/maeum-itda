@@ -3,7 +3,7 @@
 연결 흐름: NestJS sendWsEvent() → ServerWsEventMap 타입 검사 → WebSocket JSON 전송
 주의: 이 맵은 런타임 검증기가 아니라 서버 구현의 이벤트명·필수 필드 오류를 컴파일 단계에서 차단한다.
 */
-import type { AudioAckPayload, TtsTransferPayload } from './audio'
+import type { AudioAckPayload, AudioTranscriptPayload, TtsTransferPayload } from './audio'
 import type { AuthErrorPayload, AuthSuccessPayload } from './auth'
 import type {
   AiQuestionPayload,
@@ -23,6 +23,7 @@ export interface ServerWsEventMap {
   'chat:ended': ChatEndedPayload
   'ai:question': AiQuestionPayload
   'audio:ack': AudioAckPayload
+  'audio:transcript': AudioTranscriptPayload
   'tts:audio': TtsTransferPayload
   error: WsErrorPayload
 }

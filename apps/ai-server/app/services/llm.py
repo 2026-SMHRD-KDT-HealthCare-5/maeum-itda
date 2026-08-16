@@ -163,6 +163,60 @@ def _extract_answer_analyses(data: dict) -> list[dict]:
     ]
 
 
+def _extract_corrected_transcripts(data: dict) -> dict[int, str]:
+    """LLM 응답에서 messageId별 corrected_transcript만 뽑아 dict로 돌려준다.
+
+    SCALE_ANALYSIS_MODE와 무관하게 LLM 호출 자체는 항상 일어나므로(다음 질문
+    생성을 위해), 이 함수는 STT_CORRECTION_MODE가 "model"일 때만 호출된다 —
+    별도의 검증은 하지 않고 형식이 이상한 항목(messageId 누락, 빈 문자열 등)은
+    조용히 건너뛴다. 최종적으로 쓸지 말지는 _resolve_corrected_transcript가
+    STT 원문과 비교해 결정한다.
+    """
+    result: dict[int, str] = {}
+    for item in data.get("answer_analyses", []):
+        if not isinstance(item, dict):
+            continue
+        message_id = item.get("message_id")
+        corrected = item.get("corrected_transcript")
+        if isinstance(message_id, int) and isinstance(corrected, str) and corrected.strip():
+            result[message_id] = corrected
+    return result
+
+
+def _resolve_corrected_transcript(corrected: str | None, original_text: str) -> str:
+    """STT_CORRECTION_MODE=model일 때 messageId 하나의 최종 transcript를 정한다.
+
+    LLM이 그 messageId를 교정하지 않고 빠뜨렸으면(_extract_corrected_transcripts가
+    걸러낸 경우) STT 원문을 그대로 쓴다 — 교정 누락이 발화 자체의 유실로 이어지면
+    안 된다.
+    """
+    return corrected if corrected is not None else original_text
+
+
+def _apply_corrected_transcripts(
+    answer_analyses: list[dict], answers: list[dict], data: dict
+) -> list[dict]:
+    """answer_analyses 각 항목에 corrected_transcript를 채워 넣는다.
+
+    STT_CORRECTION_MODE가 "model"이 아니면(기본값 "test") LLM이 뭐라고 답했든
+    무시하고 STT 원문을 그대로 쓴다 — 로컬에서 교정 품질을 신뢰하기 전까지
+    안전한 기본값을 유지하기 위함(scale_analysis_mode와 같은 패턴).
+    """
+    mode = settings.stt_correction_mode.strip().lower()
+    original_text_by_id = {answer["message_id"]: answer["text"] for answer in answers}
+    corrected_by_id = _extract_corrected_transcripts(data) if mode == "model" else {}
+    return [
+        {
+            **item,
+            "corrected_transcript": _resolve_corrected_transcript(
+                corrected_by_id.get(item["message_id"]),
+                original_text_by_id.get(item["message_id"], ""),
+            ),
+        }
+        for item in answer_analyses
+    ]
+
+
 def generate_next_question(
     answers: list[dict],
     session: SessionState,
@@ -195,7 +249,10 @@ def generate_next_question(
         raw_answer_analyses = (
             _extract_answer_analyses(data) if mode == "model" else _stub_answer_analyses(answers)
         )
-        data["answer_analyses"] = _validate_answer_analyses(requested_ids, raw_answer_analyses)
+        validated_answer_analyses = _validate_answer_analyses(requested_ids, raw_answer_analyses)
+        data["answer_analyses"] = _apply_corrected_transcripts(
+            validated_answer_analyses, answers, data
+        )
         return data
     except Exception as e:  # noqa: BLE001
         logger.error("LLM 질문 생성 실패, 기본 질문으로 대체: %s", e)
@@ -209,6 +266,11 @@ def generate_next_question(
             "target_item": None,
             "empathy_note": "fallback",
             "answer_analyses": [
-                {"message_id": answer["message_id"], "scale_analyses": []} for answer in answers
+                {
+                    "message_id": answer["message_id"],
+                    "corrected_transcript": answer["text"],
+                    "scale_analyses": [],
+                }
+                for answer in answers
             ],
         }

@@ -187,6 +187,42 @@ class AudioBatchApiTests(unittest.TestCase):
         called_answers = generate.call_args[0][0]
         self.assertEqual([answer["message_id"] for answer in called_answers], [102, 103])
 
+    def test_audio_batch_uses_corrected_transcript_when_present(self):
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책핬어요", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                return_value={"neutral": 1.0},
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={
+                    "ai_question": "산책은 어떠셨어요?",
+                    "answer_analyses": [
+                        {
+                            "message_id": 102,
+                            "corrected_transcript": "오늘 산책했어요.",
+                            "scale_analyses": [],
+                        }
+                    ],
+                },
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["answers"][0]["transcript"], "오늘 산책했어요.")
+
     def test_audio_batch_defaults_session_context_when_backend_omits_it(self):
         """백엔드가 아직 prevSessionSummary/pendingScaleItems를 안 보내는 8/16 시점에도
         기존과 동일하게 빈 값(SessionState 기본값)으로 동작해야 한다."""

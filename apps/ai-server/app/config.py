@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     # 척도 채점
     scale_analysis_mode: str = "test"          # test: 고정 목업 채점 / empty: 항상 빈 배열 / model: SYSTEM_PROMPT 기반 실채점 사용
 
+    # STT 교정 (SCALE_ANALYSIS_MODE와 독립적으로 토글)
+    stt_correction_mode: str = "test"          # test: STT 원문 그대로 사용 / model: SYSTEM_PROMPT의 corrected_transcript 신뢰
+
     # 서버
     host: str = "0.0.0.0"
     port: int = 8000
