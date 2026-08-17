@@ -1,0 +1,53 @@
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eceae4;
+}
+
+.row > label {
+  flex: 0 0 auto;
+}
+
+.row > label > span:last-child {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.copy p {
+  margin: 0;
+  color: #2b3a33;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.copy span {
+  display: block;
+  margin-top: 4px;
+  color: #929b96;
+  font-size: 12px;
+  line-height: 1.45;
+  word-break: keep-all;
+}
+
+.busy {
+  color: #929b96;
+  font-size: 12px;
+}
+
+.error {
+  width: 100%;
+  margin: 0;
+  color: #d0402b;
+  font-size: 12px;
+}

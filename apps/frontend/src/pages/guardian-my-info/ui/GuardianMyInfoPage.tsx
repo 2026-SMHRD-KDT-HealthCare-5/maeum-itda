@@ -7,6 +7,7 @@ import {
   formatPhoneNumber,
   updateMyProfile,
 } from '../../../features/edit-basic-info'
+import { EnablePushNotificationsAction } from '../../../features/enable-push-notifications'
 import {
   SetNotificationThresholdAction,
   NOTIFICATION_THRESHOLD_QUERY_KEY,
@@ -232,6 +233,7 @@ export function GuardianMyInfoPage() {
                 {extractApiErrorMessage(updateNotificationMutation.error, '저장에 실패했어요.')}
               </p>
             )}
+            <EnablePushNotificationsAction />
           </Card>
 
           <button type="button" className={styles.logoutButton} onClick={handleLogout}>
