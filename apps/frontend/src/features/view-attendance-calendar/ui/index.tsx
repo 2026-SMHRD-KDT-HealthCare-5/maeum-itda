@@ -1,31 +1,12 @@
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { fetchConversationCalendar } from '../api'
+import { getCalendarDates, isSameDate, toDateKey } from '../lib'
+import { ATTENDANCE_CALENDAR_QUERY_KEY } from '../model'
 import styles from './ViewAttendanceCalendarAction.module.css'
 
 const weekDays = ['일', '월', '화', '수', '목', '금', '토']
-
-function getCalendarDates(year: number, month: number) {
-  const firstDate = new Date(year, month, 1)
-  const lastDate = new Date(year, month + 1, 0)
-  const startDate = new Date(year, month, 1 - firstDate.getDay())
-  const endOffset = 6 - lastDate.getDay()
-  const endDate = new Date(year, month, lastDate.getDate() + endOffset)
-  const dates: Date[] = []
-
-  for (const date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-    dates.push(new Date(date))
-  }
-
-  return dates
-}
-
-function isSameDate(left: Date, right: Date) {
-  return (
-    left.getFullYear() === right.getFullYear() &&
-    left.getMonth() === right.getMonth() &&
-    left.getDate() === right.getDate()
-  )
-}
 
 export function ViewAttendanceCalendarAction() {
   const navigate = useNavigate()
@@ -36,6 +17,12 @@ export function ViewAttendanceCalendarAction() {
   const year = visibleMonth.getFullYear()
   const month = visibleMonth.getMonth()
   const calendarDates = getCalendarDates(year, month)
+
+  const calendarQuery = useQuery({
+    queryKey: [ATTENDANCE_CALENDAR_QUERY_KEY, year, month],
+    queryFn: () => fetchConversationCalendar(year, month + 1),
+  })
+  const attendedDates = calendarQuery.data
 
   const moveMonth = (offset: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
@@ -68,24 +55,21 @@ export function ViewAttendanceCalendarAction() {
         {calendarDates.map((date) => {
           const isToday = isSameDate(date, today)
           const isOutsideMonth = date.getMonth() !== month
+          const dateKey = toDateKey(date)
+          const isAttended = !isOutsideMonth && (attendedDates?.has(dateKey) ?? false)
 
           return (
             <button
               type="button"
               className={`${styles.date} ${isToday ? styles.today : ''} ${
                 isOutsideMonth ? styles.outsideMonth : ''
-              }`}
-              key={`${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`}
+              } ${isAttended ? styles.completed : ''}`}
+              key={dateKey}
               aria-current={isToday ? 'date' : undefined}
-              aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${isToday ? ', 오늘' : ''} 대화 기록 보기`}
-              onClick={() => {
-                const dateKey = [
-                  date.getFullYear(),
-                  String(date.getMonth() + 1).padStart(2, '0'),
-                  String(date.getDate()).padStart(2, '0'),
-                ].join('-')
-                navigate(`/senior/daily-record?date=${dateKey}`)
-              }}
+              aria-label={`${date.getMonth() + 1}월 ${date.getDate()}일${isToday ? ', 오늘' : ''}${
+                isAttended ? ', 대화 완료' : ''
+              } 대화 기록 보기`}
+              onClick={() => navigate(`/senior/daily-record?date=${dateKey}`)}
             >
               {date.getDate()}
             </button>

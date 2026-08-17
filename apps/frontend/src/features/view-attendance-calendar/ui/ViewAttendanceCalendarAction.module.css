@@ -99,6 +99,16 @@
   color: #c9cfcc;
 }
 
+.completed {
+  background: #e9f4ee;
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.completed:hover {
+  background: #ddefe4;
+}
+
 .today {
   background: var(--primary);
   box-shadow: 0 7px 16px rgba(31, 111, 84, 0.2);
