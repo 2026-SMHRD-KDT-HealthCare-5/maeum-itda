@@ -1,13 +1,31 @@
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import {
+  CONNECTION_QUERY_KEY,
+  fetchMyConnection,
+  type Connection,
+} from '../../../entities/connection'
 import { useSession } from '../../../entities/user'
 import { StartConversationAction } from '../../../features/start-conversation'
 import { ViewAttendanceCalendarAction } from '../../../features/view-attendance-calendar'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './SeniorHomePage.module.css'
 
+function connectionSummaryText(connection: Connection | undefined): string {
+  if (!connection) return '보호자 연결 상태를 불러오는 중이에요'
+  if (connection.status === 'CONNECTED') {
+    return `${connection.counterpart?.name ?? '보호자'}님과 연결되어 있어요`
+  }
+  if (connection.status === 'REQUESTED') {
+    return '보호자님의 연결 요청이 도착했어요'
+  }
+  return '아직 연결된 보호자가 없어요'
+}
+
 // SENIOR_HOME_01 (UC-01, UC-13)
 export function SeniorHomePage() {
   const { session } = useSession()
+  const connectionQuery = useQuery({ queryKey: CONNECTION_QUERY_KEY, queryFn: fetchMyConnection })
 
   return (
     <>
@@ -35,7 +53,7 @@ export function SeniorHomePage() {
             </span>
             <span>
               <strong>보호자 연결 상태를 확인해 주세요</strong>
-              <small>연결된 보호자 정보는 서비스 연동 후 보여드려요</small>
+              <small>{connectionSummaryText(connectionQuery.data)}</small>
             </span>
             <span className={styles.chevron} aria-hidden="true">
               ›

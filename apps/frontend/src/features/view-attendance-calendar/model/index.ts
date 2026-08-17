@@ -1,2 +1,1 @@
-// TODO(UC-13): local state/hooks for this action. Not implemented yet.
-export {}
+export const ATTENDANCE_CALENDAR_QUERY_KEY = 'attendance-calendar'
