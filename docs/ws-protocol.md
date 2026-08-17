@@ -528,15 +528,17 @@ POST /analysis/audio/batch
 Content-Type: multipart/form-data
 ```
 
-| 필드                | 형태      | 설명                     |
-| ------------------- | --------- | ------------------------ |
-| `questionMessageId` | 단일 값   | 답변 대상 AI 질문 ID     |
-| `generationId`      | 단일 값   | 질문 생성 작업 ID        |
-| `audioFiles`        | 반복 파일 | 질문에 속한 음성들       |
-| `messageIds`        | 반복 값   | 각 음성의 답변 메시지 ID |
-| `audioTransferIds`  | 반복 값   | 각 음성 전송 ID          |
-| `capturedAts`       | 반복 값   | 녹음 시각                |
-| `endTypes`          | 반복 값   | `auto` 또는 `manual`     |
+| 필드                 | 형태      | 설명                                                                 |
+| -------------------- | --------- | --------------------------------------------------------------------- |
+| `questionMessageId`  | 단일 값   | 답변 대상 AI 질문 ID                                                   |
+| `generationId`       | 단일 값   | 질문 생성 작업 ID                                                      |
+| `audioFiles`         | 반복 파일 | 질문에 속한 음성들                                                     |
+| `messageIds`         | 반복 값   | 각 음성의 답변 메시지 ID                                               |
+| `audioTransferIds`   | 반복 값   | 각 음성 전송 ID                                                        |
+| `capturedAts`        | 반복 값   | 녹음 시각                                                              |
+| `endTypes`           | 반복 값   | `auto` 또는 `manual`                                                   |
+| `prevSessionSummary` | 단일 값, 선택 | 이전 세션 요약 텍스트. AI 서버는 이미 이 필드를 받아 프롬프트에 반영하지만, **백엔드는 아직 값을 채워 보내지 않는다**(기본값 빈 문자열로 처리됨) |
+| `pendingScaleItems`  | 단일 값(JSON 문자열), 선택 | 아직 채점되지 않은 척도 문항 맵, 예: `{"SGDS_K": ["1", "3"], "GAD_7": ["2"]}`. AI 서버는 이미 파싱해 사용하지만, **백엔드는 아직 값을 채워 보내지 않는다**(기본값 `"{}"`로 처리됨) |
 
 multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON이 아니라 파일을 포함한 multipart다.
 
@@ -548,7 +550,9 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
   "messageIds": [102, 103],
   "audioTransferIds": ["audio-transfer-001", "audio-transfer-002"],
   "capturedAts": ["2026-08-12T06:00:03.500Z", "2026-08-12T06:00:10.500Z"],
-  "endTypes": ["auto", "manual"]
+  "endTypes": ["auto", "manual"],
+  "prevSessionSummary": "",
+  "pendingScaleItems": "{}"
 }
 ```
 
@@ -576,7 +580,9 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
       ]
     }
   ],
-  "nextQuestion": "아드님이 금방 돌아가셔서 많이 서운하셨군요."
+  "nextQuestion": "아드님이 금방 돌아가셔서 많이 서운하셨군요.",
+  "ttsAudioBase64": "SUQzBAAAAA...",
+  "ttsMimeType": "audio/mpeg"
 }
 ```
 
@@ -584,6 +590,7 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
 - transcript 두 개는 합치지 않고 프론트에서 각각 말풍선으로 표시한다.
 - 요청과 응답의 `messageId` 집합이 정확히 일치해야 한다.
 - `nextQuestion`은 문자열 또는 `null`이다.
+- `ttsAudioBase64`/`ttsMimeType`은 AI 서버가 이미 응답에 채워 보내고 있다(Typecast로 `nextQuestion`을 합성한 음성) — **백엔드는 아직 이 값을 받아서 저장하거나 프론트로 중계하지 않는다.** 프론트의 TTS 재생 기능 자체는 이미 구현되어 있으므로, 백엔드가 이 값을 WS로 중계하는 즉시 연결 가능하다(§8 참고).
 - 네트워크·타임아웃·HTTP 502/503/504는 500ms 후 한 번 재시도한다.
 - HTTP 4xx와 응답 계약 오류는 재시도하지 않는다.
 
@@ -680,9 +687,10 @@ NestJS → Frontend:
 - 메시지별 STT·감성·척도 응답 형식
 - 여러 답변을 참고한 `nextQuestion` 생성 방식
 - HTTP 오류와 분석 오류 응답 규격
+- **TTS 오디오 중계**: AI 서버는 `ttsAudioBase64`/`ttsMimeType`을 이미 응답에 채워 보내지만(§6.2), 백엔드가 아직 이를 저장·중계하지 않는다 — 프론트 TTS 재생 기능은 이미 구현되어 있어 이 연동만 남아있다.
+- **문항 커버리지·이전 세션 요약 연동**: `prevSessionSummary`/`pendingScaleItems`를 AI 서버는 이미 받아 프롬프트에 반영하지만(§6.1), 백엔드가 아직 해당 값을 채워 보내지 않는다.
 
 ### MVP 이후
 
 - Redis 기반 서버 재시작·다중 인스턴스 상태 복원
-- TTS binary 전송
 - 프론트·백엔드·FastAPI 런타임 스키마 공유

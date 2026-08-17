@@ -38,18 +38,18 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 ```
 maeum-itda/
 ├── apps/
-│   ├── frontend/       # React 기반 웹 클라이언트 (Vite + FSD 구조, 라우팅·eslint 포함 스캐폴딩 완료)
-│   ├── backend/        # NestJS 기반 API 서버 (기본 스캐폴딩 및 Turborepo 연결 완료)
-│   └── ai-server/       # FastAPI 기반 AI/감정분석 서버, Python (TODO: 초기 세팅 예정)
+│   ├── frontend/       # React 기반 웹 클라이언트 (Vite + FSD 구조, 핵심 화면 대부분 실 API/WebSocket 연동 완료)
+│   ├── backend/        # NestJS 기반 API 서버 (실시간 대화 WS 게이트웨이·과거 메시지 조회·웹 푸시 발송 등 실제 로직 구현)
+│   └── ai-server/       # FastAPI 기반 AI/감정분석 서버, Python (STT·척도 채점·꼬리질문 생성·TTS 한 턴 파이프라인 실제 동작)
 ├── packages/
-│   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (ConversationTurn, 대화 이력 cursor pagination, WebSocket 이벤트 계약 등 실제 타입 존재)
-│   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (TODO: 초기 세팅 예정)
+│   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (ChatMessage, 대화 이력 cursor pagination, WebSocket 이벤트 계약 등 실제 타입 존재)
+│   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (backend OpenAPI 스펙 기반 swagger-typescript-api 생성 완료)
 │   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 스캐폴딩 완료, apps/frontend가 사용 중)
 ├── infra/                # 배포/인프라 관련 설정 (TODO: 초기 세팅 예정)
 └── docs/                 # 기획서, 요구사항정의서, 화면설계서 등 프로젝트 문서
 ```
 
-> `apps/ai-server`, `packages/api-client`, `infra`는 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조 스캐폴딩(라우팅, eslint 포함)이, `apps/backend`는 NestJS 기본 스캐폴딩과 pnpm/Turborepo 연결이, `packages/config`는 공유 ESLint config가 각각 완료된 상태입니다.
+> `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS 파이프라인이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 동작합니다. 다만 AI 서버가 만들어내는 TTS 오디오와 척도 문항 커버리지/이전 세션 요약 연동은 아직 백엔드에 반영되지 않았고, 감정 분류 모델 체크포인트도 아직 없습니다 — 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
 >
 > ⚠️ **`apps/ai-server`는 아직 pnpm이 인식하는 패키지가 아닙니다.** `package.json`이 없어 `pnpm --filter ai-server ...`가 동작하지 않으며, Python(FastAPI) 프로젝트이므로 의존성은 pnpm이 아닌 별도 가상환경(`venv`)과 `requirements.txt`로 관리할 예정입니다.
 
@@ -76,11 +76,13 @@ pnpm --filter frontend dev
 # backend(NestJS) 개발 서버 실행
 pnpm --filter backend dev
 
-# ai-server(FastAPI)는 pnpm 워크스페이스 밖이므로 별도 실행
-# cd apps/ai-server && python -m venv venv && pip install -r requirements.txt
-# TODO: 실행 명령어(uvicorn 등) 확정 후 추가
-
-# TODO: 환경 변수(.env) 설정 가이드 추가
+# ai-server(FastAPI)는 pnpm 워크스페이스 밖이므로 별도 실행 (자세한 내용은 apps/ai-server/README.md 참고)
+cd apps/ai-server
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env   # OPENAI_API_KEY, TYPECAST_API_KEY 등 채워넣기
+uvicorn app.main:app --reload --port 8000
 ```
 
 > 참고: `apps/frontend`(공유 `packages/config` ESLint 사용)와 `apps/backend`(자체 ESLint 설정 사용)에는 각각 `lint` 스크립트가 구성되어 있어, 루트의 `pnpm lint` 실행 시 두 앱의 코드가 검사됩니다. 아직 스캐폴딩되지 않은 앱은 검사 대상에 포함되지 않습니다.
