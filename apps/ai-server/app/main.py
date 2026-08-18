@@ -14,6 +14,8 @@ from app.schemas import (
     BatchAnalysisResponse,
     DailySummaryRequest,
     DailySummaryResponse,
+    TtsSynthesizeRequest,
+    TtsSynthesizeResponse,
 )
 from app.services import emotion as emotion_service
 from app.services import llm as llm_service
@@ -120,20 +122,50 @@ async def analyze_audio_batch(
         for answer in processed_answers
     ]
 
+    # 분석·질문 생성과 TTS 장애를 분리한다. Typecast가 실패해도 텍스트 대화는 계속된다.
+    tts_audio_base64: str | None = None
+    tts_mime_type: str | None = None
     try:
         tts_audio = await tts_service.synthesize_full(next_question)
+        if tts_audio:
+            audio_format = get_settings().typecast_audio_format.lower()
+            tts_audio_base64 = base64.b64encode(tts_audio).decode("ascii")
+            tts_mime_type = _tts_mime_type(audio_format)
+        else:
+            logger.warning("다음 질문 TTS 결과가 비어 있어 텍스트 질문만 반환합니다.")
+    except Exception:  # noqa: BLE001
+        logger.exception("다음 질문 TTS 생성 실패, 텍스트 질문으로 계속 진행합니다.")
+
+    return BatchAnalysisResponse(
+        answers=answers,
+        nextQuestion=next_question,
+        ttsAudioBase64=tts_audio_base64,
+        ttsMimeType=tts_mime_type,
+    )
+
+
+@app.post("/tts/synthesize", response_model=TtsSynthesizeResponse)
+async def synthesize_tts(request: TtsSynthesizeRequest) -> TtsSynthesizeResponse:
+    """NestJS가 저장한 첫 질문을 Typecast 음성으로 변환한다.
+
+    첫 질문은 음성 분석 요청 전에 생성되므로 `/analysis/audio/batch`와 분리한다.
+    이 API가 실패하면 NestJS는 텍스트 질문으로 대화를 계속한다.
+    """
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="TTS 변환 문장이 비어 있습니다.")
+
+    try:
+        tts_audio = await tts_service.synthesize_full(text)
     except Exception as exc:  # noqa: BLE001
-        logger.exception("TTS 생성 실패: %s", exc)
+        logger.exception("첫 질문 TTS 생성 실패: %s", exc)
         raise HTTPException(status_code=502, detail="TTS 음성 생성에 실패했습니다.") from exc
 
     if not tts_audio:
         raise HTTPException(status_code=502, detail="TTS 음성 결과가 비어 있습니다.")
 
     audio_format = get_settings().typecast_audio_format.lower()
-
-    return BatchAnalysisResponse(
-        answers=answers,
-        nextQuestion=next_question,
+    return TtsSynthesizeResponse(
         ttsAudioBase64=base64.b64encode(tts_audio).decode("ascii"),
         ttsMimeType=_tts_mime_type(audio_format),
     )

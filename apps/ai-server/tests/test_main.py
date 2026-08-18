@@ -353,7 +353,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "LLM 다음 질문 생성에 실패했습니다.")
         synthesize.assert_not_awaited()
 
-    def test_tts_exception_returns_502(self):
+    def test_tts_exception_returns_text_question_with_null_tts(self):
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -377,10 +377,12 @@ class AudioBatchApiTests(unittest.TestCase):
                 files=self._multipart(),
             )
 
-        self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
+        self.assertIsNone(response.json()["ttsAudioBase64"])
+        self.assertIsNone(response.json()["ttsMimeType"])
 
-    def test_empty_tts_audio_returns_502(self):
+    def test_empty_tts_audio_returns_text_question_with_null_tts(self):
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -403,6 +405,66 @@ class AudioBatchApiTests(unittest.TestCase):
                 "/analysis/audio/batch",
                 files=self._multipart(),
             )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
+        self.assertIsNone(response.json()["ttsAudioBase64"])
+        self.assertIsNone(response.json()["ttsMimeType"])
+
+
+class TtsSynthesizeApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_synthesizes_first_question(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(return_value=b"mock-mp3"),
+        ) as synthesize:
+            response = self.client.post(
+                "/tts/synthesize",
+                json={"text": "오늘 하루는 어땠나요?"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "ttsAudioBase64": base64.b64encode(b"mock-mp3").decode("ascii"),
+                "ttsMimeType": _tts_mime_type(
+                    get_settings().typecast_audio_format.lower()
+                ),
+            },
+        )
+        synthesize.assert_awaited_once_with("오늘 하루는 어땠나요?")
+
+    def test_rejects_blank_text(self):
+        response = self.client.post("/tts/synthesize", json={"text": "   "})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "TTS 변환 문장이 비어 있습니다.")
+
+    def test_rejects_text_longer_than_2000_characters(self):
+        response = self.client.post("/tts/synthesize", json={"text": "가" * 2001})
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_typecast_failure_returns_502(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(side_effect=RuntimeError("Typecast unavailable")),
+        ):
+            response = self.client.post("/tts/synthesize", json={"text": "첫 질문"})
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+
+    def test_empty_audio_returns_502(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(return_value=b""),
+        ):
+            response = self.client.post("/tts/synthesize", json={"text": "첫 질문"})
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")
