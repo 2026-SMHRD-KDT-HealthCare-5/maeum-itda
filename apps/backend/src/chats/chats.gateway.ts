@@ -53,6 +53,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly audioMetadataHandler: AudioMetadataHandler; // 음성 메타데이터 처리 객체
   private readonly audioBinaryHandler: AudioBinaryHandler; // 음성 바이너리 처리 객체
   private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
+  private readonly chatInactivityService: ChatInactivityService; // 무응답 안내·자동 종료 타이머 객체
+  private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService; // 마지막 대화 후 정서지수 재계산 타이머 객체
   private readonly connectionContexts = new WeakMap<
     WebSocket,
     ClientConnectionContext
@@ -66,8 +68,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     audioMetadataHandler: AudioMetadataHandler,
     audioBinaryHandler: AudioBinaryHandler,
     chatConnectionStateService: ChatConnectionStateService,
-    private readonly chatInactivityService?: ChatInactivityService,
-    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
+    chatInactivityService: ChatInactivityService,
+    lastTurnRecalcTimerService: LastTurnRecalcTimerService,
   ) {
     this.chatAuthHandler = chatAuthHandler;
     this.chatStartHandler = chatStartHandler;
@@ -75,6 +77,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.audioMetadataHandler = audioMetadataHandler;
     this.audioBinaryHandler = audioBinaryHandler;
     this.chatConnectionStateService = chatConnectionStateService;
+    this.chatInactivityService = chatInactivityService;
+    this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
   }
 
   // 역할: WebSocket 연결 성립 후 첫 인증 메시지 수신 대기
@@ -104,7 +108,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.audioMetadataHandler.clearClient(client);
     this.audioBinaryHandler.clearClient(client);
     this.chatConnectionStateService.clearClient(client);
-    this.chatInactivityService?.clearClient(client);
+    this.chatInactivityService.clearClient(client);
   }
 
   private async handleClientMessage(
@@ -166,7 +170,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     context.authenticatedUser = authenticatedUser;
 
     // 서버가 재시작되지 않은 단기 재접속에서는 마지막 현재 질문을 새 연결에 다시 전달한다.
-    const restored = this.chatConnectionStateService.restoreClient?.(
+    const restored = this.chatConnectionStateService.restoreClient(
       client,
       authenticatedUser.sub,
     );
@@ -180,8 +184,8 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         generationId: restored.generationId,
         content: restored.content,
       });
-      this.chatInactivityService?.startWaitingForAnswer(client);
-      this.lastTurnRecalcTimerService?.arm(authenticatedUser.sub);
+      this.chatInactivityService.startWaitingForAnswer(client);
+      this.lastTurnRecalcTimerService.arm(authenticatedUser.sub);
     }
 
     // JWT 검증 중 도착한 메시지를 수신 순서대로 처리한다.
@@ -228,7 +232,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
           authenticatedUser,
           parsedEvent,
         );
-        if (accepted) this.chatInactivityService?.markAnswerStarted(client);
+        if (accepted) this.chatInactivityService.markAnswerStarted(client);
         return;
       }
 

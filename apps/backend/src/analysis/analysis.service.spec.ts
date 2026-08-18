@@ -1,4 +1,4 @@
-/* 역할: FastAPI 미연결 시 질문별 음성 묶음을 보관하고 WAITING 상태로 유지하는지 검증한다. */
+/* 역할: FastAPI 주소 미설정 시 질문별 음성 묶음을 보관하고 WAITING 상태로 유지하는지 검증한다. */
 import type { AiClient } from './ai.client';
 import { AnalysisService } from './analysis.service';
 import type { QuestionAnswerBatch } from './dto/audio-analysis.contract';
@@ -6,9 +6,9 @@ import type { AnalysisResultRepository } from './repositories/analysis-result.re
 import type { TemporaryAudioRepository } from './repositories/temporary-audio.repository';
 
 describe('AnalysisService', () => {
-  it('FastAPI 미연결 상태에서 묶음을 저장하고 분석 호출은 보류한다', async () => {
+  it('FastAPI 주소 미설정 상태에서 묶음을 저장하고 분석 호출은 보류한다', async () => {
     const aiClient = {
-      isConnected: jest.fn().mockReturnValue(false),
+      isConfigured: jest.fn().mockReturnValue(false),
       analyzeAnswerBatch: jest.fn(),
     };
     const temporaryAudioRepository = {

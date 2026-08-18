@@ -30,7 +30,7 @@ describe('QuestionAnswerQueueService', () => {
     continueConversation: true,
   });
 
-  it('추가 답변이 들어오면 5초 타이머를 갱신하고 순서대로 묶는다', async () => {
+  it('추가 답변이 들어오면 10초 타이머를 갱신하고 순서대로 묶는다', async () => {
     const first = service.enqueue(answer(102));
     expect(first.isBatchOwner).toBe(true);
 
@@ -62,7 +62,7 @@ describe('QuestionAnswerQueueService', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('기본 추가 답변 대기 시간은 5초다', () => {
+  it('기본 추가 답변 대기 시간은 10초다', () => {
     expect(ADDITIONAL_ANSWER_WAIT_MS).toBe(10_000);
   });
   it('대화 종료 flush는 분석 후 다음 질문을 생성하지 않도록 표시한다', async () => {

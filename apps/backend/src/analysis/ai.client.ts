@@ -1,7 +1,8 @@
 /*
 역할: 질문별 복수 음성을 multipart/form-data REST 요청으로 FastAPI에 전달하고 응답 계약을 검증한다.
 전체 흐름: AnalysisService → AiClient → POST FastAPI /analysis/audio/batch → 검증된 결과 반환
-주의: FastAPI 내부 STT·감성·척도·질문 생성 로직은 구현하지 않으며 요청·응답 경계만 담당한다.
+[완료] FastAPI 내부 STT·감성·척도·질문 생성 로직은 구현하지 않으며 요청·응답 경계만 담당한다.
+[연동 대기] 실제 서버 가용성은 URL 설정 여부가 아니라 분석 요청 성공·실패로 확인한다.
 */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -28,7 +29,8 @@ export class AiClient {
     this.baseUrl = configService.get<string>('AI_BASE_URL');
   }
 
-  isConnected(): boolean {
+  // [완료] 실제 네트워크 상태가 아니라 FastAPI 주소 설정 여부만 반환한다.
+  isConfigured(): boolean {
     return this.baseUrl !== undefined && this.baseUrl.length > 0;
   }
 
@@ -36,7 +38,7 @@ export class AiClient {
   async analyzeAnswerBatch(
     batch: QuestionAnswerBatch,
   ): Promise<QuestionAnswerAnalysisResult> {
-    if (!this.isConnected()) {
+    if (!this.isConfigured()) {
       throw new Error('FastAPI 음성 분석 서버 주소가 설정되지 않았습니다.');
     }
 

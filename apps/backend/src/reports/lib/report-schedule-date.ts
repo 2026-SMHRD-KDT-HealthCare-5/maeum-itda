@@ -28,8 +28,8 @@ function formatUtcDate(value: Date): string {
   return value.toISOString().slice(0, 10);
 }
 
-// 09:00 배치(toReportScheduleContext)는 "어제"를 집계하지만, 대화 종료/재접속/
-// 유휴 시점의 즉시 재계산은 지금 이 순간의 서울 날짜(오늘)를 갱신해야 한다 —
+// 09:00 배치(toReportScheduleContext)는 "어제"를 집계하지만, 대화 시작·종료와
+// 유휴·타이머 만료 시점의 즉시 재계산은 서울 날짜 기준 오늘을 갱신해야 한다 —
 // 서로 다른 계산이라 별도 함수로 둔다.
 export function toSeoulTodayDate(now: Date): string {
   const seoulClock = new Date(now.getTime() + SEOUL_OFFSET_MILLISECONDS);

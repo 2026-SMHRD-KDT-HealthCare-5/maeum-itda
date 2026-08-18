@@ -43,7 +43,7 @@ import {
 import { PushSubscriptionsService } from './push-subscriptions.service';
 import { WebPushDeliveryService } from './web-push-delivery.service';
 
-@ApiTags('8. 보호자 알림')
+@ApiTags('6. 보호자 알림')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ type: ApiErrorResponseDto })
 @ApiForbiddenResponse({ type: ApiErrorResponseDto })

@@ -33,6 +33,8 @@ describe('AiClient', () => {
       },
     ],
     nextQuestion: '어떤 일이 가장 좋았나요?',
+    ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
+    ttsMimeType: 'audio/mpeg',
   };
 
   const createClient = () =>
