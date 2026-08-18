@@ -224,8 +224,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.json()["answers"][0]["transcript"], "오늘 산책했어요.")
 
     def test_audio_batch_defaults_session_context_when_backend_omits_it(self):
-        """백엔드가 아직 prevSessionSummary/pendingScaleItems를 안 보내는 8/16 시점에도
-        기존과 동일하게 빈 값(SessionState 기본값)으로 동작해야 한다."""
+        """이전 백엔드가 문맥 필드를 생략해도 안전한 기본값으로 동작한다."""
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -254,6 +253,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertIsInstance(session, SessionState)
         self.assertEqual(session.prev_session_summary, "")
         self.assertEqual(session.pending_scale_items, {})
+        self.assertEqual(session.conversation_turns, [])
 
     def test_audio_batch_fills_session_context_from_backend_fields(self):
         with (
@@ -277,6 +277,13 @@ class AudioBatchApiTests(unittest.TestCase):
             fields = self._multipart() + [
                 ("prevSessionSummary", (None, "어제는 산책을 다녀오셨다고 함")),
                 ("pendingScaleItems", (None, '{"SGDS_K": ["1", "2"]}')),
+                (
+                    "conversationTurns",
+                    (
+                        None,
+                        '[{"speakerType":"AI","content":"오늘 기분은 어떠세요?"}]',
+                    ),
+                ),
             ]
             response = self.client.post("/analysis/audio/batch", files=fields)
 
@@ -284,6 +291,20 @@ class AudioBatchApiTests(unittest.TestCase):
         session = generate.call_args[0][1]
         self.assertEqual(session.prev_session_summary, "어제는 산책을 다녀오셨다고 함")
         self.assertEqual(session.pending_scale_items, {"SGDS_K": ["1", "2"]})
+        self.assertEqual(
+            session.conversation_turns,
+            [{"speakerType": "AI", "content": "오늘 기분은 어떠세요?"}],
+        )
+
+    def test_audio_batch_rejects_invalid_conversation_turns(self):
+        with patch("app.main.stt_service.transcribe") as transcribe:
+            fields = self._multipart() + [
+                ("conversationTurns", (None, '[{"speakerType":"SYSTEM","content":"x"}]')),
+            ]
+            response = self.client.post("/analysis/audio/batch", files=fields)
+
+        self.assertEqual(response.status_code, 422)
+        transcribe.assert_not_called()
 
     def test_audio_batch_rejects_malformed_pending_scale_items(self):
         with patch("app.main.stt_service.transcribe") as transcribe:

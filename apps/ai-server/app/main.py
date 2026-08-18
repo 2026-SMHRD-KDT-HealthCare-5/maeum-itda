@@ -45,11 +45,12 @@ async def analyze_audio_batch(
     end_types: list[str] = Form(alias="endTypes"),
     prev_session_summary: str = Form(alias="prevSessionSummary", default=""),
     pending_scale_items: str = Form(alias="pendingScaleItems", default="{}"),
+    conversation_turns: str = Form(alias="conversationTurns", default="[]"),
 ) -> BatchAnalysisResponse:
     """WebSocket 대신 한 질문의 음성 묶음을 REST로 분석한다.
 
-    prevSessionSummary/pendingScaleItems는 백엔드가 아직 채워 보내지 않으므로
-    (8/18 연동 예정) 기본값(빈 문자열/빈 객체)으로도 기존과 동일하게 동작해야 한다.
+    세 문맥 필드는 백엔드가 DB에서 조회해 JSON 문자열로 전달한다. 기본값은 이전
+    클라이언트와의 호환을 위해 유지한다.
     """
     lengths = {
         len(audio_files),
@@ -64,6 +65,7 @@ async def analyze_audio_batch(
         raise HTTPException(status_code=422, detail="endTypes 값이 올바르지 않습니다.")
 
     pending_scale_items_dict = _parse_pending_scale_items(pending_scale_items)
+    conversation_turns_list = _parse_conversation_turns(conversation_turns)
 
     processed_answers: list[dict] = []
 
@@ -93,6 +95,7 @@ async def analyze_audio_batch(
         user_id=str(question_message_id),
         prev_session_summary=prev_session_summary,
         pending_scale_items=pending_scale_items_dict,
+        conversation_turns=conversation_turns_list,
     )
     llm_result = await asyncio.to_thread(
         llm_service.generate_next_question,
@@ -233,6 +236,40 @@ def _parse_pending_scale_items(raw: str) -> dict[str, list[str]]:
             detail="pendingScaleItems는 {scaleType: [questionNumber, ...]} 형태의 JSON 객체여야 합니다.",
         )
     return parsed
+
+
+def _parse_conversation_turns(raw: str) -> list[dict[str, str]]:
+    """NestJS가 전달한 최근 대화 최대 5개를 프롬프트용 안전한 형태로 검증한다."""
+    try:
+        parsed = json.loads(raw) if raw else []
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=422, detail="conversationTurns가 올바른 JSON이 아닙니다."
+        ) from exc
+
+    if not isinstance(parsed, list) or len(parsed) > 5:
+        raise HTTPException(
+            status_code=422, detail="conversationTurns는 최대 5개의 JSON 배열이어야 합니다."
+        )
+
+    validated: list[dict[str, str]] = []
+    for turn in parsed:
+        if not isinstance(turn, dict):
+            raise HTTPException(status_code=422, detail="대화 항목은 JSON 객체여야 합니다.")
+        speaker_type = turn.get("speakerType")
+        content = turn.get("content")
+        if (
+            speaker_type not in {"AI", "SENIOR"}
+            or not isinstance(content, str)
+            or not content.strip()
+            or len(content) > 4000
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="대화 항목에는 올바른 speakerType과 content가 필요합니다.",
+            )
+        validated.append({"speakerType": speaker_type, "content": content.strip()})
+    return validated
 
 
 def _resolve_audio_format(audio_file: UploadFile) -> str:

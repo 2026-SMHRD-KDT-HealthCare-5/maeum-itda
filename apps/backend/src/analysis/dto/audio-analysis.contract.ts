@@ -29,6 +29,15 @@ export interface QuestionAnswerBatch {
   // false면 종료 직전 답변 분석 결과만 저장하고 다음 AI 질문은 저장·전송하지 않는다.
   continueConversation: boolean;
   answers: QueuedAnswerSegment[];
+  // AnalysisService가 FastAPI 호출 직전에 DB 기준 최신 컨텍스트로 채운다.
+  pendingScaleItems?: Record<ScaleType, string[]>;
+  prevSessionSummary?: string;
+  conversationTurns?: ConversationTurn[];
+}
+
+export interface ConversationTurn {
+  speakerType: 'AI' | 'SENIOR';
+  content: string;
 }
 
 export interface ScaleAnalysisResult {
