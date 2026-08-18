@@ -44,3 +44,41 @@
   font-size: 15px;
   text-align: center;
 }
+
+.emptyState {
+  display: flex;
+  min-height: 100svh;
+  padding: 96px 28px 48px;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.emptyCharacter {
+  width: min(240px, 66vw);
+  aspect-ratio: 1;
+  margin-bottom: 24px;
+  object-fit: contain;
+}
+
+.emptyState h1 {
+  margin: 0;
+  color: #293a32;
+  font-size: clamp(24px, 7vw, 30px);
+  line-height: 1.35;
+  letter-spacing: -0.04em;
+}
+
+.emptyState p {
+  max-width: 330px;
+  margin: 14px 0 0;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #65726c;
+  font-size: 16px;
+  line-height: 1.65;
+  word-break: keep-all;
+}
