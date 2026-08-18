@@ -3,6 +3,10 @@
   padding: 24px 20px 110px;
   box-sizing: border-box;
   display: grid;
+  /* align-content 기본값(normal)은 grid에서 stretch로 동작해, 콘텐츠가
+     min-height보다 짧을 때 남는 공간을 모든 row(토글 row 포함)에 나눠 늘린다 —
+     start로 고정해 row는 원래 크기 유지, 남는 공간은 맨 아래에만 남게 한다. */
+  align-content: start;
   gap: 16px;
   background:
     radial-gradient(circle at 96% 4%, rgba(207, 230, 216, 0.72), transparent 23rem),
@@ -67,6 +71,15 @@
   min-height: calc(100svh - 310px);
   padding: 38px 20px 54px;
   text-align: center;
+}
+
+/* emptyState와 같은 최소 높이를 줘서, 로딩 중일 때만 셸이 짧아졌다 다시 늘어나며
+   위 탭까지 흔들리는 것처럼 보이는 걸 막는다. */
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 310px);
 }
 
 .emptyCharacter {

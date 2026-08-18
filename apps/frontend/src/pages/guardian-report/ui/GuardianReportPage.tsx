@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SelectReportDateAction, toDateKey } from '../../../features/select-report-date'
@@ -39,10 +39,18 @@ export function GuardianReportPage() {
     queryKey: ['daily-report', dateKey],
     queryFn: () => fetchDailyReport(dateKey),
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
+    placeholderData: keepPreviousData,
   })
 
-  const showSpinner = useDelayedPending(dailyReportQuery.isPending)
-  const report = dailyReportQuery.data
+  // isPending 대신 isFetching을 봐야 한다: placeholderData(keepPreviousData) 덕에
+  // 날짜를 넘겨도 이전 날짜 데이터가 즉시 남아있어 isPending은 계속 false다 —
+  // 그 상태에서 fetch 진행 중임을 알려주려면 isFetching이 필요하다.
+  const showSpinner = useDelayedPending(dailyReportQuery.isFetching)
+  // isPlaceholderData인 동안의 data는 "새 날짜의 값"이 아니라 아직 남아있는
+  // 이전 날짜 값이다 — 그대로 report로 노출하면 다른 날짜 카드가 잠깐 보였다
+  // 사라지는 것처럼 보인다. fetch가 끝나 진짜 이 날짜의 값(성공/404)으로
+  // 확정되기 전까지는 report를 비워 스피너만 보이게 한다.
+  const report = dailyReportQuery.isPlaceholderData ? undefined : dailyReportQuery.data
   const reportMissing = dailyReportQuery.isError && isNotFoundError(dailyReportQuery.error)
 
   function selectDate(date: Date) {
@@ -62,9 +70,13 @@ export function GuardianReportPage() {
           datesWithReport={calendarQuery.data?.datesWithDailyReport ?? new Set()}
         />
 
-        {showSpinner && <LoadingSpinner overlay label="리포트를 불러오고 있어요" />}
+        {showSpinner && (
+          <div className={styles.loadingState}>
+            <LoadingSpinner label="리포트를 불러오고 있어요" />
+          </div>
+        )}
 
-        {!showSpinner && dailyReportQuery.isError && !reportMissing && (
+        {dailyReportQuery.isError && !reportMissing && (
           <div className={styles.statusMessage} role="alert">
             <p>{extractApiErrorMessage(dailyReportQuery.error, '리포트를 불러오지 못했어요.')}</p>
             <Button type="button" onClick={() => dailyReportQuery.refetch()}>
@@ -73,7 +85,7 @@ export function GuardianReportPage() {
           </div>
         )}
 
-        {!showSpinner && report && (
+        {report && (
           <>
             <Card className={styles.scoreCard}>
               <EmotionScoreCard
@@ -103,7 +115,7 @@ export function GuardianReportPage() {
           </>
         )}
 
-        {!showSpinner && reportMissing && (
+        {reportMissing && (
           <section className={styles.emptyState} aria-labelledby="guardian-report-empty-title">
             <img
               className={styles.emptyCharacter}
