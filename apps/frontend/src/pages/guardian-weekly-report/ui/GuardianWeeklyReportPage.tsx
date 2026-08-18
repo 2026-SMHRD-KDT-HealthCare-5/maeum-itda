@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import {
   RecommendedActionCard,
@@ -31,10 +31,16 @@ export function GuardianWeeklyReportPage() {
     queryKey: ['weekly-report', selectedWeekStart],
     queryFn: () => fetchWeeklyReport(selectedWeekStart),
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
+    placeholderData: keepPreviousData,
   })
 
-  const showSpinner = useDelayedPending(weeklyReportQuery.isPending)
-  const report = weeklyReportQuery.data
+  // isPending 대신 isFetching — placeholderData(keepPreviousData)로 주가 바뀌어도
+  // isPending은 계속 false다.
+  const showSpinner = useDelayedPending(weeklyReportQuery.isFetching)
+  // isPlaceholderData인 동안 data는 이전 주 값이다 — 그대로 노출하면 다른 주
+  // 카드가 잠깐 보였다 사라지는 것처럼 보이므로, fetch가 끝나 이 주 값으로
+  // 확정되기 전까지는 비워서 스피너만 보이게 한다.
+  const report = weeklyReportQuery.isPlaceholderData ? undefined : weeklyReportQuery.data
   const reportMissing = weeklyReportQuery.isError && isNotFoundError(weeklyReportQuery.error)
 
   return (
@@ -47,9 +53,13 @@ export function GuardianWeeklyReportPage() {
           weeksWithReport={calendarQuery.data?.weekStartsWithWeeklyReport ?? new Set()}
         />
 
-        {showSpinner && <LoadingSpinner overlay label="리포트를 불러오고 있어요" />}
+        {showSpinner && (
+          <div className={styles.loadingState}>
+            <LoadingSpinner label="리포트를 불러오고 있어요" />
+          </div>
+        )}
 
-        {!showSpinner && weeklyReportQuery.isError && !reportMissing && (
+        {weeklyReportQuery.isError && !reportMissing && (
           <div className={styles.statusMessage} role="alert">
             <p>{extractApiErrorMessage(weeklyReportQuery.error, '리포트를 불러오지 못했어요.')}</p>
             <Button type="button" onClick={() => weeklyReportQuery.refetch()}>
@@ -58,7 +68,7 @@ export function GuardianWeeklyReportPage() {
           </div>
         )}
 
-        {!showSpinner && report && (
+        {report && (
           <>
             <section className={styles.trendSection} aria-label="주간 정서 지수와 요약 통계">
               <EmotionTrendChart
@@ -92,7 +102,7 @@ export function GuardianWeeklyReportPage() {
           </>
         )}
 
-        {!showSpinner && reportMissing && (
+        {reportMissing && (
           <section className={styles.emptyState} aria-labelledby="weekly-report-empty-title">
             <img
               className={styles.emptyCharacter}
