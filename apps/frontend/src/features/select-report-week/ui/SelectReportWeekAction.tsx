@@ -5,6 +5,10 @@ import styles from './SelectReportWeekAction.module.css'
 interface SelectReportWeekActionProps {
   weekStart: string
   weeksWithReport: Set<string>
+  // 모달에서 보고 있는 달이 바뀔 때마다 알려준다 — 부모가 이 달 기준으로
+  // weeksWithReport를 새로 가져오지 않으면, 선택된 주의 달과 다른 달로
+  // 넘겼을 때 그 달의 "리포트 있음" 점이 안 찍힌 채로 남는다.
+  onVisibleMonthChange?: (month: Date) => void
 }
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000
@@ -53,6 +57,7 @@ function getCalendarDates(year: number, month: number): Date[] {
 export function SelectReportWeekAction({
   weekStart,
   weeksWithReport,
+  onVisibleMonthChange,
 }: SelectReportWeekActionProps) {
   const navigate = useNavigate()
   const selectedWeek = parseDateKey(weekStart)
@@ -68,7 +73,14 @@ export function SelectReportWeekAction({
   function openCalendar() {
     if (!selectedWeek) return
     setVisibleMonth(selectedWeek)
+    onVisibleMonthChange?.(selectedWeek)
     setIsCalendarOpen(true)
+  }
+
+  function moveMonth(offset: number) {
+    const next = new Date(Date.UTC(year, month + offset, 1))
+    setVisibleMonth(next)
+    onVisibleMonthChange?.(next)
   }
 
   useEffect(() => {
@@ -125,21 +137,13 @@ export function SelectReportWeekAction({
             onClick={(event) => event.stopPropagation()}
           >
             <div className={styles.monthNav}>
-              <button
-                type="button"
-                onClick={() => setVisibleMonth(new Date(Date.UTC(year, month - 1, 1)))}
-                aria-label="이전 달"
-              >
+              <button type="button" onClick={() => moveMonth(-1)} aria-label="이전 달">
                 ‹
               </button>
               <strong>
                 {year}년 {month + 1}월
               </strong>
-              <button
-                type="button"
-                onClick={() => setVisibleMonth(new Date(Date.UTC(year, month + 1, 1)))}
-                aria-label="다음 달"
-              >
+              <button type="button" onClick={() => moveMonth(1)} aria-label="다음 달">
                 ›
               </button>
             </div>

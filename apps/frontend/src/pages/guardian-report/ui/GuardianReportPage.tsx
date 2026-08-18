@@ -31,9 +31,14 @@ export function GuardianReportPage() {
   )
   const dateKey = toDateKey(selectedDate)
 
+  // 캘린더 모달에서 실제로 보고 있는 달 — selectedDate와 별개다. 모달 안에서
+  // 다른 달로 넘겨도 이 값이 갱신되어야 그 달의 리포트 보유 여부를 가져온다.
+  const [calendarMonth, setCalendarMonth] = useState(
+    () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
+  )
   const calendarQuery = useQuery({
-    queryKey: ['report-calendar', selectedDate.getFullYear(), selectedDate.getMonth()],
-    queryFn: () => fetchReportCalendar(selectedDate.getFullYear(), selectedDate.getMonth() + 1),
+    queryKey: ['report-calendar', calendarMonth.getFullYear(), calendarMonth.getMonth()],
+    queryFn: () => fetchReportCalendar(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1),
   })
   const dailyReportQuery = useQuery({
     queryKey: ['daily-report', dateKey],
@@ -68,6 +73,7 @@ export function GuardianReportPage() {
           selectedDate={selectedDate}
           onSelectDate={selectDate}
           datesWithReport={calendarQuery.data?.datesWithDailyReport ?? new Set()}
+          onVisibleMonthChange={setCalendarMonth}
         />
 
         {showSpinner && (
