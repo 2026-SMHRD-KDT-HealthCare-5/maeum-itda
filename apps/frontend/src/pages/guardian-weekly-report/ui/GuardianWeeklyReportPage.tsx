@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
   RecommendedActionCard,
@@ -21,11 +22,18 @@ import styles from './GuardianWeeklyReportPage.module.css'
 export function GuardianWeeklyReportPage() {
   const { weekStart } = useParams<{ weekStart: string }>()
   const selectedWeekStart = weekStart ?? '2026-08-10'
-  const [year, month] = selectedWeekStart.split('-').map(Number)
 
+  // 캘린더 모달에서 실제로 보고 있는 달 — selectedWeekStart와 별개다. 모달
+  // 안에서 다른 달로 넘겨도 이 값이 갱신되어야 그 달의 주간 리포트 보유
+  // 여부를 가져온다.
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const [initialYear, initialMonth] = selectedWeekStart.split('-').map(Number)
+    return new Date(Date.UTC(initialYear, initialMonth - 1, 1))
+  })
   const calendarQuery = useQuery({
-    queryKey: ['report-calendar', year, month - 1],
-    queryFn: () => fetchReportCalendar(year, month),
+    queryKey: ['report-calendar', calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth()],
+    queryFn: () =>
+      fetchReportCalendar(calendarMonth.getUTCFullYear(), calendarMonth.getUTCMonth() + 1),
   })
   const weeklyReportQuery = useQuery({
     queryKey: ['weekly-report', selectedWeekStart],
@@ -51,6 +59,7 @@ export function GuardianWeeklyReportPage() {
         <SelectReportWeekAction
           weekStart={selectedWeekStart}
           weeksWithReport={calendarQuery.data?.weekStartsWithWeeklyReport ?? new Set()}
+          onVisibleMonthChange={setCalendarMonth}
         />
 
         {showSpinner && (
