@@ -1,4 +1,4 @@
-/* 역할: 마지막 턴 후 10분 안에 재호출 없으면 재계산을 트리거하고, 재호출되면 타이머가 리셋되는지 검증한다. */
+/* 역할: 마지막 질문 전달 후 10분 안에 새 질문·재접속이 없으면 재계산하고, 종료 시 예약을 취소하는지 검증한다. */
 import {
   LAST_TURN_RECALC_DELAY_MS,
   LastTurnRecalcTimerService,
@@ -55,5 +55,15 @@ describe('LastTurnRecalcTimerService', () => {
 
     expect(recalcToday).toHaveBeenCalledWith(7);
     expect(recalcToday).not.toHaveBeenCalledWith(8);
+  });
+
+  it('대화가 종료되면 예약된 재계산을 취소한다', () => {
+    const { service, recalcToday } = createService();
+
+    service.arm(7);
+    service.cancel(7);
+    jest.advanceTimersByTime(LAST_TURN_RECALC_DELAY_MS);
+
+    expect(recalcToday).not.toHaveBeenCalled();
   });
 });

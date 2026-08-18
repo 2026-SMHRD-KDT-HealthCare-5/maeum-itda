@@ -1,7 +1,8 @@
 /*
 역할: AI 질문 이후 시니어의 첫 답변을 기다리며 30초 안내와 총 2분 무응답 자동 종료를 관리한다.
 연결 흐름: ChatStartHandler/AudioBinaryHandler → ChatInactivityService → chat:idle-warning 또는 chat:ended
-주의: 자동 종료는 대화 상태만 종료하고 WebSocket 연결 자체는 닫지 않는다.
+[완료] 자동 종료는 대화 상태만 종료하고 WebSocket 연결 자체는 닫지 않는다.
+[제약] 타이머는 프로세스 메모리에 있어 서버 재시작·다중 인스턴스 간에 이어지지 않는다.
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
@@ -10,6 +11,7 @@ import { AudioTransferStateService } from './audio-transfer-state.service';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import { QuestionAnswerQueueService } from './question-answer-queue.service';
+import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 import { sendWsEvent } from './ws-event';
 
 export const IDLE_WARNING_MS = 30_000;
@@ -23,14 +25,28 @@ interface InactivityTimers {
 @Injectable()
 export class ChatInactivityService {
   private readonly timersByClient = new WeakMap<WebSocket, InactivityTimers>();
+  private readonly questionAnswerQueueService: QuestionAnswerQueueService;
+  private readonly audioMetadataHandler: AudioMetadataHandler;
+  private readonly audioTransferStateService: AudioTransferStateService;
+  private readonly chatConnectionStateService: ChatConnectionStateService;
+  private readonly recalcTriggerService: EmotionIndexRecalcTriggerService;
+  private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
 
   constructor(
-    private readonly questionAnswerQueueService: QuestionAnswerQueueService,
-    private readonly audioMetadataHandler: AudioMetadataHandler,
-    private readonly audioTransferStateService: AudioTransferStateService,
-    private readonly chatConnectionStateService: ChatConnectionStateService,
-    private readonly recalcTriggerService?: EmotionIndexRecalcTriggerService,
-  ) {}
+    questionAnswerQueueService: QuestionAnswerQueueService,
+    audioMetadataHandler: AudioMetadataHandler,
+    audioTransferStateService: AudioTransferStateService,
+    chatConnectionStateService: ChatConnectionStateService,
+    recalcTriggerService: EmotionIndexRecalcTriggerService,
+    lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+  ) {
+    this.questionAnswerQueueService = questionAnswerQueueService;
+    this.audioMetadataHandler = audioMetadataHandler;
+    this.audioTransferStateService = audioTransferStateService;
+    this.chatConnectionStateService = chatConnectionStateService;
+    this.recalcTriggerService = recalcTriggerService;
+    this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+  }
 
   startWaitingForAnswer(client: WebSocket): void {
     this.clearClient(client);
@@ -71,7 +87,8 @@ export class ChatInactivityService {
     // markChatEnded가 seniorId 매핑을 지우므로 그 전에 읽어야 한다.
     const seniorId = this.chatConnectionStateService.getSeniorId(client);
     if (seniorId !== undefined) {
-      this.recalcTriggerService?.recalcToday(seniorId);
+      this.lastTurnRecalcTimerService.cancel(seniorId);
+      this.recalcTriggerService.recalcToday(seniorId);
     }
 
     this.clearClient(client);

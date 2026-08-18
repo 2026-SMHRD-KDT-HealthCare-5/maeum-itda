@@ -1,7 +1,7 @@
 /*
 역할: 저장된 문항 분석 결과를 집계해 일간 정서 리포트를 생성·갱신한다.
 전체 흐름: 내부 호출 → ReportsService → 계산기/DailyReportRepository → MySQL
-주의: REST 조회 진입점과 주간 집계는 이후 별도로 연결한다.
+[완료] REST 조회와 주간 집계는 별도 Service로 분리되어 있으며 이 Service는 일간 생성만 담당한다.
 */
 import { Injectable } from '@nestjs/common';
 import {

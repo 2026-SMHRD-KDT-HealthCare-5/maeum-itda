@@ -1,7 +1,8 @@
 /*
 역할: WebSocket 연결별로 처리가 끝난 음성 전송 ID와 반환한 메시지 ID를 임시 보관한다.
 연결 흐름: AudioBinaryHandler → AudioTransferStateService → 중복 바이너리 수신 시 기존 audio:ack 재전송
-주의: MVP에서는 현재 연결 동안만 보관하며 WebSocket 연결 종료 또는 대화 종료 시 폐기한다.
+[완료] 현재 연결에서 같은 audioTransferId가 다시 오면 기존 ACK를 반환한다.
+[제약] 처리 이력이 메모리에 있어 연결 종료·서버 재시작·다른 인스턴스 재접속 후에는 중복 여부를 공유하지 못한다.
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';

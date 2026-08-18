@@ -26,7 +26,7 @@ import { WeeklyReportResponseDto } from './dto/weekly-report-response.dto';
 import { WeeklyReportQueryService } from './weekly-report-query.service';
 import { ReportCalendarQueryService } from './report-calendar-query.service';
 
-@ApiTags('7. 리포트')
+@ApiTags('5. 리포트')
 @ApiBearerAuth()
 @UseGuards(AccessTokenGuard)
 @Controller('reports')

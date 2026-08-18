@@ -1,7 +1,7 @@
 /*
-역할: 대화 종료/유휴 타임아웃/같은 날 재접속 시점에 오늘 정서지수를 즉시 재계산·저장한다.
+역할: 대화 시작·종료, 유휴 타임아웃, 마지막 질문 후 타이머 만료 시 오늘 정서지수를 즉시 재계산·저장한다.
 연결 흐름: chats 모듈의 ChatEndHandler/ChatInactivityService/ChatStartHandler → 이 서비스 → ReportsService.generateDailyReport
-주의: 09:00 정기 배치(ReportGenerationCoordinatorService)와 달리 알림 발송은 하지 않고
+[완료] 09:00 정기 배치(ReportGenerationCoordinatorService)와 달리 알림 발송은 하지 않고
 리포트 값만 최신화한다 — 대화 흐름을 막으면 안 되므로 실패해도 에러를 삼킨다.
 */
 import { Injectable, Logger } from '@nestjs/common';

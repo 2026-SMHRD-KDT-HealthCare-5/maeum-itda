@@ -6,6 +6,7 @@ import { GuardianSeniorRelationship } from '../users/entities/guardian-senior-re
 import { User } from '../users/entities/user.entity';
 import { ConnectionsController } from './connections.controller';
 import { ConnectionsService } from './connections.service';
+import { ConnectionsRepository } from './repositories/connections.repository';
 
 @Module({
   imports: [
@@ -13,6 +14,6 @@ import { ConnectionsService } from './connections.service';
     TypeOrmModule.forFeature([GuardianSeniorRelationship, User]),
   ],
   controllers: [ConnectionsController],
-  providers: [ConnectionsService],
+  providers: [ConnectionsService, ConnectionsRepository],
 })
 export class ConnectionsModule {}

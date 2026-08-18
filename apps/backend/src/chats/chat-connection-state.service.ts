@@ -2,10 +2,12 @@
 역할: WebSocket 연결별 현재 AI 질문 식별정보 관리
 연결 객체: ChatStartHandler, AudioMetadataHandler, ChatsGateway
 전체 흐름: chat:start → 현재 질문 저장 → audio:metadata 식별정보 검증 → 연결 종료 시 제거
+[완료] 같은 프로세스 안의 단기 재접속에서는 시니어 ID로 현재 질문을 복원한다.
+[제약] 상태가 메모리에 있어 서버 재시작·다중 인스턴스·다른 서버로의 재접속에서는 복원되지 않는다.
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
-import type { StartedChat } from './chats.service';
+import type { AiQuestionPayload } from '@maeum-itda/shared-types';
 
 export interface CurrentQuestionState {
   questionMessageId: number;
@@ -42,7 +44,7 @@ export class ChatConnectionStateService {
   // 다음 호출: AudioMetadataHandler의 질문 식별정보 검증
   setCurrentQuestion(
     client: WebSocket,
-    startedChat: StartedChat,
+    startedChat: AiQuestionPayload,
     seniorId?: number,
   ): void {
     // 새 chat:start가 처리되면 같은 연결에서 이전 대화의 종료 표시를 해제한다.

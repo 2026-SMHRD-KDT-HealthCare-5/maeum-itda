@@ -10,6 +10,8 @@ import type { AudioBinaryHandler } from './audio-binary.handler';
 import { ChatEndHandler } from './chat-end.handler';
 import type { AudioMetadataHandler } from './audio-metadata.handler';
 import type { ChatEndEvent } from '../client-ws-event';
+import type { ChatInactivityService } from '../chat-inactivity.service';
+import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 
 const chatEndEvent: ChatEndEvent = {
   event: 'chat:end',
@@ -33,13 +35,16 @@ describe('ChatEndHandler', () => {
       markChatEnded: jest.fn(),
     };
     const recalcTriggerService = { recalcToday: jest.fn() };
+    const chatInactivityService = { clearClient: jest.fn() };
+    const lastTurnRecalcTimerService = { cancel: jest.fn() };
     const handler = new ChatEndHandler(
       queue as unknown as QuestionAnswerQueueService,
       metadata as unknown as AudioMetadataHandler,
       binary as unknown as AudioBinaryHandler,
       state as unknown as ChatConnectionStateService,
-      undefined,
+      chatInactivityService as unknown as ChatInactivityService,
       recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
+      lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
     );
     return {
       handler,
@@ -50,6 +55,7 @@ describe('ChatEndHandler', () => {
       binary,
       state,
       recalcTriggerService,
+      lastTurnRecalcTimerService,
     };
   }
 
@@ -77,6 +83,7 @@ describe('ChatEndHandler', () => {
     context.handler.handleChatEnd(context.client, chatEndEvent);
 
     expect(context.recalcTriggerService.recalcToday).toHaveBeenCalledWith(7);
+    expect(context.lastTurnRecalcTimerService.cancel).toHaveBeenCalledWith(7);
   });
 
   it('seniorId를 알 수 없으면 재계산을 트리거하지 않는다', () => {
