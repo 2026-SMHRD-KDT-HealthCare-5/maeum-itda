@@ -13,6 +13,19 @@ import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-ba
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import styles from './GuardianHomePage.module.css'
 
+// 대시보드의 최근 7일은 전날까지의 이동 구간이라 두 주에 걸칠 수 있다.
+// 첫 날짜가 속한 월요일을 사용해, 카드에서 이미 완료된 주간 리포트로 이어지게 한다.
+function toWeeklyReportHref(firstDate: string | undefined): string {
+  if (!firstDate) return '/guardian/report'
+
+  const date = new Date(`${firstDate}T00:00:00Z`)
+  if (Number.isNaN(date.getTime())) return '/guardian/report'
+
+  const day = date.getUTCDay()
+  date.setUTCDate(date.getUTCDate() + (day === 0 ? -6 : 1 - day))
+  return `/guardian/report/weekly/${date.toISOString().slice(0, 10)}`
+}
+
 // GUARDIAN_HOME_01 (UC-08) — 결정사항 로그 §7에서 "오늘의 정서 지수"/"다슬이의
 // 한마디" 카드를 추가했다. GET /guardian/dashboard 실연동.
 export function GuardianHomePage() {
@@ -67,7 +80,7 @@ export function GuardianHomePage() {
 
             <EmotionTrendChart
               dailyScores={dashboard.recentSevenDays}
-              detailsHref="/guardian/report/weekly/2025-06-01"
+              detailsHref={toWeeklyReportHref(dashboard.recentSevenDays[0]?.date)}
             />
           </>
         )}
