@@ -102,6 +102,7 @@ export function EmotionTrendChart({
     (last, day, index) => (day.emotionScore === null ? last : index),
     -1,
   )
+  const hasEmotionScore = lastDataIndex !== -1
 
   return (
     <section className={styles.chart}>
@@ -114,94 +115,128 @@ export function EmotionTrendChart({
         )}
       </div>
 
-      <div
-        className={styles.chartCanvas}
-        role="img"
-        aria-label="최근 7일 정서 지수 추이. 데이터가 없는 날짜는 회색 배경으로 표시됩니다."
-      >
-        <div
-          className={styles.missingBands}
-          style={{ gridTemplateColumns: `repeat(${Math.max(chartData.length, 1)}, 1fr)` }}
-          aria-hidden="true"
-        >
-          {chartData.map((day) => (
-            <span className={day.emotionScore === null ? styles.missingBand : ''} key={day.date} />
-          ))}
+      {!hasEmotionScore ? (
+        <div className={styles.emptyState} role="status">
+          <div className={styles.emptyMessage}>
+            <span className={styles.emptyIcon} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <strong>아직 정서 기록이 없어요</strong>
+            <p>대화를 나누면 이곳에서 최근 변화를 확인할 수 있어요.</p>
+          </div>
+          <div className={styles.emptyDates} aria-hidden="true">
+            {chartData.map((day) => (
+              <span key={day.date}>{day.label}</span>
+            ))}
+          </div>
         </div>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 20, right: 12, bottom: 2, left: 6 }}>
-            <defs>
-              <filter id="emotion-line-shadow" x="-20%" y="-30%" width="140%" height="160%">
-                <feDropShadow
-                  dx="0"
-                  dy="2"
-                  floodColor="#40556b"
-                  floodOpacity="0.14"
-                  stdDeviation="1.5"
-                />
-              </filter>
-            </defs>
-            <ReferenceArea fill="#fdecec" fillOpacity={0.62} ifOverflow="hidden" y1={0} y2={49} />
-            <ReferenceArea fill="#fff5dc" fillOpacity={0.62} ifOverflow="hidden" y1={50} y2={69} />
-            <ReferenceArea fill="#edf7f1" fillOpacity={0.72} ifOverflow="hidden" y1={70} y2={100} />
-            <CartesianGrid className={styles.grid} vertical={false} />
-            <XAxis
-              axisLine={false}
-              dataKey="label"
-              tick={{ fill: '#8a918a', fontSize: 11 }}
-              tickLine={false}
-            />
-            <YAxis
-              axisLine={false}
-              domain={[0, 100]}
-              ticks={[0, 25, 50, 75, 100]}
-              tick={{ fill: '#bcc2bd', fontSize: 10 }}
-              tickLine={false}
-              width={32}
-            />
-            <Tooltip
-              cursor={{ stroke: '#d8ddd9', strokeDasharray: '3 3' }}
-              formatter={(value) => [`${value}점`, '정서 지수']}
-              labelFormatter={(_, payload) => payload[0]?.payload.date ?? ''}
-              contentStyle={{
-                border: '1px solid #e5e4e7',
-                borderRadius: 12,
-                boxShadow: '0 6px 18px rgba(43, 58, 51, 0.1)',
-                fontSize: 12,
-              }}
-            />
-            <ReferenceLine
-              label={{
-                value: '주의 기준',
-                position: 'insideTopRight',
-                fill: '#c86b63',
-                fontSize: 10,
-              }}
-              y={THRESHOLD_SCORE}
-              stroke="#d95a4e"
-              strokeDasharray="5 5"
-              strokeWidth={1.25}
-            />
-            <Line
-              connectNulls
-              dataKey="emotionScore"
-              dot={
-                <ScoreDot
-                  lastDataIndex={lastDataIndex}
-                  onSelectDate={(date) => navigate(`/guardian/report?date=${date}`)}
-                />
-              }
-              isAnimationActive={false}
-              style={{ filter: 'url(#emotion-line-shadow)' }}
-              stroke="#40556b"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={3.25}
-              type="monotoneX"
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
+      ) : (
+        <div
+          className={styles.chartCanvas}
+          role="img"
+          aria-label="최근 7일 정서 지수 추이. 데이터가 없는 날짜는 회색 배경으로 표시됩니다."
+        >
+          <div
+            className={styles.missingBands}
+            style={{ gridTemplateColumns: `repeat(${Math.max(chartData.length, 1)}, 1fr)` }}
+            aria-hidden="true"
+          >
+            {chartData.map((day) => (
+              <span
+                className={day.emotionScore === null ? styles.missingBand : ''}
+                key={day.date}
+              />
+            ))}
+          </div>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={chartData} margin={{ top: 20, right: 12, bottom: 2, left: 6 }}>
+              <defs>
+                <filter id="emotion-line-shadow" x="-20%" y="-30%" width="140%" height="160%">
+                  <feDropShadow
+                    dx="0"
+                    dy="2"
+                    floodColor="#40556b"
+                    floodOpacity="0.14"
+                    stdDeviation="1.5"
+                  />
+                </filter>
+              </defs>
+              <ReferenceArea fill="#fdecec" fillOpacity={0.62} ifOverflow="hidden" y1={0} y2={49} />
+              <ReferenceArea
+                fill="#fff5dc"
+                fillOpacity={0.62}
+                ifOverflow="hidden"
+                y1={50}
+                y2={69}
+              />
+              <ReferenceArea
+                fill="#edf7f1"
+                fillOpacity={0.72}
+                ifOverflow="hidden"
+                y1={70}
+                y2={100}
+              />
+              <CartesianGrid className={styles.grid} vertical={false} />
+              <XAxis
+                axisLine={false}
+                dataKey="label"
+                tick={{ fill: '#8a918a', fontSize: 11 }}
+                tickLine={false}
+              />
+              <YAxis
+                axisLine={false}
+                domain={[0, 100]}
+                ticks={[0, 25, 50, 75, 100]}
+                tick={{ fill: '#bcc2bd', fontSize: 10 }}
+                tickLine={false}
+                width={32}
+              />
+              <Tooltip
+                cursor={{ stroke: '#d8ddd9', strokeDasharray: '3 3' }}
+                formatter={(value) => [`${value}점`, '정서 지수']}
+                labelFormatter={(_, payload) => payload[0]?.payload.date ?? ''}
+                contentStyle={{
+                  border: '1px solid #e5e4e7',
+                  borderRadius: 12,
+                  boxShadow: '0 6px 18px rgba(43, 58, 51, 0.1)',
+                  fontSize: 12,
+                }}
+              />
+              <ReferenceLine
+                label={{
+                  value: '주의 기준',
+                  position: 'insideTopRight',
+                  fill: '#c86b63',
+                  fontSize: 10,
+                }}
+                y={THRESHOLD_SCORE}
+                stroke="#d95a4e"
+                strokeDasharray="5 5"
+                strokeWidth={1.25}
+              />
+              <Line
+                connectNulls
+                dataKey="emotionScore"
+                dot={
+                  <ScoreDot
+                    lastDataIndex={lastDataIndex}
+                    onSelectDate={(date) => navigate(`/guardian/report?date=${date}`)}
+                  />
+                }
+                isAnimationActive={false}
+                style={{ filter: 'url(#emotion-line-shadow)' }}
+                stroke="#40556b"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={3.25}
+                type="monotoneX"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </section>
   )
 }
