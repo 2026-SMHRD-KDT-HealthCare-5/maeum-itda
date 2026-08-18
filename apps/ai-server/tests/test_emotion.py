@@ -1,6 +1,7 @@
 import io
 import unittest
 import wave
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import numpy as np
@@ -60,13 +61,83 @@ class EmotionTests(unittest.TestCase):
         )
         self.assertAlmostEqual(sum(result.values()), 1.0)
 
+    def test_text_inference_matches_empty_context_fusion_tokenization(self):
+        import torch
+
+        class FakeTokenizer:
+            def __init__(self):
+                self.call = None
+
+            def __call__(self, *args, **kwargs):
+                self.call = (args, kwargs)
+                return {
+                    "input_ids": torch.tensor([[0, 1]]),
+                    "attention_mask": torch.tensor([[1, 1]]),
+                    "token_type_ids": torch.tensor([[0, 1]]),
+                }
+
+        class FakeModel:
+            config = SimpleNamespace(
+                id2label={0: "기쁨", 1: "분노", 2: "슬픔", 3: "불안", 4: "중립"}
+            )
+
+            def __call__(self, **inputs):
+                self.inputs = inputs
+                return SimpleNamespace(logits=torch.tensor([[5.0, 1.0, 0.0, -1.0, -2.0]]))
+
+        tokenizer = FakeTokenizer()
+        model = FakeModel()
+        with patch.object(
+            emotion,
+            "_get_text_model",
+            return_value=(tokenizer, model, torch.device("cpu")),
+        ):
+            result = emotion.classify_text_emotion("오늘은 기분이 좋아요")
+
+        self.assertEqual(tokenizer.call[0], ("", "오늘은 기분이 좋아요"))
+        self.assertEqual(
+            tokenizer.call[1],
+            {"return_tensors": "pt", "truncation": True, "max_length": 192},
+        )
+        self.assertNotIn("token_type_ids", model.inputs)
+        self.assertEqual(list(result), list(emotion.LABELS))
+        self.assertAlmostEqual(sum(result.values()), 1.0, places=6)
+
     def test_fusion_is_normalized(self):
         result = emotion.fuse_emotions(
             _probabilities(happy=0.6, neutral=0.0),
             _probabilities(sad=0.6, neutral=0.0),
         )
         self.assertAlmostEqual(sum(result.values()), 1.0)
-        self.assertAlmostEqual(result["happy"], result["sad"])
+
+    def test_fusion_uses_current_calibrated_classwise_parameters(self):
+        result = emotion.fuse_emotions(
+            {
+                "happy": 0.10,
+                "angry": 0.08,
+                "sad": 0.12,
+                "anxious": 0.55,
+                "neutral": 0.15,
+            },
+            {
+                "happy": 0.01,
+                "angry": 0.02,
+                "sad": 0.92,
+                "anxious": 0.03,
+                "neutral": 0.02,
+            },
+        )
+
+        expected = {
+            "happy": 0.169497,
+            "angry": 0.160008,
+            "sad": 0.187288,
+            "anxious": 0.285765,
+            "neutral": 0.197441,
+        }
+        for label in emotion.LABELS:
+            self.assertAlmostEqual(result[label], expected[label], places=6)
+        self.assertAlmostEqual(sum(result.values()), 1.0, places=6)
 
     def test_fusion_uses_available_modality_without_uniform_fallback(self):
         voice = _probabilities(angry=0.6, neutral=0.0)

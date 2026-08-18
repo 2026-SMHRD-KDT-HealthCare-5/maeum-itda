@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import logging
+from math import exp, log
 from functools import lru_cache
 from pathlib import Path
 
@@ -26,6 +27,17 @@ KOREAN_TO_SERVER_LABEL = {
 LABELS = MODEL_LABELS
 VOICE_CHECKPOINT = "kresnik/wav2vec2-large-xlsr-korean"
 VOICE_MAX_SAMPLES = 320_000
+# Current tuning result. These values remain candidates until the locked final-test
+# evaluation is completed; keeping them together prevents class-order drift.
+TEXT_TEMPERATURE = 2.6580434432229954
+VOICE_TEMPERATURE = 19.99918037103725
+CLASSWISE_TEXT_WEIGHTS = {
+    "happy": 1.0,
+    "angry": 0.9,
+    "sad": 0.9,
+    "anxious": 0.7,
+    "neutral": 0.1,
+}
 TEST_EMOTION = {
     "happy": 0.0,
     "angry": 0.0,
@@ -130,7 +142,11 @@ def classify_text_emotion(text: str) -> dict[str, float]:
         import torch
 
         tokenizer, model, device = _get_text_model()
-        inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=192)
+        # Fusion tuning evaluated this checkpoint as an empty-context sentence pair.
+        # Keep serving tokenization identical, and drop segment IDs because KLUE
+        # RoBERTa has type_vocab_size=1 even when its tokenizer emits pair IDs.
+        inputs = tokenizer("", text, return_tensors="pt", truncation=True, max_length=192)
+        inputs.pop("token_type_ids", None)
         inputs = {name: value.to(device) for name, value in inputs.items()}
         with torch.inference_mode():
             probabilities = torch.softmax(model(**inputs).logits, dim=-1)[0].cpu().tolist()
@@ -225,21 +241,36 @@ def fuse_emotions(
     if voice_probs is None:
         return dict(text_probs)
 
-    total_weight = settings.emotion_fusion_text_weight + settings.emotion_fusion_voice_weight
-    if total_weight <= 0:
-        raise EmotionInferenceError("Emotion fusion weights must have a positive sum")
-    fused = {
+    text_calibrated = _temperature_scale(text_probs, TEXT_TEMPERATURE)
+    voice_calibrated = _temperature_scale(voice_probs, VOICE_TEMPERATURE)
+    scores = {
         label: (
-            text_probs[label] * settings.emotion_fusion_text_weight
-            + voice_probs[label] * settings.emotion_fusion_voice_weight
+            CLASSWISE_TEXT_WEIGHTS[label] * text_calibrated[label]
+            + (1.0 - CLASSWISE_TEXT_WEIGHTS[label]) * voice_calibrated[label]
         )
-        / total_weight
         for label in LABELS
     }
-    total = sum(fused.values())
+    return _normalize_probabilities(scores)
+
+
+def _normalize_probabilities(probabilities: dict[str, float]) -> dict[str, float]:
+    values = {label: max(0.0, float(probabilities[label])) for label in LABELS}
+    total = sum(values.values())
     if total <= 0:
-        raise EmotionInferenceError("Fused emotion probabilities have zero mass")
-    return {label: value / total for label, value in fused.items()}
+        raise EmotionInferenceError("Emotion probabilities have zero mass")
+    return {label: value / total for label, value in values.items()}
+
+
+def _temperature_scale(
+    probabilities: dict[str, float], temperature: float
+) -> dict[str, float]:
+    """Apply the same probability-only temperature scaling used during tuning."""
+    normalized = _normalize_probabilities(probabilities)
+    logits = [log(max(normalized[label], 1e-12)) / temperature for label in LABELS]
+    offset = max(logits)
+    values = [exp(value - offset) for value in logits]
+    total = sum(values)
+    return {label: values[index] / total for index, label in enumerate(LABELS)}
 
 
 def dominant_emotion(emotion_probs: dict[str, float]) -> str:

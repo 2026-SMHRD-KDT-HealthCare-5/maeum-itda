@@ -56,10 +56,6 @@ class Settings(BaseSettings):
     voice_emotion_model_path: str = "./models/voice_emotion/kresnik_baseline_best.pt"
     emotion_device: str = "auto"              # auto/cuda/cpu
 
-    # 감정 융합 가중치
-    emotion_fusion_text_weight: float = 0.5
-    emotion_fusion_voice_weight: float = 0.5
-
     # 척도 채점
     scale_analysis_mode: str = "test"          # test: 고정 목업 채점 / empty: 항상 빈 배열 / model: SYSTEM_PROMPT 기반 실채점 사용
 

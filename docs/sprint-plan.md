@@ -14,6 +14,7 @@
 
 - **프론트**: 로그인(localStorage 세션 유지)/회원가입, 시니어·보호자 연결 요청·수락·거절·해제, 시니어 대화 화면(WS 실연동, 다슬이 발화 중 끼어들기/barge-in 지원), STT 실시간 반영, TTS 재생 컴포넌트(마이크 오픈 순서·iOS 자동재생 보정 포함), 보호자 대시보드/알림함/일간·주간 리포트, 시니어 이전 대화 기록, 내 정보(기본정보/체크인 알림/알림 임계치), 출석 캘린더, 웹 푸시 구독 등록 플로우(`features/enable-push-notifications`) — 전부 실 API 연동됨
 - **AI서버**: STT(OpenAI 우선+whisper 폴백), STT 교정(`corrected_transcript`), 척도 채점(SGDS-K/GAD-7/LSNS-6, 고정 문항 은행), 꼬리질문 생성, TTS(Typecast), UC-06-4 일간 요약·추천행동 생성(`POST /reports/daily-summary`), 문항 커버리지/이전 세션 요약을 받을 Form 필드(`pendingScaleItems`/`prevSessionSummary`, 백엔드가 안 보내도 안전하게 기본값 처리) — 전부 구현 완료
+- **5감정 모델**: KLUE 텍스트·Kresnik 음성 모델 체크포인트, 단문 추론, 온도 보정, 클래스별 가중합 연동 완료. 현재 파라미터는 최종 테스트 세트 평가 전 후보값이며, 음성 기반 모델은 Hugging Face 캐시/네트워크 의존성을 완전한 로컬 배포 자산으로 전환해야 함
 - **백엔드**: 로그인, WS 인증·대화·음성 수신, 정서지수 즉시 재계산 트리거, 웹 푸시 발송 인프라(VAPID·구독 저장·임계치 발송, REST 엔드포인트 전부 존재), WS 리스너 정리 버그 수정
 
 ### 남은 작업 (전부 백엔드 담당 시작 시 처리)
@@ -23,7 +24,7 @@
    - **주의: 이 두 필드만으로는 "같은 대화 안에서 방금 전 턴에 뭐라고 답했는지"까지는 안 채워짐.** `pendingScaleItems`/`prevSessionSummary`는 각각 "오늘 이미 채점된 문항"과 "이전 세션 요약"이라 크로스-세션/일자 맥락만 다룬다. 지금 AI서버는 `POST /analysis/audio/batch` 호출마다 `SessionState`를 매번 새로 만들고(`session_manager.py`의 `SessionManager` 싱글턴은 정의만 돼있고 실제로는 어디서도 호출 안 됨) `turns`가 항상 빈 배열로 시작해서, 한 대화 세션 안에 질문-답변이 여러 번 오가도 LLM은 "방금 들은 답변"만 보고 다음 질문을 만든다 — 여러 턴에 걸쳐 반복 질문하거나 맥락이 끊기는 꼬리질문이 나올 위험. 이 부분까지 고치려면 (a) 백엔드가 매 호출마다 같은 세션의 이전 턴들(질문/답변 텍스트)을 함께 실어 보내거나, (b) AI서버가 `generationId`/세션ID 기준으로 `SessionManager`를 실제로 사용해 `add_turn()`을 호출하며 상태를 유지하는 방식 중 하나를 정해야 함 — 담당자 배정 시 이 결정부터 하고 시작할 것.
 3. **TTS 배관** — `audio-analysis.contract.ts`/검증기에 `ttsAudioBase64`/`ttsMimeType` 반영, `tts:audio` WS 이벤트 실제 emit. 프론트는 이미 이 이벤트를 받아 재생하는 코드가 있음(목업으로만 테스트됨). `docs/ws-protocol.md` §6.2/§8도 이 방식(배치 base64)으로 갱신 — 지금 §8 "MVP 이후"에 TTS binary 전송이라고 잘못 남아있음.
 4. **UC-06-4 연동** — AI서버 `POST /reports/daily-summary` 호출해서 받은 결과를 `ReportsService.generateDailyReport()`에서 저장하도록 연결. **필드명 불일치 주의**: AI서버 응답과 프론트 `entities/report/model`은 `conversationSummary`를 쓰는데, 백엔드 엔티티/DTO(`DailyEmotionReport`, `daily-report-response.dto.ts`)는 아직 `oneLineSummary`임 — 연동하면서 `conversationSummary`로 이름을 맞출지 결정 필요.
-5. **감정분석 실모델(`EMOTION_MODE=model`)** — `models/text_emotion`, `models/voice_emotion` 폴더가 비어 있어 체크포인트 파일 자체가 없음. API 키 문제가 아니라 모델 파일 소싱이 필요(AI서버 담당 몫). `EMOTION_MODE=test`로 둬도 나머지 파이프라인은 정상 동작하니 데모를 막는 요인은 아님.
+5. **감정분석 모델 최종 확정·배포** — `EMOTION_MODE=model`의 로컬 실추론과 65개 단위 테스트는 통과함. 잠가둔 최종 테스트 750개로 현재 보정·가중합 후보값을 한 번 평가해 확정하고, Hugging Face에서 로드하는 음성 기반 모델/전처리기를 배포 환경에 함께 포함할 것. 체크포인트는 Git ignore에서 제외했지만 단일 파일이 GitHub 일반 제한을 초과하므로 Git LFS 또는 별도 모델 저장소 전략을 확정할 것.
 6. (낮은 우선순위) `SCALE_QUESTION_ANALYSIS` 테이블에 스펙 문서(`테이블명세서_마음잇다.pdf`)엔 있는 `IS_MATCHED` 컬럼이 실제 엔티티/스키마엔 없음 — TextScore 계산엔 영향 없어서 보류 중.
 
 ### 최종 확인할 것 (위 1~4 끝난 뒤)
