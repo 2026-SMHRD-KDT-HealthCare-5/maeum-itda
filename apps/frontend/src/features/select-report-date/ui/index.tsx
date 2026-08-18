@@ -8,6 +8,10 @@ interface SelectReportDateActionProps {
   selectedDate: Date
   onSelectDate: (date: Date) => void
   datesWithReport: Set<string>
+  // 모달에서 보고 있는 달이 바뀔 때마다 알려준다 — 부모가 이 달 기준으로
+  // datesWithReport를 새로 가져오지 않으면, 선택된 날짜의 달과 다른 달로
+  // 넘겼을 때 그 달의 "리포트 있음" 점이 안 찍힌 채로 남는다.
+  onVisibleMonthChange?: (month: Date) => void
 }
 
 // GUARDIAN_REPORT_01 (UC-08) — 일간 리포트 날짜 네비게이션 + 캘린더 모달.
@@ -18,6 +22,7 @@ export function SelectReportDateAction({
   selectedDate,
   onSelectDate,
   datesWithReport,
+  onVisibleMonthChange,
 }: SelectReportDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [visibleMonth, setVisibleMonth] = useState(
@@ -31,11 +36,17 @@ export function SelectReportDateAction({
   }
 
   function moveMonth(offset: number) {
-    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
+    setVisibleMonth((current) => {
+      const next = new Date(current.getFullYear(), current.getMonth() + offset, 1)
+      onVisibleMonthChange?.(next)
+      return next
+    })
   }
 
   function openCalendar() {
-    setVisibleMonth(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1))
+    const month = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1)
+    setVisibleMonth(month)
+    onVisibleMonthChange?.(month)
     setIsCalendarOpen(true)
   }
 
