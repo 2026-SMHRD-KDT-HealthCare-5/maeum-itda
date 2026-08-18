@@ -33,7 +33,7 @@ import { ConnectionResponseDto } from './dto/connection-response.dto';
 import { CreateConnectionRequestDto } from './dto/create-connection-request.dto';
 import { ConnectionsService } from './connections.service';
 
-@ApiTags('5. 보호자-시니어 연결')
+@ApiTags('7. 보호자-시니어 연결')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ type: ApiErrorResponseDto })
 @UseGuards(AccessTokenGuard)

@@ -1,24 +1,27 @@
 /* 역할: 연결 요청의 생성·수락·거절·취소·해제 상태 전이와 역할 권한을 검증한다. */
 import { ConflictException, ForbiddenException } from '@nestjs/common';
-import type { Repository } from 'typeorm';
 import {
   ConnectionStatus,
   GuardianSeniorRelationship,
 } from '../users/entities/guardian-senior-relationship.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import { ConnectionsService } from './connections.service';
+import type { ConnectionsRepository } from './repositories/connections.repository';
 
 describe('ConnectionsService', () => {
-  const relationshipsRepository = {
-    findOne: jest.fn(),
-    create: jest.fn(),
+  const connectionsRepository = {
+    findSeniorByLoginId: jest.fn(),
+    findUserById: jest.fn(),
+    findActiveForUser: jest.fn(),
+    findActiveForSenior: jest.fn(),
+    findConnectedForUser: jest.fn(),
+    findById: jest.fn(),
+    createRequest: jest.fn(),
     save: jest.fn(),
     remove: jest.fn(),
   };
-  const usersRepository = { findOne: jest.fn() };
   const service = new ConnectionsService(
-    relationshipsRepository as unknown as Repository<GuardianSeniorRelationship>,
-    usersRepository as unknown as Repository<User>,
+    connectionsRepository as unknown as ConnectionsRepository,
   );
 
   const guardianAuth = { sub: 2, role: UserRole.GUARDIAN };
@@ -59,10 +62,10 @@ describe('ConnectionsService', () => {
 
   it('보호자가 시니어에게 연결 요청을 생성한다', async () => {
     const relationship = requestedRelationship();
-    usersRepository.findOne.mockResolvedValue(senior);
-    relationshipsRepository.findOne.mockResolvedValue(null);
-    relationshipsRepository.create.mockReturnValue(relationship);
-    relationshipsRepository.save.mockResolvedValue(relationship);
+    connectionsRepository.findSeniorByLoginId.mockResolvedValue(senior);
+    connectionsRepository.findActiveForUser.mockResolvedValue(null);
+    connectionsRepository.findActiveForSenior.mockResolvedValue(null);
+    connectionsRepository.createRequest.mockResolvedValue(relationship);
 
     const result = await service.createRequest(guardianAuth, {
       seniorLoginId: 'senior01',
@@ -79,8 +82,10 @@ describe('ConnectionsService', () => {
   });
 
   it('활성 관계가 있는 보호자의 중복 요청을 거절한다', async () => {
-    usersRepository.findOne.mockResolvedValue(senior);
-    relationshipsRepository.findOne.mockResolvedValue(requestedRelationship());
+    connectionsRepository.findSeniorByLoginId.mockResolvedValue(senior);
+    connectionsRepository.findActiveForUser.mockResolvedValue(
+      requestedRelationship(),
+    );
 
     await expect(
       service.createRequest(guardianAuth, { seniorLoginId: 'senior01' }),
@@ -89,11 +94,11 @@ describe('ConnectionsService', () => {
 
   it('시니어가 요청을 수락하면 연결 시각을 기록한다', async () => {
     const relationship = requestedRelationship();
-    relationshipsRepository.findOne.mockResolvedValue(relationship);
-    relationshipsRepository.save.mockImplementation(
+    connectionsRepository.findById.mockResolvedValue(relationship);
+    connectionsRepository.save.mockImplementation(
       (value: GuardianSeniorRelationship) => Promise.resolve(value),
     );
-    usersRepository.findOne.mockResolvedValue(guardian);
+    connectionsRepository.findUserById.mockResolvedValue(guardian);
 
     const result = await service.acceptRequest(seniorAuth, 10);
 
@@ -104,8 +109,8 @@ describe('ConnectionsService', () => {
   it('시니어가 요청을 거절하면 REJECTED로 저장한다', async () => {
     const relationship = requestedRelationship();
     let saved: GuardianSeniorRelationship | undefined;
-    relationshipsRepository.findOne.mockResolvedValue(relationship);
-    relationshipsRepository.save.mockImplementation(
+    connectionsRepository.findById.mockResolvedValue(relationship);
+    connectionsRepository.save.mockImplementation(
       (value: GuardianSeniorRelationship) => {
         saved = value;
         return Promise.resolve(value);
@@ -119,13 +124,13 @@ describe('ConnectionsService', () => {
 
   it('보호자가 요청을 취소하면 대기 요청 행을 제거한다', async () => {
     const relationship = requestedRelationship();
-    relationshipsRepository.findOne.mockResolvedValue(relationship);
-    relationshipsRepository.remove.mockResolvedValue(relationship);
+    connectionsRepository.findById.mockResolvedValue(relationship);
+    connectionsRepository.remove.mockResolvedValue(undefined);
 
     await service.cancelRequest(guardianAuth, 10);
 
-    expect(relationshipsRepository.remove).toHaveBeenCalledWith(relationship);
-    expect(relationshipsRepository.save).not.toHaveBeenCalled();
+    expect(connectionsRepository.remove).toHaveBeenCalledWith(relationship);
+    expect(connectionsRepository.save).not.toHaveBeenCalled();
   });
 
   it('연결을 끊으면 DISCONNECTED와 해제 시각을 저장한다', async () => {
@@ -135,8 +140,8 @@ describe('ConnectionsService', () => {
       approvedAt: new Date('2026-08-13T02:00:00.000Z'),
     };
     let saved: GuardianSeniorRelationship | undefined;
-    relationshipsRepository.findOne.mockResolvedValue(relationship);
-    relationshipsRepository.save.mockImplementation(
+    connectionsRepository.findConnectedForUser.mockResolvedValue(relationship);
+    connectionsRepository.save.mockImplementation(
       (value: GuardianSeniorRelationship) => {
         saved = value;
         return Promise.resolve(value);
@@ -150,7 +155,7 @@ describe('ConnectionsService', () => {
   });
 
   it('활성 연결이 없으면 빈 연결 응답을 반환한다', async () => {
-    relationshipsRepository.findOne.mockResolvedValue(null);
+    connectionsRepository.findActiveForUser.mockResolvedValue(null);
 
     await expect(service.getMyConnection(seniorAuth)).resolves.toEqual({
       relationshipId: null,
