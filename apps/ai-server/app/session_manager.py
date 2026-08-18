@@ -23,6 +23,7 @@ class SessionState:
     user_id: str
     prev_session_summary: str = ""
     pending_scale_items: dict[str, list[str]] = field(default_factory=dict)
+    conversation_turns: list[dict[str, str]] = field(default_factory=list)
     turns: list[Turn] = field(default_factory=list)
 
     def add_turn(self, turn: Turn) -> None:
@@ -30,6 +31,12 @@ class SessionState:
 
     def history_as_text(self, max_turns: int = 8) -> str:
         """LLM 프롬프트에 넣을 최근 대화 히스토리 텍스트."""
+        if self.conversation_turns:
+            labels = {"SENIOR": "시니어", "AI": "AI"}
+            return "\n".join(
+                f"{labels[turn['speakerType']]}: {turn['content']}"
+                for turn in self.conversation_turns[-max_turns:]
+            )
         recent = self.turns[-max_turns:]
         lines = []
         for t in recent:

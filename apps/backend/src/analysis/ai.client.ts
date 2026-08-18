@@ -72,6 +72,15 @@ export class AiClient {
     const form = new FormData();
     form.append('questionMessageId', String(batch.questionMessageId));
     form.append('generationId', batch.generationId);
+    form.append(
+      'pendingScaleItems',
+      JSON.stringify(batch.pendingScaleItems ?? {}),
+    );
+    form.append('prevSessionSummary', batch.prevSessionSummary ?? '');
+    form.append(
+      'conversationTurns',
+      JSON.stringify(batch.conversationTurns ?? []),
+    );
     for (const answer of batch.answers) {
       form.append(
         'audioFiles',

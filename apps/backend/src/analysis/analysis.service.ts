@@ -13,6 +13,7 @@ import {
 } from './dto/audio-analysis.contract';
 import { AnalysisResultRepository } from './repositories/analysis-result.repository';
 import { TemporaryAudioRepository } from './repositories/temporary-audio.repository';
+import { AnalysisContextRepository } from './repositories/analysis-context.repository';
 
 @Injectable()
 export class AnalysisService {
@@ -20,6 +21,7 @@ export class AnalysisService {
     private readonly aiClient: AiClient,
     private readonly temporaryAudioRepository: TemporaryAudioRepository,
     private readonly analysisResultRepository: AnalysisResultRepository,
+    private readonly analysisContextRepository: AnalysisContextRepository,
   ) {}
 
   // 역할: 10초 추가 답변 대기가 끝난 묶음을 보관하고 모든 답변을 WAITING으로 표시한다.
@@ -51,9 +53,11 @@ export class AnalysisService {
     const messageIds = batch.answers.map(({ messageId }) => messageId);
     await this.analysisResultRepository.markProcessing(messageIds);
     try {
-      const result = await this.aiClient.analyzeAnswerBatch(batch);
+      const context = await this.analysisContextRepository.findForBatch(batch);
+      const requestBatch = { ...batch, ...context };
+      const result = await this.aiClient.analyzeAnswerBatch(requestBatch);
       const completed = await this.analysisResultRepository.saveCompleted(
-        batch,
+        requestBatch,
         randomUUID(),
         result,
       );
