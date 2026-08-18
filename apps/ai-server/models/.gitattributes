@@ -1,0 +1,2 @@
+voice_emotion/kresnik_baseline_best.pt filter=lfs diff=lfs merge=lfs -text
+text_emotion/model.safetensors filter=lfs diff=lfs merge=lfs -text
