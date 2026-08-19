@@ -40,7 +40,7 @@ describe('WebPushDeliveryService', () => {
       }),
     };
     const repository = {
-      findByGuardianId: jest.fn(),
+      findByUserId: jest.fn(),
       deleteById: jest.fn(),
     };
     return {
@@ -56,9 +56,9 @@ describe('WebPushDeliveryService', () => {
     jest.clearAllMocks();
   });
 
-  it('보호자의 모든 브라우저 구독으로 payload를 전송한다', async () => {
+  it('사용자의 모든 브라우저 구독으로 payload를 전송한다', async () => {
     const { service, repository } = createService();
-    repository.findByGuardianId.mockResolvedValue([
+    repository.findByUserId.mockResolvedValue([
       {
         subscriptionId: 1,
         endpoint: 'https://push.example.com/1',
@@ -73,7 +73,7 @@ describe('WebPushDeliveryService', () => {
       headers: {},
     });
 
-    await service.sendToGuardian(10, payload);
+    await service.sendToUser(10, payload);
 
     expect(webPush.sendNotification).toHaveBeenCalledWith(
       expect.objectContaining({ endpoint: 'https://push.example.com/1' }),
@@ -84,7 +84,7 @@ describe('WebPushDeliveryService', () => {
 
   it('Push Service가 410을 반환한 만료 구독을 삭제한다', async () => {
     const { service, repository } = createService();
-    repository.findByGuardianId.mockResolvedValue([
+    repository.findByUserId.mockResolvedValue([
       {
         subscriptionId: 1,
         endpoint: 'https://push.example.com/expired',
@@ -105,7 +105,7 @@ describe('WebPushDeliveryService', () => {
         ),
       );
 
-    await service.sendToGuardian(10, payload);
+    await service.sendToUser(10, payload);
 
     expect(repository.deleteById).toHaveBeenCalledWith(1);
   });
@@ -114,9 +114,9 @@ describe('WebPushDeliveryService', () => {
     const { service, repository } = createService(false);
 
     expect(() => service.getPublicKey()).toThrow(ServiceUnavailableException);
-    await service.sendToGuardian(10, payload);
+    await service.sendToUser(10, payload);
 
-    expect(repository.findByGuardianId).not.toHaveBeenCalled();
+    expect(repository.findByUserId).not.toHaveBeenCalled();
     expect(webPush.sendNotification).not.toHaveBeenCalled();
   });
 });

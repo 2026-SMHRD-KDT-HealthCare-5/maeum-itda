@@ -1,10 +1,10 @@
-/* 역할: 브라우저 endpoint 기준 구독 upsert와 보호자 소유 범위 내 해제를 캡슐화한다. */
+/* 역할: 브라우저 endpoint 기준 구독 upsert와 사용자 소유 범위 내 해제를 캡슐화한다. */
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PushSubscription } from '../entities/push-subscription.entity';
 
 export interface SavePushSubscriptionInput {
-  guardianId: number;
+  userId: number;
   endpoint: string;
   p256dhKey: string;
   authSecret: string;
@@ -25,16 +25,16 @@ export class PushSubscriptionRepository {
     return repository.findOneByOrFail({ endpoint: input.endpoint });
   }
 
-  async deleteOwned(guardianId: number, endpoint: string): Promise<void> {
+  async deleteOwned(userId: number, endpoint: string): Promise<void> {
     await this.dataSource
       .getRepository(PushSubscription)
-      .delete({ guardianId, endpoint });
+      .delete({ userId, endpoint });
   }
 
-  findByGuardianId(guardianId: number): Promise<PushSubscription[]> {
+  findByUserId(userId: number): Promise<PushSubscription[]> {
     return this.dataSource
       .getRepository(PushSubscription)
-      .find({ where: { guardianId } });
+      .find({ where: { userId } });
   }
 
   async deleteById(subscriptionId: number): Promise<void> {

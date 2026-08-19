@@ -1,4 +1,7 @@
-/* 역할: 보호자의 모든 브라우저 구독으로 실제 Web Push를 보내고 만료 endpoint를 정리한다. */
+/*
+역할: 사용자(보호자/시니어)의 모든 브라우저 구독으로 실제 Web Push를 보내고 만료 endpoint를
+정리한다. 보호자에겐 정서지수 하락 알림을, 시니어에겐 안부 알림 리마인더를 보낼 때 둘 다 쓴다.
+*/
 import {
   Injectable,
   Logger,
@@ -44,17 +47,14 @@ export class WebPushDeliveryService {
     return this.config.publicKey;
   }
 
-  async sendToGuardian(
-    guardianId: number,
-    payload: WebPushPayload,
-  ): Promise<void> {
+  async sendToUser(userId: number, payload: WebPushPayload): Promise<void> {
     if (!this.isConfigured()) {
       this.logger.warn('VAPID 키가 없어 웹 푸시 발송을 건너뜁니다.');
       return;
     }
 
     const subscriptions =
-      await this.subscriptionRepository.findByGuardianId(guardianId);
+      await this.subscriptionRepository.findByUserId(userId);
     await Promise.allSettled(
       subscriptions.map(async (subscription) => {
         try {
@@ -78,7 +78,7 @@ export class WebPushDeliveryService {
             return;
           }
           this.logger.error(
-            `웹 푸시 발송 실패: guardianId=${guardianId}, subscriptionId=${subscription.subscriptionId}`,
+            `웹 푸시 발송 실패: userId=${userId}, subscriptionId=${subscription.subscriptionId}`,
             error instanceof Error ? error.stack : String(error),
           );
         }
