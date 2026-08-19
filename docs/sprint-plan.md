@@ -38,6 +38,7 @@
 - **AI서버: 감정분석이 텍스트/음성 두 모달리티 모두 실패하면 턴 전체가 500으로 죽던 문제** — `emotion.py`에 `NEUTRAL_EMOTION` 폴백값 추가, `main.py`가 `EmotionInferenceError`를 잡아 중립 감정으로 대체하고 파이프라인을 계속 진행하도록 수정(`tests/test_main.py`에 회귀 테스트 추가).
 - **백엔드: `chat:start`가 짧은 간격으로 두 번 도착하면 AI 질문이 중복 생성되던 race condition** — `ChatConnectionStateService`에 `isStarting`/`markStarting`/`clearStarting`을 추가해 활성 질문 체크와 DB 저장 사이의 틈을 동기적으로 막음(`chat-start.handler.spec.ts`에 동시 요청 재현 테스트 추가).
 - **프론트: WS 연결이 인증 후 예기치 않게 끊겨도 화면이 "대화 중" 상태로 멈춰있던 문제** — `SeniorConversationPage`가 `socket.onClose`로 끊김을 감지해 안내 문구를 보여주도록 수정(자동 재연결까지는 안 함, 최소한의 안전망).
+- **프론트: 답변 대기중/듣는중 상태 구분 표시** — `RecordingPhase`에 `waiting`(마이크는 열렸지만 말소리 미감지)을 추가해 기존 `listening`(말소리 감지됨)과 배지 문구로 구분. 캐릭터 그림은 전용 에셋이 없어 재사용.
 
 ### 의도적으로 미룸 (sprint-plan에만 기록, 데모 전 손대지 않음)
 

@@ -13,10 +13,11 @@ import {
 
 // SeniorConversationPage가 캐릭터 이미지를 고르는 데 쓰는 상태.
 // 'question': 새 AI 질문의 TTS가 재생 중(또는 TTS가 없어 곧바로 다음 단계로 넘어가는 중)
-// 'listening': 실제로 녹음 중 — 지금 질문에 대한 답변이거나, 끼어들기로 이전
-//   질문에 추가된 답변이거나, 다음 질문을 기다리며 받은 추가 답변일 수 있다
+// 'waiting': 마이크는 열려 있지만 이번 녹음 구간에서 아직 말소리가 감지되지 않음
+// 'listening': 말소리가 감지되어 실제로 답변을 받는 중 — 지금 질문에 대한 답변이거나,
+//   끼어들기로 이전 질문에 추가된 답변이거나, 다음 질문을 기다리며 받은 추가 답변일 수 있다
 // 'thinking': 답변 전송 후 다음 질문을 기다리는 중(끼어들기 감시는 계속된다)
-export type RecordingPhase = 'question' | 'listening' | 'thinking'
+export type RecordingPhase = 'question' | 'waiting' | 'listening' | 'thinking'
 
 // 지금 열려 있는 녹음이 어느 질문에 대한 답변으로 제출돼야 하는지.
 // 'current': 지금 화면의 질문(정상 답변, 또는 같은 질문에 대한 추가 답변).
@@ -128,7 +129,7 @@ export function useRecordVoiceAnswer({
         streamRef.current = stream
         return stream
       } catch {
-        // 마이크 권한 거부 — 답변 없이 서버의 30초 안내/2분 자동 종료에 맡긴다.
+        // 마이크 권한 거부 — 답변 없이 서버의 30초 안내/10분 자동 종료에 맡긴다.
         return null
       }
     }
@@ -138,7 +139,7 @@ export function useRecordVoiceAnswer({
       return new Promise((resolve) => {
         recordingTargetRef.current = target
         resolveSegmentRef.current = resolve
-        setPhase('listening')
+        setPhase('waiting')
         setHasDetectedVoice(false)
 
         const mimeType = pickSupportedAudioMimeType()
@@ -155,6 +156,7 @@ export function useRecordVoiceAnswer({
           onSilence: () => finishRef.current('auto'),
           onVoiceDetected: () => {
             setHasDetectedVoice(true)
+            setPhase('listening')
             onVoiceDetected?.()
           },
         })

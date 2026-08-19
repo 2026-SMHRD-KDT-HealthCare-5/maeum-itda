@@ -15,10 +15,16 @@ import questionCharacterImage from './character-daseul-question.png'
 import thinkingCharacterImage from './character-daseul-thinking.png'
 import styles from './SeniorConversationPage.module.css'
 
-type CharacterState = 'listening' | 'question' | 'thinking'
+type CharacterState = 'waiting' | 'listening' | 'question' | 'thinking'
 type TtsAudio = { base64: string; mimeType: string }
 
+// 'waiting'은 전용 캐릭터 그림이 아직 없어 'listening'과 같은 그림을 쓰고
+// alt 텍스트와 하단 배지 문구로만 구분한다(RecordVoiceAnswerAction 참고).
 const characterByState: Record<CharacterState, { alt: string; src: string }> = {
+  waiting: {
+    alt: '어르신의 말씀을 기다리는 다슬',
+    src: listeningCharacterImage,
+  },
   listening: {
     alt: '어르신의 말씀을 듣고 있는 다슬',
     src: listeningCharacterImage,
