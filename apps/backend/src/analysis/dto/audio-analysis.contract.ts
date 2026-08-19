@@ -6,9 +6,12 @@
 import { SentimentLabel } from '../entities/emotion-tag.entity';
 import { ScaleType } from '../entities/scale-question-analysis.entity';
 
-// 시니어가 한 질문에 대해 녹음한 음성 한 건이다.
+// 시니어가 한 질문에 대해 녹음한 음성 한 건이다. 분석이 성공하기 전까지는
+// DB에 저장되지 않으므로(결정사항: 분석 실패 시 DB에 흔적을 남기지 않는다)
+// 아직 실제 MESSAGE_ID가 없다 — tempAnswerId는 같은 FastAPI 요청·응답
+// 안에서만 답변을 구분하는 프로세스 메모리 전용 식별자다.
 export interface QueuedAnswerSegment {
-  messageId: number;
+  tempAnswerId: number;
   seniorId: number;
   questionMessageId: number;
   generationId: string;
@@ -47,9 +50,11 @@ export interface ScaleAnalysisResult {
   analysisScore: 0 | 1;
 }
 
-// FastAPI가 음성 한 건마다 반환해야 하는 STT·감성·척도 결과다.
+// FastAPI가 음성 한 건마다 반환해야 하는 STT·감성·척도 결과다. messageId는
+// 요청 때 보낸 tempAnswerId를 그대로 echo한 값이며(FastAPI 계약 필드명은
+// 그대로 유지, apps/ai-server 변경 없음), 아직 실제 DB MESSAGE_ID가 아니다.
 export interface AnswerAnalysisResult {
-  messageId: number;
+  tempAnswerId: number;
   transcript: string;
   sentimentLabel: SentimentLabel;
   scaleAnalyses: ScaleAnalysisResult[];

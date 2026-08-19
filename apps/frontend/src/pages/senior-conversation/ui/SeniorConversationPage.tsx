@@ -57,6 +57,7 @@ export function SeniorConversationPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentQuestion, setCurrentQuestion] = useState<AiQuestionPayload | null>(null)
   const [idleNotice, setIdleNotice] = useState<string | null>(null)
+  const [answerRetryNotice, setAnswerRetryNotice] = useState<string | null>(null)
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
 
@@ -72,23 +73,24 @@ export function SeniorConversationPage() {
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
     }
+    // 답변 메시지는 분석이 성공해 실제로 저장된 시점에야 처음 이 이벤트로
+    // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
+    // 기존 말풍선을 갱신하는 게 아니라 여기서 새로 추가한다. 분석 실패는
+    // error 이벤트(AUDIO_ANALYSIS_FAILED)의 배너로만 안내한다.
     const handleAudioTranscript: Parameters<typeof socket.on<'audio:transcript'>>[1] = (
       payload,
     ) => {
-      const contentByMessageId = new Map(
-        payload.transcripts.map((transcript) => [transcript.messageId, transcript.content]),
-      )
-      setMessages((prev) =>
-        prev.map((message) =>
-          contentByMessageId.has(message.messageId)
-            ? {
-                ...message,
-                content: contentByMessageId.get(message.messageId) ?? message.content,
-                sttStatus: 'COMPLETED',
-              }
-            : message,
-        ),
-      )
+      setAnswerRetryNotice(null)
+      setMessages((prev) => [
+        ...prev,
+        ...payload.transcripts.map(({ messageId, content }): ChatMessage => ({
+          messageId,
+          speakerType: 'SENIOR',
+          content,
+          sttStatus: 'COMPLETED',
+          createdAt: new Date().toISOString(),
+        })),
+      ])
     }
     const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
       setIdleNotice(payload.message)
@@ -96,8 +98,16 @@ export function SeniorConversationPage() {
       setCurrentQuestion(null)
       navigate('/senior')
     }
-    const handleError: Parameters<typeof socket.on<'error'>>[1] = (payload) =>
+    const handleError: Parameters<typeof socket.on<'error'>>[1] = (payload) => {
+      if (payload.code === 'AUDIO_ANALYSIS_FAILED') {
+        // 연결 장애가 아니라 방금 답변 분석 실패다 — 답변 조작부 바로 위에서
+        // 재답변을 안내한다(녹음 자체는 record-voice-answer 훅이 이 이벤트를
+        // 받아 곧바로 다시 연다).
+        setAnswerRetryNotice('음성을 분석하지 못했어요. 다시 말씀해주세요.')
+        return
+      }
       setConnectionError(payload.message)
+    }
 
     socket.on('ai:question', handleAiQuestion)
     socket.on('audio:transcript', handleAudioTranscript)
@@ -143,7 +153,6 @@ export function SeniorConversationPage() {
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
-    onAnswerQueued: (message) => setMessages((prev) => [...prev, message]),
     // AiQuestionPayload에 TTS 오디오 필드가 아직 없어(백엔드 8/18 예정) 항상
     // null — TTS가 없으니 재생을 기다리지 않고 곧바로 마이크가 열린다. 다음
     // 질문을 기다리는 동안 끼어드는 발화를 추가 답변으로 받는 동작은 TTS 유무와
@@ -198,6 +207,11 @@ export function SeniorConversationPage() {
               messages={messages}
               onOverflowChange={setHasScrollableHistory}
             />
+            {answerRetryNotice && (
+              <p className={styles.answerRetryNotice} role="alert">
+                {answerRetryNotice}
+              </p>
+            )}
             <RecordVoiceAnswerAction
               characterImageAlt={character.alt}
               characterImageSrc={character.src}

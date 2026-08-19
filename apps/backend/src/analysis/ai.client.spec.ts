@@ -19,7 +19,7 @@ describe('AiClient', () => {
     ],
     answers: [
       {
-        messageId: 102,
+        tempAnswerId: 102,
         seniorId: 7,
         questionMessageId: 101,
         generationId: 'generation-001',
@@ -32,7 +32,8 @@ describe('AiClient', () => {
       },
     ],
   };
-  const validResult = {
+  // FastAPI가 실제로 보내는 wire 형식(messageId 필드명은 apps/ai-server 계약 그대로 유지).
+  const wireResult = {
     answers: [
       {
         messageId: 102,
@@ -44,6 +45,14 @@ describe('AiClient', () => {
     nextQuestion: '어떤 일이 가장 좋았나요?',
     ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
     ttsMimeType: 'audio/mpeg',
+  };
+  // AiClient가 검증기를 거쳐 반환하는 내부 DTO 형식(messageId → tempAnswerId).
+  const validResult = {
+    ...wireResult,
+    answers: wireResult.answers.map(({ messageId, ...rest }) => ({
+      tempAnswerId: messageId,
+      ...rest,
+    })),
   };
 
   const createClient = () =>
@@ -58,7 +67,7 @@ describe('AiClient', () => {
       .spyOn(global, 'fetch')
       .mockResolvedValueOnce(new Response(null, { status: 503 }))
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(validResult), {
+        new Response(JSON.stringify(wireResult), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         }),
@@ -83,7 +92,7 @@ describe('AiClient', () => {
 
   it('질문 생성 문맥 세 필드를 multipart 요청에 포함한다', async () => {
     const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(validResult), {
+      new Response(JSON.stringify(wireResult), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),

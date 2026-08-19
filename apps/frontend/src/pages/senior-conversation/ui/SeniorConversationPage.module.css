@@ -82,6 +82,20 @@
   text-align: center;
 }
 
+.answerRetryNotice {
+  width: min(100%, 360px);
+  margin: 0 auto 8px;
+  padding: 11px 14px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: #fff1ed;
+  color: #b64838;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .dialogOverlay {
   position: fixed;
   inset: 0;
