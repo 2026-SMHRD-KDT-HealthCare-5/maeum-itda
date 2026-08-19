@@ -173,6 +173,12 @@ export function SeniorConversationPage() {
     socket,
     currentQuestion,
     ttsAudio: currentQuestionTts,
+    // 무음인 채로 "지금 답변 마치기"를 누르면 서버로 보내지 않고 안내만 띄운다
+    // (Whisper 계열이 무음에도 엉뚱한 문장을 환각하는 걸 막기 위한 클라이언트
+    // 사전 필터 — app/services/stt.py 자체에는 무음 판별이 없다).
+    onSilentFinishAttempt: () =>
+      setAnswerRetryNotice('아직 말씀하신 내용이 없어요. 말씀해 주세요.'),
+    onVoiceDetected: () => setAnswerRetryNotice(null),
   })
 
   const character = characterByState[phase]

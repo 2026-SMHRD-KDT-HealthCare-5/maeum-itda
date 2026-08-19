@@ -31,6 +31,13 @@ export interface UseRecordVoiceAnswerOptions {
   // 이번 질문의 TTS 오디오(있으면). null이면(TTS 생성 실패 등) 재생 없이 곧바로
   // 마이크를 연다(끼어들기도 발생할 수 없다 — 다슬이가 말하는 중이 아니므로).
   ttsAudio?: { base64: string; mimeType: string } | null
+  // 이번 녹음 구간에서 한 번도 소리가 감지되지 않은 채로 "지금 답변 마치기"를
+  // 눌렀을 때 호출된다 — 이 경우 서버로 보내지 않고 녹음을 계속 듣는다(무음도
+  // STT로 보내면 Whisper 계열이 엉뚱한 문장을 환각하는 경우가 있어서다).
+  onSilentFinishAttempt?: () => void
+  // 녹음 구간에서 소리가 처음 감지된 순간 호출된다 — onSilentFinishAttempt로
+  // 띄운 안내를 사용자가 말을 시작하자마자 지우는 데 쓴다(선택).
+  onVoiceDetected?: () => void
 }
 
 export interface UseRecordVoiceAnswerResult {
@@ -59,9 +66,12 @@ export function useRecordVoiceAnswer({
   socket,
   currentQuestion,
   ttsAudio = null,
+  onSilentFinishAttempt,
+  onVoiceDetected,
 }: UseRecordVoiceAnswerOptions): UseRecordVoiceAnswerResult {
   const [phase, setPhase] = useState<RecordingPhase>('question')
   const [ttsAutoplayBlocked, setTtsAutoplayBlocked] = useState(false)
+  const [hasDetectedVoice, setHasDetectedVoice] = useState(false)
 
   const streamRef = useRef<MediaStream | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -129,6 +139,7 @@ export function useRecordVoiceAnswer({
         recordingTargetRef.current = target
         resolveSegmentRef.current = resolve
         setPhase('listening')
+        setHasDetectedVoice(false)
 
         const mimeType = pickSupportedAudioMimeType()
         mimeTypeRef.current = mimeType
@@ -142,6 +153,10 @@ export function useRecordVoiceAnswer({
         silenceWatcherRef.current = createSilenceWatcher(stream, {
           silenceMs: AUTO_SILENCE_MS,
           onSilence: () => finishRef.current('auto'),
+          onVoiceDetected: () => {
+            setHasDetectedVoice(true)
+            onVoiceDetected?.()
+          },
         })
       })
     }
@@ -254,6 +269,13 @@ export function useRecordVoiceAnswer({
     const question =
       target === 'previous' ? turnPreviousQuestionRef.current : currentQuestionRef.current
     if (!recorder || recorder.state !== 'recording' || !question) return
+    // 발화가 한 번도 감지되지 않은 채 수동 종료를 시도하면 서버로 보내지 않고
+    // 계속 듣는다. auto 종료는 애초에 발화가 있어야만 트리거되므로(묵음 감지
+    // 자체가 lastLoudAt 갱신을 전제) 여기서 걸러질 일이 없다.
+    if (endType === 'manual' && !hasDetectedVoice) {
+      onSilentFinishAttempt?.()
+      return
+    }
 
     silenceWatcherRef.current?.stop()
     silenceWatcherRef.current = null
