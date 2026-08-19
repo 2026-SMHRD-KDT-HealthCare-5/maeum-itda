@@ -46,9 +46,13 @@ export function SeniorDailyRecordPage() {
   // 목록이었어도)를 그대로 기억해뒀다가 새 날짜 fetch가 끝나기 전까진 그걸
   // 계속 보여준다. useEffect 대신 렌더 중 state 조정 패턴(react.dev 권장)을
   // 쓴다 — resolvedDateKey가 dateKey와 달라졌을 때만 갱신해 무한 렌더를 막는다.
-  const showSpinner = useDelayedPending(messagesQuery.isFetching)
   const [resolvedDateKey, setResolvedDateKey] = useState<string | null>(null)
   const [resolvedMessages, setResolvedMessages] = useState<ChatMessage[] | null>(null)
+  // 이미 보여줄 이전 날짜 결과가 있으면(resolvedDateKey !== null) 그걸 그대로
+  // 둔 채 조용히 갱신한다 — 스피너는 앱 진입 후 첫 조회처럼 보여줄 것 자체가
+  // 없을 때만 띄운다. isFetching만 보면 이미 캐시된 날짜를 다시 눌러도, 백그라운드
+  // 재검증(staleTime 기본값 0)마다 매번 로딩 화면이 떠 실제보다 훨씬 느리게 느껴졌다.
+  const showSpinner = useDelayedPending(messagesQuery.isFetching && resolvedDateKey === null)
 
   if (resolvedDateKey !== dateKey && messagesQuery.isSuccess) {
     setResolvedDateKey(dateKey)

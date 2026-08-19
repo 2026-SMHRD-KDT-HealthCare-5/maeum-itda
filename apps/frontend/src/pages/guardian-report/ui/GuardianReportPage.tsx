@@ -47,8 +47,6 @@ export function GuardianReportPage() {
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
   })
 
-  const showSpinner = useDelayedPending(dailyReportQuery.isFetching)
-
   // react-query의 placeholderData(keepPreviousData)는 "이전 성공 데이터"만 이어줄 뿐,
   // "이전 날짜도 리포트가 없었다(404)"는 상태는 안 이어준다 — 그래서 데이터 없는
   // 날짜에서 데이터 없는 날짜로 넘어갈 때도 fetch 도중엔 화면이 완전히 비었다가
@@ -58,6 +56,11 @@ export function GuardianReportPage() {
   // 패턴(react.dev 권장)을 쓴다 — resolvedDateKey가 dateKey와 달라졌을 때만
   // 갱신해 무한 렌더를 막는다.
   const [resolvedDateKey, setResolvedDateKey] = useState<string | null>(null)
+  // 이미 보여줄 이전 날짜 결과가 있으면 그걸 그대로 둔 채 조용히 갱신한다 —
+  // 스피너는 보여줄 게 아예 없는 첫 조회에만 띄운다. isFetching만 보면 이미
+  // 확인한 날짜라도 백그라운드 재검증(staleTime 기본값 0)마다 매번 로딩 화면이
+  // 떠 실제보다 훨씬 느리게 느껴졌다.
+  const showSpinner = useDelayedPending(dailyReportQuery.isFetching && resolvedDateKey === null)
   const [resolvedView, setResolvedView] = useState<
     { kind: 'found'; report: DailyReport } | { kind: 'missing' } | null
   >(null)
