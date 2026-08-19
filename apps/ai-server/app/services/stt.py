@@ -18,6 +18,7 @@ FR-01-08(음성 분석 실패 처리) 대응: 두 경로 모두 실패하면 Stt
 - 로컬 whisper는 CPU/GPU를 통째로 쓰므로 동시 추론을 직렬화해야 함 -> _local_infer_lock
 """
 import logging
+import re
 import tempfile
 import threading
 from dataclasses import dataclass
@@ -53,6 +54,24 @@ class SttResult:
     text: str = ""
     reason: str = ""       # 실패 사유 (ok=False일 때)
     engine: str = ""       # "openai" | "local_whisper"
+
+
+# OpenAI STT의 language 파라미터는 "강제"가 아니라 "권장"이라, 무음·잡음처럼
+# 실제 발화 신호가 없는 입력에서는 모델이 이 힌트를 무시하고 아무 언어나
+# 환각(hallucination)하는 경우가 있다("Hello, world!", "Tienes que estudiar."
+# 등 실제 사례). 이 서비스는 한국어 사용 시니어 전용이라 정상적인 답변이면
+# 알파벳 문자 중 한글 비율이 압도적으로 높다 — 그 반대(비-한글이 대부분)면
+# 실제 답변이 아니라 환각으로 보고 실패 처리한다.
+_HANGUL_RE = re.compile(r"[가-힣]")
+_KOREAN_RATIO_THRESHOLD = 0.5
+
+
+def _is_plausible_korean_answer(text: str) -> bool:
+    letters = [ch for ch in text if ch.isalpha()]
+    if not letters:
+        return False
+    hangul_count = sum(1 for ch in letters if _HANGUL_RE.match(ch))
+    return hangul_count / len(letters) >= _KOREAN_RATIO_THRESHOLD
 
 
 # ---------------------------------------------------------------- 1) OpenAI STT
@@ -172,17 +191,29 @@ def transcribe(audio_bytes: bytes, audio_format: str = "webm") -> SttResult:
     # 1) OpenAI STT 우선 시도
     try:
         text = _transcribe_openai(audio_bytes, audio_format)
-        if text:
+        if text and _is_plausible_korean_answer(text):
             return SttResult(ok=True, text=text, engine="openai")
-        logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 로컬로 폴백")
+        if text:
+            logger.warning(
+                "OpenAI STT 결과가 한국어로 보이지 않아 환각 의심, 로컬로 폴백: %r", text
+            )
+        else:
+            logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 로컬로 폴백")
     except Exception as e:  # noqa: BLE001 - 폴백을 위해 광범위 캐치
         logger.warning("OpenAI STT 실패, 로컬 whisper로 폴백: %s", e)
 
-    # 2) 로컬 whisper 폴백
+    # 2) 로컬 whisper 폴백 — language를 명시적으로 강제하므로 OpenAI보다는
+    # 다른 언어를 환각할 가능성이 낮지만, 그래도 같은 검증을 한 번 더 거친다.
     try:
         text = _transcribe_local(audio_bytes, audio_format)
-        if text:
+        if text and _is_plausible_korean_answer(text):
             return SttResult(ok=True, text=text, engine="local_whisper")
+        if text:
+            return SttResult(
+                ok=False,
+                reason=f"non_korean_transcript: {text!r}",
+                engine="local_whisper",
+            )
         return SttResult(ok=False, reason="empty_transcript", engine="local_whisper")
     except Exception as e:  # noqa: BLE001
         logger.error("로컬 whisper도 실패: %s", e)
