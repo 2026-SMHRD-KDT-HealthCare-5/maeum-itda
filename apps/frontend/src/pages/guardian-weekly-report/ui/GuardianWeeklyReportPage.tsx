@@ -42,8 +42,6 @@ export function GuardianWeeklyReportPage() {
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
   })
 
-  const showSpinner = useDelayedPending(weeklyReportQuery.isFetching)
-
   // react-query의 placeholderData(keepPreviousData)는 "이전 성공 데이터"만 이어줄 뿐
   // "이전 주도 리포트가 없었다(404)"는 상태는 안 이어준다 — 그래서 데이터 없는 주에서
   // 데이터 없는 주로 넘어갈 때도 fetch 도중 화면이 비었다 돌아오며 깜빡였다.
@@ -51,6 +49,11 @@ export function GuardianWeeklyReportPage() {
   // 보여준다. useEffect 대신 렌더 중 state 조정 패턴(react.dev 권장)을 쓴다 —
   // resolvedWeekStart가 selectedWeekStart와 달라졌을 때만 갱신해 무한 렌더를 막는다.
   const [resolvedWeekStart, setResolvedWeekStart] = useState<string | null>(null)
+  // 이미 보여줄 이전 주 결과가 있으면 그걸 그대로 둔 채 조용히 갱신한다 —
+  // 스피너는 보여줄 게 아예 없는 첫 조회에만 띄운다. isFetching만 보면 이미
+  // 확인한 주라도 백그라운드 재검증(staleTime 기본값 0)마다 매번 로딩 화면이
+  // 떠 실제보다 훨씬 느리게 느껴졌다.
+  const showSpinner = useDelayedPending(weeklyReportQuery.isFetching && resolvedWeekStart === null)
   const [resolvedView, setResolvedView] = useState<
     { kind: 'found'; report: WeeklyReport } | { kind: 'missing' } | null
   >(null)
