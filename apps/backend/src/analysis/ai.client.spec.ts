@@ -109,4 +109,61 @@ describe('AiClient', () => {
       JSON.stringify(batch.conversationTurns),
     );
   });
+
+  describe('generateContinuationQuestion', () => {
+    const context = {
+      pendingScaleItems: { SGDS_K: ['2'], GAD_7: ['1'], LSNS_6: ['4'] },
+      prevSessionSummary: '어제는 산책을 하셨어요.',
+      conversationTurns: [
+        { speakerType: 'SENIOR' as const, content: '요즘 잠을 잘 못 자요.' },
+      ],
+    };
+    const wireContinuationResult = {
+      question: '잠을 설치실 때 특별히 신경 쓰이는 게 있으셨어요?',
+      ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
+      ttsMimeType: 'audio/mpeg',
+    };
+
+    it('JSON body로 문맥 세 필드를 전달하고 검증된 결과를 반환한다', async () => {
+      const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify(wireContinuationResult), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      await expect(
+        createClient().generateContinuationQuestion(context),
+      ).resolves.toEqual({
+        question: wireContinuationResult.question,
+        ttsAudio: {
+          base64: wireContinuationResult.ttsAudioBase64,
+          mimeType: wireContinuationResult.ttsMimeType,
+        },
+      });
+
+      const [url, init] = fetchMock.mock.calls[0] ?? [];
+      expect(url).toBe('http://fastapi.test/analysis/text/next-question');
+      expect(JSON.parse(init?.body as string)).toEqual(context);
+    });
+
+    it('502 일시 오류는 1회 재시도한다', async () => {
+      const fetchMock = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValueOnce(new Response(null, { status: 502 }))
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(wireContinuationResult), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+
+      await expect(
+        createClient().generateContinuationQuestion(context),
+      ).resolves.toEqual(
+        expect.objectContaining({ question: wireContinuationResult.question }),
+      );
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+  });
 });

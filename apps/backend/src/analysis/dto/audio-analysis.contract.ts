@@ -85,3 +85,10 @@ export interface CompletedAudioAnalysis {
   } | null;
   ttsAudio: TtsAudioResult | null;
 }
+
+// 재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난 경우, 새 음성 답변 없이
+// 기존 문맥만으로 FastAPI가 생성한 이어가기 질문 결과다.
+export interface ContinuationQuestionResult {
+  question: string;
+  ttsAudio: TtsAudioResult | null;
+}

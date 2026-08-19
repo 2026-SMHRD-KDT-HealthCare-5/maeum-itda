@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ConversationHistoryList, type ChatMessage } from '../../../entities/conversation'
+import {
+  ConversationHistoryList,
+  fetchConversationHistoryByDate,
+  type ChatMessage,
+} from '../../../entities/conversation'
 import {
   RecordVoiceAnswerAction,
   useRecordVoiceAnswer,
@@ -49,9 +53,30 @@ function questionToMessage(question: AiQuestionPayload): ChatMessage {
   }
 }
 
+// messageId 기준으로 중복을 제거하며 합친다 — 화면 진입 시 불러오는 오늘자
+// REST 이력과 그 사이/이후 실시간으로 들어오는 WS 메시지가 같은 메시지를
+// 가리킬 수 있다(예: 재진입 시 backend가 재사용하는 미답변 질문은 REST
+// 이력에도, 뒤이은 ai:question에도 똑같이 나타난다). base의 순서를 유지하고
+// incoming 중 아직 없는 것만 뒤에 붙인다.
+function mergeMessages(base: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  const seenMessageIds = new Set(base.map((message) => message.messageId))
+  const additions = incoming.filter((message) => !seenMessageIds.has(message.messageId))
+  return additions.length === 0 ? base : [...base, ...additions]
+}
+
+function todayDateKey(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 // SENIOR_CONVERSATION_01 (UC-01, UC-02, UC-03) — /ws/chats 실연동.
-// 이전 대화 이력 무한 스크롤은 결정사항 로그 §5 참고(아직 REST 조회는
-// 화면 진입 시 연결하지 않고, 이번 대화에서 오간 메시지만 보여준다).
+// 여러 날짜에 걸친 과거 이력 무한 스크롤은 결정사항 로그 §5 참고(아직 미룸).
+// 다만 오늘 하루치 대화는 재진입 시 백엔드가 이어가므로(fix/resume-todays-conversation),
+// 화면 진입 시 오늘자 REST 이력을 함께 불러와 보여준다 — 그렇지 않으면
+// 이어받은 질문 하나만 덩그러니 보이고 그 전에 나눈 대화는 사라진 것처럼 보인다.
 export function SeniorConversationPage() {
   const { session } = useSession()
   const navigate = useNavigate()
@@ -86,7 +111,7 @@ export function SeniorConversationPage() {
       setCurrentQuestionTts(ttsAudio)
       setIdleNotice(null)
       setConnectionError(null)
-      setMessages((prev) => [...prev, questionToMessage(payload)])
+      setMessages((prev) => mergeMessages(prev, [questionToMessage(payload)]))
     }
     // tts:audio는 ai:question 직전에 온다(§4.2) — 아직 currentQuestion이 갱신되기
     // 전이므로 일단 messageId로만 보관해뒀다가 handleAiQuestion에서 짝짓는다.
@@ -104,16 +129,18 @@ export function SeniorConversationPage() {
       payload,
     ) => {
       setAnswerRetryNotice(null)
-      setMessages((prev) => [
-        ...prev,
-        ...payload.transcripts.map(({ messageId, content }): ChatMessage => ({
-          messageId,
-          speakerType: 'SENIOR',
-          content,
-          sttStatus: 'COMPLETED',
-          createdAt: new Date().toISOString(),
-        })),
-      ])
+      setMessages((prev) =>
+        mergeMessages(
+          prev,
+          payload.transcripts.map(({ messageId, content }): ChatMessage => ({
+            messageId,
+            speakerType: 'SENIOR',
+            content,
+            sttStatus: 'COMPLETED',
+            createdAt: new Date().toISOString(),
+          })),
+        ),
+      )
     }
     const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
       setIdleNotice(payload.message)
@@ -190,6 +217,25 @@ export function SeniorConversationPage() {
       socket.disconnect()
     }
   }, [session?.accessToken, socket, navigate])
+
+  useEffect(() => {
+    if (!session?.accessToken) return
+    let cancelled = false
+
+    fetchConversationHistoryByDate(todayDateKey())
+      .then((history) => {
+        if (cancelled) return
+        setMessages((prev) => mergeMessages(history, prev))
+      })
+      .catch(() => {
+        // 오늘 이력을 못 불러와도 실시간 대화 자체는 계속할 수 있으므로
+        // 조용히 무시한다 — 위 소켓 연결 흐름과는 독립적인 보조 데이터다.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session?.accessToken])
 
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
