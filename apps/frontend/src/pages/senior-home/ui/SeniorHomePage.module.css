@@ -137,12 +137,14 @@
   transform: translateY(16px);
 }
 
-.connection:hover {
+/* 이미 연결된 보호자가 있을 때는 카드가 클릭 불가능한 div로 렌더링된다 —
+   hover/focus 효과는 실제로 이동 가능한 a(Link)에만 적용한다. */
+a.connection:hover {
   box-shadow: 0 17px 38px rgba(48, 83, 67, 0.14);
   transform: translateY(-1px);
 }
 
-.connection:focus-visible {
+a.connection:focus-visible {
   outline: 3px solid rgba(31, 111, 84, 0.18);
   outline-offset: 3px;
 }

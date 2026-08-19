@@ -52,6 +52,7 @@ export function LoginForm() {
         icon="id"
         placeholder="아이디"
         autoComplete="username"
+        autoFocus
         value={values.id}
         error={errors.id}
         onChange={(event) => {
