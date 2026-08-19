@@ -28,8 +28,7 @@ export interface UseRecordVoiceAnswerOptions {
   socket: ChatSocket
   // 현재 답해야 할 AI 질문 — null이면 아직 대화가 시작되지 않은 상태다.
   currentQuestion: AiQuestionPayload | null
-  // 이번 질문의 TTS 오디오(있으면). 백엔드가 아직 tts:audio로 실제 오디오를
-  // 보내지 않는 동안(8/18 예정)은 항상 null이고, 이 경우 TTS 재생 없이 곧바로
+  // 이번 질문의 TTS 오디오(있으면). null이면(TTS 생성 실패 등) 재생 없이 곧바로
   // 마이크를 연다(끼어들기도 발생할 수 없다 — 다슬이가 말하는 중이 아니므로).
   ttsAudio?: { base64: string; mimeType: string } | null
 }

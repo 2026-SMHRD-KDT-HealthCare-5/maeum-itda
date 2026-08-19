@@ -245,6 +245,7 @@ NestJS AnalysisService
   → MySQL에 감정 태그·척도 결과 저장(방금 발급된 messageId 기준)
   → MySQL CONVERSATION_MESSAGE에 다음 AI 질문 저장
   → audio:transcript(방금 저장된 실제 messageId 포함) → Frontend
+  → (Typecast 성공 시) tts:audio → Frontend
   → ai:question → Frontend
 
 [7b. 분석 실패 — 아무것도 저장하지 않음]
@@ -337,6 +338,21 @@ NestJS → Frontend:
 }
 ```
 
+Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio`를 보낸다(`QuestionDeliveryService.deliver()`가 두 이벤트의 순서를 보장한다). `messageId`로 어느 질문의 음성인지 연결한다 — 프론트는 아직 `currentQuestion`이 이 질문으로 갱신되기 전이므로, `ai:question`이 올 때까지 messageId로 잠깐 보관해뒀다가 짝지어야 한다(`pages/senior-conversation`의 구현 참고):
+
+```json
+{
+  "event": "tts:audio",
+  "payload": {
+    "ttsTransferId": "8f14e45f-...",
+    "messageId": 101,
+    "base64": "//uQxAAD...",
+    "mimeType": "audio/mpeg"
+  },
+  "ts": "2026-08-12T06:00:01.150Z"
+}
+```
+
 ```json
 {
   "event": "ai:question",
@@ -349,9 +365,10 @@ NestJS → Frontend:
 }
 ```
 
-- 최초 질문을 DB에 저장한 뒤 `chat:started`, `ai:question` 순서로 보낸다.
+- 최초 질문을 DB에 저장한 뒤 `chat:started`, (TTS 성공 시 `tts:audio`,) `ai:question` 순서로 보낸다.
 - 활성 질문이 있는데 다시 시작하면 `CHAT_ALREADY_STARTED` 오류를 보낸다.
 - `generationId`는 질문 생성 작업 단위다.
+- Typecast 호출이 실패하면 `tts:audio` 없이 `ai:question`만 보낸다 — 텍스트 질문으로 대화는 계속된다(프론트는 TTS 재생 없이 곧바로 마이크를 연다).
 
 ### 4.3 `audio:metadata` / binary / `audio:ack`
 
@@ -677,6 +694,7 @@ NestJS → Frontend:
 - FastAPI multipart Client와 응답 계약 검증
 - **[결정사항] 답변 메시지는 분석 성공 시점에야 처음 DB에 저장된다** — 분석 실패 시 아무것도 저장하지 않고 `error`(`AUDIO_ANALYSIS_FAILED`)만 보낸다(§4.3, §6.3)
 - 메시지별 분석 결과 저장과 다음 질문 WS 전송
+- 질문(최초·후속 공통)마다 Typecast TTS 생성과 `tts:audio` WS 중계, 프론트 재생까지 연결 완료(§4.2)
 - 중복 전송 기존 ACK 재전송
 - 과거 메시지 cursor REST API
 - 같은 서버 프로세스의 단기 현재 질문 복원
