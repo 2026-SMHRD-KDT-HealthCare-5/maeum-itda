@@ -105,13 +105,24 @@ export function SeniorConversationPage() {
     socket.on('chat:ended', handleChatEnded)
     socket.on('error', handleError)
 
+    // StrictMode 개발 모드에서는 이 effect가 마운트→클린업→재마운트로 두 번
+    // 실행된다. 첫 실행의 connect()가 아직 CONNECTING인 상태에서 클린업이
+    // socket.disconnect()를 호출하면 브라우저가 그 소켓의 error 이벤트를
+    // 발생시켜 connect()가 실패로 reject된다 — 이 reject는 이미 정리된
+    // 첫 실행에 속한 것이므로, 두 번째(살아남은) 실행이 성공해도 화면에
+    // 에러가 잠깐 표시됐다 사라지는 원인이 된다. cancelled 플래그로 클린업된
+    // 실행의 결과는 상태에 반영하지 않는다.
+    let cancelled = false
+
     socket
       .connect(accessToken)
       .then(() => {
+        if (cancelled) return
         setConnectionState('ready')
         socket.startChat()
       })
       .catch((error: unknown) => {
+        if (cancelled) return
         setConnectionState('error')
         setConnectionError(
           error instanceof Error ? error.message : '대화 서버에 연결하지 못했습니다.',
@@ -119,6 +130,7 @@ export function SeniorConversationPage() {
       })
 
     return () => {
+      cancelled = true
       socket.off('ai:question', handleAiQuestion)
       socket.off('audio:transcript', handleAudioTranscript)
       socket.off('chat:idle-warning', handleIdleWarning)
