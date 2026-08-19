@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Toggle } from '../../../shared/ui'
 import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
@@ -6,11 +6,19 @@ import styles from './SetCheckinReminderAction.module.css'
 interface SetCheckinReminderActionProps {
   value: CheckinReminderValue
   onChange: (next: CheckinReminderValue) => void
+  feedback?: string | null
+  // 제목 아래·알림 토글 위에 끼워 넣을 내용 — 웹 푸시 허용 토글이 이 자리에 온다.
+  beforeContent?: ReactNode
 }
 
 // 결정사항 로그 §7 — 시니어 홈 화면에 있던 "안부 알림 시간을 설정해 보세요"
 // 죽은 버튼이 원래 이어져야 했던 시니어 내 정보 화면의 "안부 알림" 카드.
-export function SetCheckinReminderAction({ value, onChange }: SetCheckinReminderActionProps) {
+export function SetCheckinReminderAction({
+  value,
+  onChange,
+  feedback = null,
+  beforeContent,
+}: SetCheckinReminderActionProps) {
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false)
   const [hour, minute] = value.time.split(':').map(Number)
   const timePeriod = hour < 12 ? '오전' : '오후'
@@ -34,8 +42,9 @@ export function SetCheckinReminderAction({ value, onChange }: SetCheckinReminder
   return (
     <div>
       <h2 className={styles.title}>안부 알림</h2>
+      {beforeContent}
 
-      <div className={styles.row}>
+      <div className={[styles.row, beforeContent ? styles.separatedRow : ''].join(' ')}>
         <div className={styles.notificationCopy}>
           <p>안부 알림</p>
           <span>매일 다슬이가 먼저 안부를 물어봐요</span>
@@ -46,6 +55,12 @@ export function SetCheckinReminderAction({ value, onChange }: SetCheckinReminder
           label={value.enabled ? '알림 켜짐' : '알림 꺼짐'}
         />
       </div>
+
+      {feedback && (
+        <p className={styles.feedback} role="alert">
+          {feedback}
+        </p>
+      )}
 
       {value.enabled && (
         <div className={styles.timeRow}>

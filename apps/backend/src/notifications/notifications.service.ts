@@ -115,7 +115,7 @@ export class NotificationsService {
       `정서지수가 설정한 ${preference.threshold}점 이하로 나타났어요.`,
     );
     if (saved.created && preference.enabled) {
-      await this.webPushDeliveryService.sendToGuardian(guardianId, {
+      await this.webPushDeliveryService.sendToUser(guardianId, {
         title: '정서지수 하락이 감지되었어요',
         body: saved.notification.content,
         url: `/guardian/report?date=${reportDate}`,
@@ -132,7 +132,7 @@ export class NotificationsService {
     const preference =
       await this.preferenceRepository.findGuardianPreference(guardianId);
     if (preference?.enabled) {
-      await this.webPushDeliveryService.sendToGuardian(guardianId, payload);
+      await this.webPushDeliveryService.sendToUser(guardianId, payload);
     }
   }
 

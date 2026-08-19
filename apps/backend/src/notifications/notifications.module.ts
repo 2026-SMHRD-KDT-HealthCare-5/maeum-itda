@@ -6,6 +6,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { User } from '../users/entities/user.entity';
+import { CheckinReminderDispatchService } from './checkin-reminder-dispatch.service';
 import { GuardianNotification } from './entities/guardian-notification.entity';
 import { PushSubscription } from './entities/push-subscription.entity';
 import { NotificationsController } from './notifications.controller';
@@ -14,6 +15,7 @@ import { GuardianNotificationRepository } from './repositories/guardian-notifica
 import { PushSubscriptionRepository } from './repositories/push-subscription.repository';
 import { PushSubscriptionsService } from './push-subscriptions.service';
 import { NotificationPreferenceRepository } from './repositories/notification-preference.repository';
+import { CheckinReminderScheduler } from './schedulers/checkin-reminder.scheduler';
 import { WebPushDeliveryService } from './web-push-delivery.service';
 
 // GuardianNotification Repository와 알림 요청 처리 객체를 등록한다.
@@ -30,6 +32,8 @@ import { WebPushDeliveryService } from './web-push-delivery.service';
     GuardianNotificationRepository,
     NotificationPreferenceRepository,
     PushSubscriptionRepository,
+    CheckinReminderDispatchService,
+    CheckinReminderScheduler,
   ],
   exports: [NotificationsService],
 })

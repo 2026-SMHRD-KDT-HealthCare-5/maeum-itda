@@ -68,7 +68,7 @@ export class NotificationsController {
   }
 
   @Put('push-subscriptions')
-  @ApiOperation({ summary: '보호자 웹 푸시 구독 등록·갱신' })
+  @ApiOperation({ summary: '웹 푸시 구독 등록·갱신 (보호자/시니어 공용)' })
   @ApiOkResponse({ type: PushSubscriptionResponseDto })
   @ApiBadRequestResponse({ type: ApiErrorResponseDto })
   upsertPushSubscription(
@@ -84,7 +84,9 @@ export class NotificationsController {
 
   @Delete('push-subscriptions')
   @HttpCode(204)
-  @ApiOperation({ summary: '현재 브라우저 웹 푸시 구독 해제' })
+  @ApiOperation({
+    summary: '현재 브라우저 웹 푸시 구독 해제 (보호자/시니어 공용)',
+  })
   @ApiNoContentResponse({ description: '구독 해제 완료' })
   @ApiBadRequestResponse({ type: ApiErrorResponseDto })
   async deletePushSubscription(

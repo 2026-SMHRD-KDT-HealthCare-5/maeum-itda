@@ -1,7 +1,10 @@
-/* 역할: 보호자 권한을 검증하고 웹 푸시 구독 등록·갱신·해제를 처리한다. */
-import { ForbiddenException, Injectable } from '@nestjs/common';
+/*
+역할: 웹 푸시 구독 등록·갱신·해제를 처리한다.
+보호자(정서지수 하락 알림)와 시니어(안부 알림 리마인더) 둘 다 이 기기 구독을 쓴다 —
+역할 제한 없이 인증된 사용자 본인의 구독만 등록/해제한다.
+*/
+import { Injectable } from '@nestjs/common';
 import type { AccessTokenPayload } from '../auth/auth.service';
-import { UserRole } from '../users/entities/user.entity';
 import {
   DeletePushSubscriptionDto,
   PushSubscriptionResponseDto,
@@ -21,9 +24,8 @@ export class PushSubscriptionsService {
     dto: UpsertPushSubscriptionDto,
     userAgent?: string,
   ): Promise<PushSubscriptionResponseDto> {
-    this.requireGuardian(auth);
     const subscription = await this.pushSubscriptionRepository.upsert({
-      guardianId: auth.sub,
+      userId: auth.sub,
       endpoint: dto.endpoint,
       p256dhKey: dto.keys.p256dh,
       authSecret: dto.keys.auth,
@@ -37,17 +39,8 @@ export class PushSubscriptionsService {
     auth: AccessTokenPayload,
     dto: DeletePushSubscriptionDto,
   ): Promise<void> {
-    this.requireGuardian(auth);
-    // 이미 삭제됐거나 다른 보호자의 endpoint여도 204로 처리해 정보 노출 없이 멱등성을 유지한다.
+    // 이미 삭제됐거나 다른 사용자의 endpoint여도 204로 처리해 정보 노출 없이 멱등성을 유지한다.
     await this.pushSubscriptionRepository.deleteOwned(auth.sub, dto.endpoint);
-  }
-
-  private requireGuardian(auth: AccessTokenPayload): void {
-    if (auth.role !== UserRole.GUARDIAN) {
-      throw new ForbiddenException(
-        '보호자 계정에서만 웹 푸시를 구독할 수 있습니다.',
-      );
-    }
   }
 
   private toResponse(

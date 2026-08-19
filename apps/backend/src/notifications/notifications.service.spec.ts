@@ -26,7 +26,7 @@ describe('NotificationsService', () => {
     const preferenceRepository = {
       findGuardianPreference: jest.fn(),
     };
-    const deliveryService = { sendToGuardian: jest.fn() };
+    const deliveryService = { sendToUser: jest.fn() };
     return {
       service: new NotificationsService(
         repository as unknown as GuardianNotificationRepository,
@@ -145,7 +145,7 @@ describe('NotificationsService', () => {
     await service.createEmotionIndexDropNotification(7, 31, '2026-08-13', 49);
 
     expect(repository.saveEmotionIndexDrop).toHaveBeenCalled();
-    expect(deliveryService.sendToGuardian).toHaveBeenCalledWith(
+    expect(deliveryService.sendToUser).toHaveBeenCalledWith(
       7,
       expect.objectContaining({ url: '/guardian/report?date=2026-08-13' }),
     );
@@ -167,6 +167,6 @@ describe('NotificationsService', () => {
       notification: { content: '기존 알림' },
     });
     await service.createEmotionIndexDropNotification(7, 31, '2026-08-13', 49);
-    expect(deliveryService.sendToGuardian).not.toHaveBeenCalled();
+    expect(deliveryService.sendToUser).not.toHaveBeenCalled();
   });
 });
