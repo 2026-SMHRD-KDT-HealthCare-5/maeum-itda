@@ -6,14 +6,21 @@
 }
 
 .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
+}
+
+.separatedRow {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .row > label {
   flex: 0 0 auto;
+  margin-top: 3px;
 }
 
 .row > label > span:last-child {
@@ -42,6 +49,17 @@
   color: #919a95;
   font-size: 12px;
   line-height: 1.45;
+  word-break: keep-all;
+}
+
+.feedback {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff4f1;
+  color: #bd4938;
+  font-size: 12px;
+  line-height: 1.55;
   word-break: keep-all;
 }
 

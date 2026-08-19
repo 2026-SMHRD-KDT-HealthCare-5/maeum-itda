@@ -13,6 +13,11 @@
   flex-direction: row-reverse;
 }
 
+.wrapper[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .input {
   position: absolute;
   width: 1px;
