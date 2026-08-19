@@ -5,6 +5,7 @@ import {
   DailyConversationList,
   fetchConversationCalendar,
   fetchConversationHistoryByDate,
+  type ChatMessage,
 } from '../../../entities/conversation'
 import { SelectDailyRecordDateAction } from '../../../features/select-daily-record-date'
 import { toDateKey } from '../../../features/select-daily-record-date/model'
@@ -40,8 +41,21 @@ export function SeniorDailyRecordPage() {
     queryFn: () => fetchConversationHistoryByDate(dateKey),
   })
 
-  const showSpinner = useDelayedPending(messagesQuery.isPending)
-  const messages = messagesQuery.data
+  // isPending만 보면 날짜를 넘길 때마다(새 쿼리 키라 매번 isPending이 다시 true)
+  // 화면이 비었다가 말풍선이 새로 뜨는 것처럼 보인다 — 직전 날짜의 결과(빈
+  // 목록이었어도)를 그대로 기억해뒀다가 새 날짜 fetch가 끝나기 전까진 그걸
+  // 계속 보여준다. useEffect 대신 렌더 중 state 조정 패턴(react.dev 권장)을
+  // 쓴다 — resolvedDateKey가 dateKey와 달라졌을 때만 갱신해 무한 렌더를 막는다.
+  const showSpinner = useDelayedPending(messagesQuery.isFetching)
+  const [resolvedDateKey, setResolvedDateKey] = useState<string | null>(null)
+  const [resolvedMessages, setResolvedMessages] = useState<ChatMessage[] | null>(null)
+
+  if (resolvedDateKey !== dateKey && messagesQuery.isSuccess) {
+    setResolvedDateKey(dateKey)
+    setResolvedMessages(messagesQuery.data)
+  }
+
+  const messages = resolvedMessages
 
   function selectDate(date: Date) {
     setSelectedDate(date)
@@ -59,9 +73,13 @@ export function SeniorDailyRecordPage() {
         />
 
         <div className={styles.content}>
-          {showSpinner && <LoadingSpinner overlay label="대화 기록을 불러오고 있어요" />}
+          {showSpinner && (
+            <div className={styles.loadingState}>
+              <LoadingSpinner label="대화 기록을 불러오고 있어요" />
+            </div>
+          )}
 
-          {!showSpinner && messagesQuery.isError && (
+          {messagesQuery.isError && (
             <div className={styles.statusMessage} role="alert">
               <p>{extractApiErrorMessage(messagesQuery.error, '대화 기록을 불러오지 못했어요.')}</p>
               <Button type="button" onClick={() => messagesQuery.refetch()}>
@@ -70,11 +88,9 @@ export function SeniorDailyRecordPage() {
             </div>
           )}
 
-          {!showSpinner && messages && messages.length > 0 && (
-            <DailyConversationList messages={messages} />
-          )}
+          {messages && messages.length > 0 && <DailyConversationList messages={messages} />}
 
-          {!showSpinner && messages && messages.length === 0 && (
+          {messages && messages.length === 0 && (
             <div className={styles.emptyState}>
               <img
                 className={styles.emptyCharacter}
