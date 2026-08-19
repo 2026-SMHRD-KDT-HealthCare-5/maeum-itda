@@ -38,8 +38,10 @@ export function validateQuestionAnswerAnalysisResponse(
   }
 
   const answers = response.answers.map(validateAnswerResult);
-  const requestedIds = batch.answers.map(({ messageId }) => messageId).sort();
-  const responseIds = answers.map(({ messageId }) => messageId).sort();
+  const requestedIds = batch.answers
+    .map(({ tempAnswerId }) => tempAnswerId)
+    .sort();
+  const responseIds = answers.map(({ tempAnswerId }) => tempAnswerId).sort();
   if (
     requestedIds.length !== responseIds.length ||
     requestedIds.some((id, index) => id !== responseIds[index])
@@ -121,7 +123,7 @@ function validateAnswerResult(value: unknown): AnswerAnalysisResult {
   });
 
   return {
-    messageId: Number(answer.messageId),
+    tempAnswerId: Number(answer.messageId),
     transcript: answer.transcript,
     sentimentLabel: answer.sentimentLabel as SentimentLabel,
     scaleAnalyses,

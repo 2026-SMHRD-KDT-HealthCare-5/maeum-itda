@@ -89,7 +89,7 @@ export class AiClient {
         }),
         `${answer.audioTransferId}.audio`,
       );
-      form.append('messageIds', String(answer.messageId));
+      form.append('messageIds', String(answer.tempAnswerId));
       form.append('audioTransferIds', answer.audioTransferId);
       form.append('capturedAts', answer.capturedAt);
       form.append('endTypes', answer.endType);

@@ -10,7 +10,7 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
     continueConversation: true,
     answers: [
       {
-        messageId: 102,
+        tempAnswerId: 102,
         seniorId: 7,
         questionMessageId: 101,
         generationId: 'generation-001',
@@ -23,6 +23,7 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
       },
     ],
   };
+  // FastAPI가 실제로 보내는 wire 형식(messageId 필드명은 apps/ai-server 계약 그대로 유지).
   const validResult = {
     answers: [
       {
@@ -36,6 +37,21 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
     ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
     ttsMimeType: 'audio/mpeg',
   };
+  // 검증기가 반환하는 내부 DTO 형식(messageId → tempAnswerId, 아직 실제 DB ID가 아님).
+  function toExpected(result: {
+    answers: Array<{ messageId: number; [key: string]: unknown }>;
+    nextQuestion: string;
+    ttsAudioBase64: string | null;
+    ttsMimeType: string | null;
+  }) {
+    return {
+      ...result,
+      answers: result.answers.map(({ messageId, ...rest }) => ({
+        tempAnswerId: messageId,
+        ...rest,
+      })),
+    };
+  }
 
   it('TTS가 실패한 응답은 Base64와 MIME이 모두 null일 때만 허용한다', () => {
     expect(
@@ -43,7 +59,9 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
         { ...validResult, ttsAudioBase64: null, ttsMimeType: null },
         batch,
       ),
-    ).toEqual({ ...validResult, ttsAudioBase64: null, ttsMimeType: null });
+    ).toEqual(
+      toExpected({ ...validResult, ttsAudioBase64: null, ttsMimeType: null }),
+    );
 
     expect(() =>
       validateQuestionAnswerAnalysisResponse(
@@ -72,7 +90,7 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
     };
 
     expect(validateQuestionAnswerAnalysisResponse(result, batch)).toEqual(
-      result,
+      toExpected(result),
     );
   });
 

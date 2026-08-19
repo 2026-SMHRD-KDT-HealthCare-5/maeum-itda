@@ -24,12 +24,11 @@ export class AnalysisService {
     private readonly analysisContextRepository: AnalysisContextRepository,
   ) {}
 
-  // 역할: 10초 추가 답변 대기가 끝난 묶음을 보관하고 모든 답변을 WAITING으로 표시한다.
-  async enqueueAnswerBatch(batch: QuestionAnswerBatch): Promise<void> {
+  // 역할: 10초 추가 답변 대기가 끝난 묶음을 FastAPI 처리 전까지 메모리에 보관한다.
+  // 답변 메시지는 분석 성공 전까지 DB에 저장되지 않는다(결정사항: 분석 실패 시
+  // CONVERSATION_MESSAGE·VOICE_ANALYSIS_STATUS에 흔적을 남기지 않는다).
+  enqueueAnswerBatch(batch: QuestionAnswerBatch): void {
     this.temporaryAudioRepository.save(batch);
-    await this.analysisResultRepository.markWaiting(
-      batch.answers.map(({ messageId }) => messageId),
-    );
   }
 
   isFastApiConfigured(): boolean {
@@ -37,6 +36,8 @@ export class AnalysisService {
   }
 
   // 역할: 질문별 음성 전체를 FastAPI에 한 번 요청하고 답변별 결과와 다음 질문을 저장한다.
+  // 실패하면(FastAPI 오류·검증 실패 등) 아무것도 저장하지 않고 그대로 throw하며,
+  // temporaryAudioRepository에서도 지우지 않아 REST 재시도(POST .../retry) 대상으로 남는다.
   async processPendingAnswerBatch(
     questionMessageId: number,
   ): Promise<CompletedAudioAnalysis | null> {
@@ -50,25 +51,16 @@ export class AnalysisService {
       );
     }
 
-    const messageIds = batch.answers.map(({ messageId }) => messageId);
-    await this.analysisResultRepository.markProcessing(messageIds);
-    try {
-      const context = await this.analysisContextRepository.findForBatch(batch);
-      const requestBatch = { ...batch, ...context };
-      const result = await this.aiClient.analyzeAnswerBatch(requestBatch);
-      const completed = await this.analysisResultRepository.saveCompleted(
-        requestBatch,
-        randomUUID(),
-        result,
-      );
-      this.temporaryAudioRepository.delete(questionMessageId);
-      return completed;
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : '음성 분석에 실패했습니다.';
-      await this.analysisResultRepository.markFailed(messageIds, message);
-      throw error;
-    }
+    const context = await this.analysisContextRepository.findForBatch(batch);
+    const requestBatch = { ...batch, ...context };
+    const result = await this.aiClient.analyzeAnswerBatch(requestBatch);
+    const completed = await this.analysisResultRepository.saveCompleted(
+      requestBatch,
+      randomUUID(),
+      result,
+    );
+    this.temporaryAudioRepository.delete(questionMessageId);
+    return completed;
   }
 
   getStatus(messageId: number) {

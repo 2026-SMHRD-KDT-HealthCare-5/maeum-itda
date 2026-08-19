@@ -1,8 +1,11 @@
 /*
-역할: 음성 Binary frame을 metadata와 결합해 답변을 저장하고 질문별 추가 답변 큐에 등록한다.
-연결 객체: ChatsGateway → AudioBinaryHandler → AudioAnswerRepository → QuestionAnswerQueueService → AnalysisService
-전체 흐름: 바이너리 검증 → 답변·관계 DB 저장 → audio:ack → 10초간 추가 답변 결합 → FastAPI REST 요청 → 다음 ai:question
-[완료] STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·저장·전달 흐름만 담당한다.
+역할: 음성 Binary frame을 metadata와 결합해 질문별 추가 답변 큐에 등록한다.
+연결 객체: ChatsGateway → AudioBinaryHandler → QuestionAnswerQueueService → AnalysisService
+전체 흐름: 바이너리 검증 → audio:ack → 10초간 추가 답변 결합 → FastAPI REST 요청 → 성공 시에만 DB 저장 → 다음 ai:question
+[완료] STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·전달 흐름만 담당한다.
+[결정사항] 답변 메시지는 분석이 성공한 시점에야 처음 DB에 저장된다 — 분석 실패 시
+CONVERSATION_MESSAGE에 아무 흔적도 남기지 않는다. 그래서 이 시점의 답변은 아직 실제
+MESSAGE_ID가 없고, tempAnswerId(프로세스 메모리 전용 일련번호)로만 구분한다.
 [제약] 질문별 처리 순서는 프로세스 메모리 Map으로 제어하므로 서버 재시작·다중 인스턴스 간에는 공유되지 않는다.
 */
 import { Injectable, Logger } from '@nestjs/common';
@@ -14,7 +17,6 @@ import {
   QuestionAnswerQueueLimitError,
   QuestionAnswerQueueService,
 } from '../question-answer-queue.service';
-import { AudioAnswerRepository } from '../repositories/audio-answer.repository';
 import { sendWsError, sendWsEvent, type WsErrorPayload } from '../ws-event';
 import { AudioMetadataHandler } from './audio-metadata.handler';
 import { AudioTransferStateService } from '../audio-transfer-state.service';
@@ -32,8 +34,9 @@ export class AudioBinaryHandler {
     number,
     Promise<void>
   >();
+  // FastAPI 요청·응답 안에서만 답변을 구분하는 임시 번호 — DB MESSAGE_ID가 아니다.
+  private nextTempAnswerId = 1;
   private readonly audioMetadataHandler: AudioMetadataHandler;
-  private readonly audioAnswerRepository: AudioAnswerRepository;
   private readonly questionAnswerQueueService: QuestionAnswerQueueService;
   private readonly analysisService: AnalysisService;
   private readonly chatConnectionStateService: ChatConnectionStateService;
@@ -44,7 +47,6 @@ export class AudioBinaryHandler {
 
   constructor(
     audioMetadataHandler: AudioMetadataHandler,
-    audioAnswerRepository: AudioAnswerRepository,
     questionAnswerQueueService: QuestionAnswerQueueService,
     analysisService: AnalysisService,
     chatConnectionStateService: ChatConnectionStateService,
@@ -54,7 +56,6 @@ export class AudioBinaryHandler {
     questionDeliveryService: QuestionDeliveryService,
   ) {
     this.audioMetadataHandler = audioMetadataHandler;
-    this.audioAnswerRepository = audioAnswerRepository;
     this.questionAnswerQueueService = questionAnswerQueueService;
     this.analysisService = analysisService;
     this.chatConnectionStateService = chatConnectionStateService;
@@ -64,8 +65,8 @@ export class AudioBinaryHandler {
     this.questionDeliveryService = questionDeliveryService;
   }
 
-  // 역할: 음성 한 건은 즉시 저장·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
-  async handleAudioBinary(client: WebSocket, data: RawData): Promise<void> {
+  // 역할: 음성 한 건은 즉시 큐에 등록·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
+  handleAudioBinary(client: WebSocket, data: RawData): void {
     const metadata = this.audioMetadataHandler.takePendingMetadata(client);
     if (metadata === undefined) {
       this.sendError(
@@ -77,14 +78,9 @@ export class AudioBinaryHandler {
       return;
     }
 
-    const processedTransfer = this.audioTransferStateService.find(
-      client,
-      metadata.audioTransferId,
-    );
-    if (processedTransfer !== undefined) {
+    if (this.audioTransferStateService.has(client, metadata.audioTransferId)) {
       sendWsEvent(client, 'audio:ack', {
         audioTransferId: metadata.audioTransferId,
-        messageId: processedTransfer.messageId,
       });
       return;
     }
@@ -110,7 +106,6 @@ export class AudioBinaryHandler {
     }
 
     try {
-      // 분석되지 않는 DB 메시지가 남지 않도록 답변 저장 전에 질문별 큐 한도를 검사한다.
       this.questionAnswerQueueService.assertCanAccept(
         metadata.questionMessageId,
         audioBuffer.byteLength,
@@ -123,65 +118,50 @@ export class AudioBinaryHandler {
       throw error;
     }
 
-    try {
-      const savedAnswer = await this.audioAnswerRepository.savePendingAnswer(
-        metadata.seniorId,
-        metadata.questionMessageId,
-      );
-      const queued = this.questionAnswerQueueService.enqueue({
-        messageId: savedAnswer.messageId,
-        seniorId: metadata.seniorId,
-        questionMessageId: metadata.questionMessageId,
-        generationId: metadata.generationId,
-        audioTransferId: metadata.audioTransferId,
-        mimeType: metadata.mimeType,
-        capturedAt: metadata.capturedAt,
-        endType: metadata.endType,
-        audioBuffer,
-        continueConversation:
-          this.chatConnectionStateService.matchesCurrentQuestion(
-            client,
-            metadata.questionMessageId,
-            metadata.generationId,
-          ),
-      });
+    const queued = this.questionAnswerQueueService.enqueue({
+      tempAnswerId: this.nextTempAnswerId++,
+      seniorId: metadata.seniorId,
+      questionMessageId: metadata.questionMessageId,
+      generationId: metadata.generationId,
+      audioTransferId: metadata.audioTransferId,
+      mimeType: metadata.mimeType,
+      capturedAt: metadata.capturedAt,
+      endType: metadata.endType,
+      audioBuffer,
+      continueConversation:
+        this.chatConnectionStateService.matchesCurrentQuestion(
+          client,
+          metadata.questionMessageId,
+          metadata.generationId,
+        ),
+    });
 
-      this.audioTransferStateService.markProcessed(
-        client,
-        metadata.audioTransferId,
-        savedAnswer.messageId,
-      );
-      sendWsEvent(client, 'audio:ack', {
-        audioTransferId: metadata.audioTransferId,
-        messageId: savedAnswer.messageId,
-      });
+    this.audioTransferStateService.markProcessed(
+      client,
+      metadata.audioTransferId,
+    );
+    sendWsEvent(client, 'audio:ack', {
+      audioTransferId: metadata.audioTransferId,
+    });
 
-      // 첫 등록 Handler만 공용 ready Promise를 기다려 질문별 분석을 한 번 실행한다.
-      if (queued.isBatchOwner) {
-        void queued.ready
-          .then((batch) => this.scheduleBatch(client, batch))
-          .catch((error: unknown) => {
-            this.logger.error(
-              `음성 답변 묶음 준비 실패: questionMessageId=${metadata.questionMessageId}`,
-              error instanceof Error ? error.stack : String(error),
+    // 첫 등록 Handler만 공용 ready Promise를 기다려 질문별 분석을 한 번 실행한다.
+    if (queued.isBatchOwner) {
+      void queued.ready
+        .then((batch) => this.scheduleBatch(client, batch))
+        .catch((error: unknown) => {
+          this.logger.error(
+            `음성 답변 묶음 준비 실패: questionMessageId=${metadata.questionMessageId}`,
+            error instanceof Error ? error.stack : String(error),
+          );
+          if (this.isClientOpen(client)) {
+            this.sendError(
+              client,
+              'AUDIO_ANALYSIS_FAILED',
+              '음성 답변 묶음을 준비하지 못했습니다.',
+              true,
             );
-            if (this.isClientOpen(client)) {
-              this.sendError(
-                client,
-                'AUDIO_ANALYSIS_FAILED',
-                '음성 답변 묶음을 준비하지 못했습니다.',
-                true,
-              );
-            }
-          });
-      }
-    } catch {
-      this.sendError(
-        client,
-        'AUDIO_SAVE_FAILED',
-        '음성 답변 정보를 저장하지 못했습니다.',
-        true,
-      );
+          }
+        });
     }
   }
 
@@ -220,7 +200,7 @@ export class AudioBinaryHandler {
           batch.questionMessageId,
           batch.generationId,
         );
-      await this.analysisService.enqueueAnswerBatch(batch);
+      this.analysisService.enqueueAnswerBatch(batch);
       if (!this.analysisService.isFastApiConfigured()) return;
 
       const completed = await this.analysisService.processPendingAnswerBatch(
@@ -255,6 +235,11 @@ export class AudioBinaryHandler {
       // [완료] 다음 질문을 전달한 시점부터 10분 재계산 타이머를 다시 시작한다.
       this.lastTurnRecalcTimerService.arm(batch.seniorId);
     } catch {
+      // AnalysisService.processPendingAnswerBatch는 실패 시 아무것도 저장하지
+      // 않는다 — 이 답변들은 애초에 메시지로 존재한 적이 없으므로 프론트에
+      // 알릴 audio:transcript도 없다. error 이벤트만으로 실패를 알리고,
+      // 시니어 쪽 녹음 UI는 이 이벤트를 받아 곧바로 같은 질문에 대한 새 녹음을
+      // 다시 연다(처음 화면 진입 때와 같은 대기 상태로 복귀).
       if (this.isClientOpen(client)) {
         this.sendError(
           client,

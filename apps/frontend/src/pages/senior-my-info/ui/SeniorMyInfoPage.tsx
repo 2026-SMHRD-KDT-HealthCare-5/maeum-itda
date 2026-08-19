@@ -8,6 +8,10 @@ import {
   updateMyProfile,
 } from '../../../features/edit-basic-info'
 import {
+  EnablePushNotificationsAction,
+  usePushSubscription,
+} from '../../../features/enable-push-notifications'
+import {
   SetCheckinReminderAction,
   CHECKIN_REMINDER_QUERY_KEY,
   fetchCheckinReminder,
@@ -62,7 +66,18 @@ export function SeniorMyInfoPage() {
   })
   const [checkinDraft, setCheckinDraft] = useState<CheckinReminderValue | null>(null)
 
+  // 안부 알림도 실제로는 웹 푸시로 전달되므로, 이 기기가 아직 푸시 구독 전이면
+  // "안부 알림"을 켜봐야 아무것도 안 온다 — 켜려는 시도를 막고 아래 푸시
+  // 토글부터 켜라고 안내한다.
+  const pushSubscription = usePushSubscription()
+  const [pushRequiredNotice, setPushRequiredNotice] = useState(false)
+
   function handleCheckinChange(next: CheckinReminderValue) {
+    if (next.enabled && pushSubscription.status !== 'subscribed') {
+      setPushRequiredNotice(true)
+      return
+    }
+    setPushRequiredNotice(false)
     setCheckinDraft(next)
     updateCheckinReminderMutation.mutate(next, { onSettled: () => setCheckinDraft(null) })
   }
@@ -208,12 +223,24 @@ export function SeniorMyInfoPage() {
               <SetCheckinReminderAction
                 value={displayedCheckinReminder}
                 onChange={handleCheckinChange}
+                feedback={
+                  pushRequiredNotice
+                    ? "위 '알림 푸시 허용'을 먼저 켜주세요."
+                    : updateCheckinReminderMutation.isError
+                      ? extractApiErrorMessage(
+                          updateCheckinReminderMutation.error,
+                          '저장에 실패했어요.',
+                        )
+                      : null
+                }
+                beforeContent={
+                  <EnablePushNotificationsAction
+                    title="알림 푸시 허용"
+                    description="안부 알림을 이 기기의 알림으로도 받아요"
+                    pushSubscription={pushSubscription}
+                  />
+                }
               />
-            )}
-            {updateCheckinReminderMutation.isError && (
-              <p className={styles.saveError}>
-                {extractApiErrorMessage(updateCheckinReminderMutation.error, '저장에 실패했어요.')}
-              </p>
             )}
           </Card>
 

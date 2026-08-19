@@ -1,14 +1,16 @@
 .row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 16px;
+  row-gap: 10px;
   padding-top: 16px;
   border-top: 1px solid #eceae4;
 }
 
 .row > label {
   flex: 0 0 auto;
+  margin-top: 3px;
 }
 
 .row > label > span:last-child {
@@ -41,13 +43,23 @@
 }
 
 .busy {
+  grid-column: 1 / -1;
+  margin: 0;
   color: #929b96;
   font-size: 12px;
+  line-height: 1.5;
 }
 
 .error {
+  grid-column: 1 / -1;
   width: 100%;
   margin: 0;
-  color: #d0402b;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fff4f1;
+  color: #bd4938;
   font-size: 12px;
+  line-height: 1.55;
+  word-break: keep-all;
 }

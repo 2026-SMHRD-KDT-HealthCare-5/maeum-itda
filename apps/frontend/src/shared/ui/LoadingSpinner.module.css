@@ -14,8 +14,10 @@
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: rgba(247, 244, 238, 0.85);
-  backdrop-filter: blur(2px);
+  box-sizing: border-box;
+  /* 예전엔 0.85 불투명 배경 + blur라 뜨고 사라질 때마다 화면이 확 덮였다 걷히는
+     느낌이 강했다 — 거의 투명하게 낮춰서 밑 콘텐츠가 계속 비치게 한다. */
+  background: rgba(247, 244, 238, 0.15);
 }
 
 .gif {

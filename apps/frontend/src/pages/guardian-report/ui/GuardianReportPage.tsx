@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { SelectReportDateAction, toDateKey } from '../../../features/select-report-date'
@@ -8,6 +8,7 @@ import {
   RecommendedActionCard,
   fetchDailyReport,
   fetchReportCalendar,
+  type DailyReport,
 } from '../../../entities/report'
 import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
@@ -44,19 +45,34 @@ export function GuardianReportPage() {
     queryKey: ['daily-report', dateKey],
     queryFn: () => fetchDailyReport(dateKey),
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
-    placeholderData: keepPreviousData,
   })
 
-  // isPending 대신 isFetching을 봐야 한다: placeholderData(keepPreviousData) 덕에
-  // 날짜를 넘겨도 이전 날짜 데이터가 즉시 남아있어 isPending은 계속 false다 —
-  // 그 상태에서 fetch 진행 중임을 알려주려면 isFetching이 필요하다.
   const showSpinner = useDelayedPending(dailyReportQuery.isFetching)
-  // isPlaceholderData인 동안의 data는 "새 날짜의 값"이 아니라 아직 남아있는
-  // 이전 날짜 값이다 — 그대로 report로 노출하면 다른 날짜 카드가 잠깐 보였다
-  // 사라지는 것처럼 보인다. fetch가 끝나 진짜 이 날짜의 값(성공/404)으로
-  // 확정되기 전까지는 report를 비워 스피너만 보이게 한다.
-  const report = dailyReportQuery.isPlaceholderData ? undefined : dailyReportQuery.data
-  const reportMissing = dailyReportQuery.isError && isNotFoundError(dailyReportQuery.error)
+
+  // react-query의 placeholderData(keepPreviousData)는 "이전 성공 데이터"만 이어줄 뿐,
+  // "이전 날짜도 리포트가 없었다(404)"는 상태는 안 이어준다 — 그래서 데이터 없는
+  // 날짜에서 데이터 없는 날짜로 넘어갈 때도 fetch 도중엔 화면이 완전히 비었다가
+  // 다시 "리포트 없음" 문구로 돌아오는, 앞뒤가 똑같은데도 깜빡이는 현상이 있었다.
+  // 성공/404 둘 다 "확정된 결과"로 직접 기억해뒀다가, 새 날짜 fetch가 끝나기
+  // 전까지는 이 값을 그대로 보여준다. useEffect 대신 렌더 중 state 조정
+  // 패턴(react.dev 권장)을 쓴다 — resolvedDateKey가 dateKey와 달라졌을 때만
+  // 갱신해 무한 렌더를 막는다.
+  const [resolvedDateKey, setResolvedDateKey] = useState<string | null>(null)
+  const [resolvedView, setResolvedView] = useState<
+    { kind: 'found'; report: DailyReport } | { kind: 'missing' } | null
+  >(null)
+  const queryReportMissing = dailyReportQuery.isError && isNotFoundError(dailyReportQuery.error)
+
+  if (resolvedDateKey !== dateKey && dailyReportQuery.isSuccess) {
+    setResolvedDateKey(dateKey)
+    setResolvedView({ kind: 'found', report: dailyReportQuery.data })
+  } else if (resolvedDateKey !== dateKey && queryReportMissing) {
+    setResolvedDateKey(dateKey)
+    setResolvedView({ kind: 'missing' })
+  }
+
+  const report = resolvedView?.kind === 'found' ? resolvedView.report : null
+  const reportMissing = resolvedView?.kind === 'missing'
 
   function selectDate(date: Date) {
     setSelectedDate(date)

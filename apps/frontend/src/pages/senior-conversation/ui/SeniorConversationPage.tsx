@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConversationHistoryList, type ChatMessage } from '../../../entities/conversation'
 import {
@@ -16,6 +16,7 @@ import thinkingCharacterImage from './character-daseul-thinking.png'
 import styles from './SeniorConversationPage.module.css'
 
 type CharacterState = 'listening' | 'question' | 'thinking'
+type TtsAudio = { base64: string; mimeType: string }
 
 const characterByState: Record<CharacterState, { alt: string; src: string }> = {
   listening: {
@@ -57,8 +58,14 @@ export function SeniorConversationPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [currentQuestion, setCurrentQuestion] = useState<AiQuestionPayload | null>(null)
   const [idleNotice, setIdleNotice] = useState<string | null>(null)
+  const [answerRetryNotice, setAnswerRetryNotice] = useState<string | null>(null)
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
+  const [currentQuestionTts, setCurrentQuestionTts] = useState<TtsAudio | null>(null)
+  // tts:audio는 같은 질문의 ai:question보다 먼저 도착한다(QuestionDeliveryService.deliver
+  // 순서) — ai:question이 올 때 messageId로 짝지어 currentQuestionTts에 반영하기 전까지
+  // messageId별로 임시 보관한다. 리렌더를 유발할 필요 없는 값이라 state가 아니라 ref다.
+  const pendingTtsByMessageIdRef = useRef(new Map<number, TtsAudio>())
 
   useEffect(() => {
     // 로그인 정보가 없으면 연결을 시도하지 않는다 — 아래 렌더링이 이 경우를
@@ -67,28 +74,40 @@ export function SeniorConversationPage() {
     const accessToken = session.accessToken
 
     const handleAiQuestion: Parameters<typeof socket.on<'ai:question'>>[1] = (payload) => {
+      const ttsAudio = pendingTtsByMessageIdRef.current.get(payload.messageId) ?? null
+      pendingTtsByMessageIdRef.current.delete(payload.messageId)
       setCurrentQuestion(payload)
+      setCurrentQuestionTts(ttsAudio)
       setIdleNotice(null)
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
     }
+    // tts:audio는 ai:question 직전에 온다(§4.2) — 아직 currentQuestion이 갱신되기
+    // 전이므로 일단 messageId로만 보관해뒀다가 handleAiQuestion에서 짝짓는다.
+    const handleTtsAudio: Parameters<typeof socket.on<'tts:audio'>>[1] = (payload) => {
+      pendingTtsByMessageIdRef.current.set(payload.messageId, {
+        base64: payload.base64,
+        mimeType: payload.mimeType,
+      })
+    }
+    // 답변 메시지는 분석이 성공해 실제로 저장된 시점에야 처음 이 이벤트로
+    // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
+    // 기존 말풍선을 갱신하는 게 아니라 여기서 새로 추가한다. 분석 실패는
+    // error 이벤트(AUDIO_ANALYSIS_FAILED)의 배너로만 안내한다.
     const handleAudioTranscript: Parameters<typeof socket.on<'audio:transcript'>>[1] = (
       payload,
     ) => {
-      const contentByMessageId = new Map(
-        payload.transcripts.map((transcript) => [transcript.messageId, transcript.content]),
-      )
-      setMessages((prev) =>
-        prev.map((message) =>
-          contentByMessageId.has(message.messageId)
-            ? {
-                ...message,
-                content: contentByMessageId.get(message.messageId) ?? message.content,
-                sttStatus: 'COMPLETED',
-              }
-            : message,
-        ),
-      )
+      setAnswerRetryNotice(null)
+      setMessages((prev) => [
+        ...prev,
+        ...payload.transcripts.map(({ messageId, content }): ChatMessage => ({
+          messageId,
+          speakerType: 'SENIOR',
+          content,
+          sttStatus: 'COMPLETED',
+          createdAt: new Date().toISOString(),
+        })),
+      ])
     }
     const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
       setIdleNotice(payload.message)
@@ -96,22 +115,42 @@ export function SeniorConversationPage() {
       setCurrentQuestion(null)
       navigate('/senior')
     }
-    const handleError: Parameters<typeof socket.on<'error'>>[1] = (payload) =>
+    const handleError: Parameters<typeof socket.on<'error'>>[1] = (payload) => {
+      if (payload.code === 'AUDIO_ANALYSIS_FAILED') {
+        // 연결 장애가 아니라 방금 답변 분석 실패다 — 답변 조작부 바로 위에서
+        // 재답변을 안내한다(녹음 자체는 record-voice-answer 훅이 이 이벤트를
+        // 받아 곧바로 다시 연다).
+        setAnswerRetryNotice('음성을 분석하지 못했어요. 다시 말씀해주세요.')
+        return
+      }
       setConnectionError(payload.message)
+    }
 
     socket.on('ai:question', handleAiQuestion)
+    socket.on('tts:audio', handleTtsAudio)
     socket.on('audio:transcript', handleAudioTranscript)
     socket.on('chat:idle-warning', handleIdleWarning)
     socket.on('chat:ended', handleChatEnded)
     socket.on('error', handleError)
 
+    // StrictMode 개발 모드에서는 이 effect가 마운트→클린업→재마운트로 두 번
+    // 실행된다. 첫 실행의 connect()가 아직 CONNECTING인 상태에서 클린업이
+    // socket.disconnect()를 호출하면 브라우저가 그 소켓의 error 이벤트를
+    // 발생시켜 connect()가 실패로 reject된다 — 이 reject는 이미 정리된
+    // 첫 실행에 속한 것이므로, 두 번째(살아남은) 실행이 성공해도 화면에
+    // 에러가 잠깐 표시됐다 사라지는 원인이 된다. cancelled 플래그로 클린업된
+    // 실행의 결과는 상태에 반영하지 않는다.
+    let cancelled = false
+
     socket
       .connect(accessToken)
       .then(() => {
+        if (cancelled) return
         setConnectionState('ready')
         socket.startChat()
       })
       .catch((error: unknown) => {
+        if (cancelled) return
         setConnectionState('error')
         setConnectionError(
           error instanceof Error ? error.message : '대화 서버에 연결하지 못했습니다.',
@@ -119,7 +158,9 @@ export function SeniorConversationPage() {
       })
 
     return () => {
+      cancelled = true
       socket.off('ai:question', handleAiQuestion)
+      socket.off('tts:audio', handleTtsAudio)
       socket.off('audio:transcript', handleAudioTranscript)
       socket.off('chat:idle-warning', handleIdleWarning)
       socket.off('chat:ended', handleChatEnded)
@@ -131,12 +172,13 @@ export function SeniorConversationPage() {
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
-    onAnswerQueued: (message) => setMessages((prev) => [...prev, message]),
-    // AiQuestionPayload에 TTS 오디오 필드가 아직 없어(백엔드 8/18 예정) 항상
-    // null — TTS가 없으니 재생을 기다리지 않고 곧바로 마이크가 열린다. 다음
-    // 질문을 기다리는 동안 끼어드는 발화를 추가 답변으로 받는 동작은 TTS 유무와
-    // 무관하게 이미 지금부터 동작한다.
-    ttsAudio: null,
+    ttsAudio: currentQuestionTts,
+    // 무음인 채로 "지금 답변 마치기"를 누르면 서버로 보내지 않고 안내만 띄운다
+    // (Whisper 계열이 무음에도 엉뚱한 문장을 환각하는 걸 막기 위한 클라이언트
+    // 사전 필터 — app/services/stt.py 자체에는 무음 판별이 없다).
+    onSilentFinishAttempt: () =>
+      setAnswerRetryNotice('아직 말씀하신 내용이 없어요. 말씀해 주세요.'),
+    onVoiceDetected: () => setAnswerRetryNotice(null),
   })
 
   const character = characterByState[phase]
@@ -186,6 +228,11 @@ export function SeniorConversationPage() {
               messages={messages}
               onOverflowChange={setHasScrollableHistory}
             />
+            {answerRetryNotice && (
+              <p className={styles.answerRetryNotice} role="alert">
+                {answerRetryNotice}
+              </p>
+            )}
             <RecordVoiceAnswerAction
               characterImageAlt={character.alt}
               characterImageSrc={character.src}

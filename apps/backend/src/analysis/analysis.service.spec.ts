@@ -1,4 +1,4 @@
-/* 역할: FastAPI 주소 미설정 시 질문별 음성 묶음을 보관하고 WAITING 상태로 유지하는지 검증한다. */
+/* 역할: FastAPI 주소 미설정 시 질문별 음성 묶음을 메모리에 보관하고 분석 호출은 보류하는지 검증한다. */
 import type { AiClient } from './ai.client';
 import { AnalysisService } from './analysis.service';
 import type { QuestionAnswerBatch } from './dto/audio-analysis.contract';
@@ -18,10 +18,7 @@ describe('AnalysisService', () => {
       delete: jest.fn(),
     };
     const analysisResultRepository = {
-      markWaiting: jest.fn().mockResolvedValue(undefined),
-      markProcessing: jest.fn(),
       saveCompleted: jest.fn(),
-      markFailed: jest.fn(),
       findStatus: jest.fn(),
     };
     const analysisContextRepository = { findForBatch: jest.fn() };
@@ -38,7 +35,7 @@ describe('AnalysisService', () => {
       continueConversation: true,
       answers: [
         {
-          messageId: 10,
+          tempAnswerId: 10,
           seniorId: 7,
           questionMessageId: 9,
           generationId: 'generation-1',
@@ -52,11 +49,10 @@ describe('AnalysisService', () => {
       ],
     };
 
-    await service.enqueueAnswerBatch(batch);
+    service.enqueueAnswerBatch(batch);
     const result = await service.processPendingAnswerBatch(9);
 
     expect(temporaryAudioRepository.save).toHaveBeenCalledWith(batch);
-    expect(analysisResultRepository.markWaiting).toHaveBeenCalledWith([10]);
     expect(aiClient.analyzeAnswerBatch).not.toHaveBeenCalled();
     expect(result).toBeNull();
   });

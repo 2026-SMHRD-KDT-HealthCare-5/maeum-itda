@@ -111,6 +111,15 @@
   text-align: center;
 }
 
+/* emptyState와 같은 최소 높이를 줘서, 로딩 중일 때만 셸이 짧아졌다 다시 늘어나며
+   위 날짜 선택 영역까지 흔들리는 것처럼 보이는 걸 막는다. */
+.loadingState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100svh - 240px);
+}
+
 .emptyCharacter {
   width: 190px;
   height: 190px;

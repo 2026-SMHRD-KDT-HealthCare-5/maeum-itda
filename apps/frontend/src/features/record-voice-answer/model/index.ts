@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { AiQuestionPayload, AudioAckPayload, AudioEndType } from '../../../shared/types'
+import type { AiQuestionPayload, AudioEndType, WsErrorPayload } from '../../../shared/types'
 import type { ChatSocket } from '../../../shared/api'
-import type { ChatMessage } from '../../../entities/conversation'
 import { playTtsAudioOnce, type TtsPlaybackHandle } from '../../../shared/lib'
 import { sendVoiceAnswer } from '../api'
 import {
@@ -29,13 +28,16 @@ export interface UseRecordVoiceAnswerOptions {
   socket: ChatSocket
   // 현재 답해야 할 AI 질문 — null이면 아직 대화가 시작되지 않은 상태다.
   currentQuestion: AiQuestionPayload | null
-  // audio:ack로 messageId가 확정된 시니어 답변을 대화 목록에 추가한다.
-  // content는 STT 완료 전이라 null이다(docs/ws-protocol.md §5.4).
-  onAnswerQueued: (message: ChatMessage) => void
-  // 이번 질문의 TTS 오디오(있으면). 백엔드가 아직 tts:audio로 실제 오디오를
-  // 보내지 않는 동안(8/18 예정)은 항상 null이고, 이 경우 TTS 재생 없이 곧바로
+  // 이번 질문의 TTS 오디오(있으면). null이면(TTS 생성 실패 등) 재생 없이 곧바로
   // 마이크를 연다(끼어들기도 발생할 수 없다 — 다슬이가 말하는 중이 아니므로).
   ttsAudio?: { base64: string; mimeType: string } | null
+  // 이번 녹음 구간에서 한 번도 소리가 감지되지 않은 채로 "지금 답변 마치기"를
+  // 눌렀을 때 호출된다 — 이 경우 서버로 보내지 않고 녹음을 계속 듣는다(무음도
+  // STT로 보내면 Whisper 계열이 엉뚱한 문장을 환각하는 경우가 있어서다).
+  onSilentFinishAttempt?: () => void
+  // 녹음 구간에서 소리가 처음 감지된 순간 호출된다 — onSilentFinishAttempt로
+  // 띄운 안내를 사용자가 말을 시작하자마자 지우는 데 쓴다(선택).
+  onVoiceDetected?: () => void
 }
 
 export interface UseRecordVoiceAnswerResult {
@@ -63,11 +65,13 @@ const AUTO_SILENCE_MS = 10_000
 export function useRecordVoiceAnswer({
   socket,
   currentQuestion,
-  onAnswerQueued,
   ttsAudio = null,
+  onSilentFinishAttempt,
+  onVoiceDetected,
 }: UseRecordVoiceAnswerOptions): UseRecordVoiceAnswerResult {
   const [phase, setPhase] = useState<RecordingPhase>('question')
   const [ttsAutoplayBlocked, setTtsAutoplayBlocked] = useState(false)
+  const [hasDetectedVoice, setHasDetectedVoice] = useState(false)
 
   const streamRef = useRef<MediaStream | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -76,6 +80,10 @@ export function useRecordVoiceAnswer({
   const silenceWatcherRef = useRef<SilenceWatcherHandle | null>(null)
   const vadWatcherRef = useRef<VoiceActivityWatcherHandle | null>(null)
   const ttsPlaybackRef = useRef<TtsPlaybackHandle | null>(null)
+  // '생각 중'에 다음 답변 녹음을 열 신호(실제 발화 감지 또는 직전 답변 분석
+  // 실패)를 기다리는 resolver. 분석 실패 시 이걸 대신 호출해 VAD 감지를
+  // 기다리지 않고 곧바로 같은 질문에 대한 녹음을 다시 연다(무한 대기 방지).
+  const forceRecordResolverRef = useRef<(() => void) | null>(null)
 
   // 지금 열려 있는 녹음이 어느 질문(target)을 향하는지, 그리고 그 target이
   // 'previous'일 때 실제로 어떤 질문 객체를 가리키는지. lastQuestionRef는 이
@@ -131,6 +139,7 @@ export function useRecordVoiceAnswer({
         recordingTargetRef.current = target
         resolveSegmentRef.current = resolve
         setPhase('listening')
+        setHasDetectedVoice(false)
 
         const mimeType = pickSupportedAudioMimeType()
         mimeTypeRef.current = mimeType
@@ -144,6 +153,10 @@ export function useRecordVoiceAnswer({
         silenceWatcherRef.current = createSilenceWatcher(stream, {
           silenceMs: AUTO_SILENCE_MS,
           onSilence: () => finishRef.current('auto'),
+          onVoiceDetected: () => {
+            setHasDetectedVoice(true)
+            onVoiceDetected?.()
+          },
         })
       })
     }
@@ -206,10 +219,12 @@ export function useRecordVoiceAnswer({
       while (!cancelled) {
         setPhase('thinking')
         const gotVoice = await new Promise<boolean>((resolve) => {
+          forceRecordResolverRef.current = () => resolve(true)
           vadWatcherRef.current = createVoiceActivityWatcher(stream, {
             onVoiceDetected: () => resolve(true),
           })
         })
+        forceRecordResolverRef.current = null
         vadWatcherRef.current = null
         if (cancelled || !gotVoice) break
         await recordSegment('current', stream)
@@ -235,19 +250,18 @@ export function useRecordVoiceAnswer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.generationId, ttsAudio])
 
+  // 방금 보낸 답변의 분석이 실패하면(AUDIO_ANALYSIS_FAILED) '생각 중' 상태로
+  // 무한 대기하지 않고 곧바로 같은 질문에 대한 녹음을 다시 연다 — 화면 진입
+  // 때와 같은 답변 대기 상태로 되돌아간다(실패 안내 자체는 SeniorConversationPage의
+  // error 배너가 담당한다).
   useEffect(() => {
-    function handleAck(payload: AudioAckPayload) {
-      onAnswerQueued({
-        messageId: payload.messageId,
-        speakerType: 'SENIOR',
-        content: null,
-        sttStatus: 'WAITING',
-        createdAt: new Date().toISOString(),
-      })
+    function handleError(payload: WsErrorPayload) {
+      if (payload.code !== 'AUDIO_ANALYSIS_FAILED') return
+      forceRecordResolverRef.current?.()
     }
-    socket.on('audio:ack', handleAck)
-    return () => socket.off('audio:ack', handleAck)
-  }, [socket, onAnswerQueued])
+    socket.on('error', handleError)
+    return () => socket.off('error', handleError)
+  }, [socket])
 
   function finish(endType: AudioEndType): void {
     const recorder = mediaRecorderRef.current
@@ -255,6 +269,13 @@ export function useRecordVoiceAnswer({
     const question =
       target === 'previous' ? turnPreviousQuestionRef.current : currentQuestionRef.current
     if (!recorder || recorder.state !== 'recording' || !question) return
+    // 발화가 한 번도 감지되지 않은 채 수동 종료를 시도하면 서버로 보내지 않고
+    // 계속 듣는다. auto 종료는 애초에 발화가 있어야만 트리거되므로(묵음 감지
+    // 자체가 lastLoudAt 갱신을 전제) 여기서 걸러질 일이 없다.
+    if (endType === 'manual' && !hasDetectedVoice) {
+      onSilentFinishAttempt?.()
+      return
+    }
 
     silenceWatcherRef.current?.stop()
     silenceWatcherRef.current = null

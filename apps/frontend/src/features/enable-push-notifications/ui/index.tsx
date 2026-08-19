@@ -1,115 +1,51 @@
-import { useEffect, useState } from 'react'
-import { fetchVapidPublicKey, registerPushSubscription, unregisterPushSubscription } from '../api'
-import { urlBase64ToUint8Array } from '../lib'
-import type { PushSubscriptionStatus } from '../model'
+import type { UsePushSubscriptionResult } from '../model'
 import { Toggle } from '../../../shared/ui'
 import styles from './EnablePushNotificationsAction.module.css'
 
-function isPushSupported(): boolean {
-  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+interface EnablePushNotificationsActionProps {
+  title?: string
+  description?: string
+  // 페이지가 usePushSubscription()을 직접 호출해서 넘긴다 — 이 컴포넌트가 내부에서
+  // 다시 호출하면 별도 인스턴스가 생겨, 페이지의 다른 곳(예: 안부 알림 토글의
+  // "푸시 먼저 켜라" 가드)이 보는 status와 서로 안 맞게 어긋난다.
+  pushSubscription: UsePushSubscriptionResult
 }
 
 // UC-10/11 위험 알림 실제 발송의 프론트 구독 등록 플로우 — 결정사항 로그 §1
 // "웹 푸시 알림" 참고. 서버가 이미 구독을 저장/발송할 준비가 돼 있어도(REST
-// 엔드포인트 존재) 브라우저가 구독을 등록해야 실제로 알림이 온다.
-export function EnablePushNotificationsAction() {
-  const [status, setStatus] = useState<PushSubscriptionStatus>('checking')
-  const [isBusy, setIsBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function checkStatus() {
-      if (!isPushSupported()) {
-        if (!cancelled) setStatus('unsupported')
-        return
-      }
-      if (Notification.permission === 'denied') {
-        if (!cancelled) setStatus('permission-denied')
-        return
-      }
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.getSubscription()
-      if (!cancelled) setStatus(subscription ? 'subscribed' : 'not-subscribed')
-    }
-
-    void checkStatus()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  async function handleSubscribe() {
-    setError(null)
-    setIsBusy(true)
-    try {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') {
-        setStatus(permission === 'denied' ? 'permission-denied' : 'not-subscribed')
-        return
-      }
-
-      const registration = await navigator.serviceWorker.ready
-      const vapidPublicKey = await fetchVapidPublicKey()
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        // TS의 Uint8Array<ArrayBufferLike> vs BufferSource(ArrayBuffer 한정) 제네릭
-        // 불일치일 뿐, 실제로는 항상 진짜 ArrayBuffer로 채워지므로 안전한 캐스팅이다.
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as BufferSource,
-      })
-      const json = subscription.toJSON()
-      if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-        throw new Error('구독 정보를 생성하지 못했습니다.')
-      }
-      await registerPushSubscription({
-        endpoint: json.endpoint,
-        expirationTime: json.expirationTime ?? null,
-        keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
-      })
-      setStatus('subscribed')
-    } catch {
-      setError('알림 구독에 실패했어요. 잠시 후 다시 시도해주세요.')
-    } finally {
-      setIsBusy(false)
-    }
-  }
-
-  async function handleUnsubscribe() {
-    setError(null)
-    setIsBusy(true)
-    try {
-      const registration = await navigator.serviceWorker.ready
-      const subscription = await registration.pushManager.getSubscription()
-      if (subscription) {
-        await unregisterPushSubscription(subscription.endpoint)
-        await subscription.unsubscribe()
-      }
-      setStatus('not-subscribed')
-    } catch {
-      setError('알림 해제에 실패했어요. 잠시 후 다시 시도해주세요.')
-    } finally {
-      setIsBusy(false)
-    }
-  }
+// 엔드포인트 존재) 브라우저가 구독을 등록해야 실제로 알림이 온다. 보호자/
+// 시니어 화면이 문구만 다르게 재사용한다.
+export function EnablePushNotificationsAction({
+  title = '알림 푸시 허용',
+  description = '정서 지수 하락 알림을 이 기기의 알림으로도 받아요',
+  pushSubscription,
+}: EnablePushNotificationsActionProps) {
+  const { status, isBusy, error, subscribe, unsubscribe } = pushSubscription
 
   if (status === 'unsupported') return null
+
+  const isPermissionDenied = status === 'permission-denied'
 
   return (
     <div className={styles.row}>
       <div className={styles.copy}>
-        <p>위험 알림 푸시로 받기</p>
-        <span>
-          {status === 'permission-denied'
-            ? '브라우저 알림 권한이 꺼져 있어요. 브라우저 설정에서 허용해주세요.'
-            : '정서 지수 하락 알림을 이 기기의 알림으로도 받아요'}
-        </span>
+        <p>{title}</p>
+        <span>{description}</span>
       </div>
       <Toggle
         checked={status === 'subscribed'}
-        onChange={(checked) => void (checked ? handleSubscribe() : handleUnsubscribe())}
+        onChange={(checked) => void (checked ? subscribe() : unsubscribe())}
         label={status === 'subscribed' ? '푸시 켜짐' : '푸시 꺼짐'}
+        // 한 번 차단하면 브라우저가 다시 물어보지 않아 토글을 눌러도 아무 일도
+        // 안 일어난다 — 그걸 숨기지 않고 비활성 상태로 드러낸다.
+        disabled={isPermissionDenied}
       />
+      {isPermissionDenied && (
+        <p className={styles.error}>
+          브라우저 알림이 차단되어 있어요. 주소창의 사이트 설정에서 알림을 허용한 뒤
+          새로고침해주세요.
+        </p>
+      )}
       {isBusy && <span className={styles.busy}>처리 중이에요…</span>}
       {error && <p className={styles.error}>{error}</p>}
     </div>

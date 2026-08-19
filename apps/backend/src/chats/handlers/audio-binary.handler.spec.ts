@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment -- JSON.parse 반환값을 WebSocket envelope와 비교하는 테스트다. */
 import type WebSocket from 'ws';
-import type { AudioAnswerRepository } from '../repositories/audio-answer.repository';
 import { AudioBinaryHandler } from './audio-binary.handler';
 import type { AudioMetadataHandler } from './audio-metadata.handler';
 import type { AnalysisService } from '../../analysis/analysis.service';
@@ -29,9 +28,6 @@ describe('AudioBinaryHandler', () => {
         .fn()
         .mockReturnValue(pendingMetadata ?? undefined),
     };
-    const answerRepository = {
-      savePendingAnswer: jest.fn().mockResolvedValue({ messageId: 102 }),
-    };
     const analysisService = {
       enqueueAnswerBatch: jest.fn().mockResolvedValue(undefined),
       isFastApiConfigured: jest.fn().mockReturnValue(false),
@@ -50,7 +46,7 @@ describe('AudioBinaryHandler', () => {
       isChatEnded: jest.fn().mockReturnValue(false),
     };
     const transferStateService = {
-      find: jest.fn().mockReturnValue(undefined),
+      has: jest.fn().mockReturnValue(false),
       markProcessed: jest.fn(),
       clearClient: jest.fn(),
     };
@@ -58,7 +54,6 @@ describe('AudioBinaryHandler', () => {
     const chatInactivityService = { startWaitingForAnswer: jest.fn() };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
-      answerRepository as unknown as AudioAnswerRepository,
       questionAnswerQueueService as unknown as QuestionAnswerQueueService,
       analysisService as unknown as AnalysisService,
       connectionStateService as unknown as ChatConnectionStateService,
@@ -73,7 +68,6 @@ describe('AudioBinaryHandler', () => {
       client: clientValue as unknown as WebSocket,
       send: clientValue.send,
       metadataHandler,
-      answerRepository,
       questionAnswerQueueService,
       analysisService,
       connectionStateService,
@@ -82,60 +76,53 @@ describe('AudioBinaryHandler', () => {
     };
   }
 
-  it('metadata와 바이너리를 연결해 답변을 저장하고 audio:ack을 전송한다', async () => {
+  it('metadata와 바이너리를 연결해 질문별 큐에 등록하고 audio:ack을 전송한다', () => {
     const context = createContext();
 
-    await context.handler.handleAudioBinary(
-      context.client,
-      Buffer.from([1, 2, 3]),
-    );
+    context.handler.handleAudioBinary(context.client, Buffer.from([1, 2, 3]));
 
     expect(context.metadataHandler.takePendingMetadata).toHaveBeenCalledWith(
       context.client,
     );
-    expect(context.answerRepository.savePendingAnswer).toHaveBeenCalledWith(
-      7,
-      101,
-    );
     expect(context.questionAnswerQueueService.enqueue).toHaveBeenCalledWith(
       expect.objectContaining({
-        messageId: 102,
         audioTransferId: 'audio-transfer-001',
         audioBuffer: Buffer.from([1, 2, 3]),
       }),
     );
+    expect(context.transferStateService.markProcessed).toHaveBeenCalledWith(
+      context.client,
+      'audio-transfer-001',
+    );
     expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'audio:ack',
-        payload: {
-          audioTransferId: 'audio-transfer-001',
-          messageId: 102,
-        },
+        payload: { audioTransferId: 'audio-transfer-001' },
       }),
     );
   });
 
-  it('처리한 audioTransferId가 다시 오면 DB 저장 없이 기존 ACK를 재전송한다', async () => {
+  it('처리한 audioTransferId가 다시 오면 큐에 다시 등록하지 않고 기존 ACK를 재전송한다', () => {
     const context = createContext();
-    context.transferStateService.find.mockReturnValueOnce({ messageId: 102 });
+    context.transferStateService.has.mockReturnValueOnce(true);
 
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
 
-    expect(context.answerRepository.savePendingAnswer).not.toHaveBeenCalled();
+    expect(context.questionAnswerQueueService.enqueue).not.toHaveBeenCalled();
     expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'audio:ack',
-        payload: { audioTransferId: 'audio-transfer-001', messageId: 102 },
+        payload: { audioTransferId: 'audio-transfer-001' },
       }),
     );
   });
 
-  it('metadata 없이 바이너리가 도착하면 AUDIO_METADATA_MISSING을 전송한다', async () => {
+  it('metadata 없이 바이너리가 도착하면 AUDIO_METADATA_MISSING을 전송한다', () => {
     const context = createContext(null);
 
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
 
-    expect(context.answerRepository.savePendingAnswer).not.toHaveBeenCalled();
+    expect(context.questionAnswerQueueService.enqueue).not.toHaveBeenCalled();
     expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         event: 'error',
@@ -144,12 +131,12 @@ describe('AudioBinaryHandler', () => {
     );
   });
 
-  it('빈 바이너리를 거부한다', async () => {
+  it('빈 바이너리를 거부한다', () => {
     const context = createContext();
 
-    await context.handler.handleAudioBinary(context.client, Buffer.alloc(0));
+    context.handler.handleAudioBinary(context.client, Buffer.alloc(0));
 
-    expect(context.answerRepository.savePendingAnswer).not.toHaveBeenCalled();
+    expect(context.questionAnswerQueueService.enqueue).not.toHaveBeenCalled();
     expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         payload: expect.objectContaining({ code: 'EMPTY_AUDIO_BINARY' }),
@@ -157,33 +144,18 @@ describe('AudioBinaryHandler', () => {
     );
   });
 
-  it('10MB를 초과하는 바이너리를 거부한다', async () => {
+  it('10MB를 초과하는 바이너리를 거부한다', () => {
     const context = createContext();
 
-    await context.handler.handleAudioBinary(
+    context.handler.handleAudioBinary(
       context.client,
       Buffer.alloc(10 * 1024 * 1024 + 1),
     );
 
-    expect(context.answerRepository.savePendingAnswer).not.toHaveBeenCalled();
+    expect(context.questionAnswerQueueService.enqueue).not.toHaveBeenCalled();
     expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
       expect.objectContaining({
         payload: expect.objectContaining({ code: 'AUDIO_TOO_LARGE' }),
-      }),
-    );
-  });
-
-  it('답변 저장에 실패하면 AUDIO_SAVE_FAILED를 전송한다', async () => {
-    const context = createContext();
-    context.answerRepository.savePendingAnswer.mockRejectedValueOnce(
-      new Error('db failed'),
-    );
-
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
-
-    expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
-      expect.objectContaining({
-        payload: expect.objectContaining({ code: 'AUDIO_SAVE_FAILED' }),
       }),
     );
   });
@@ -209,7 +181,7 @@ describe('AudioBinaryHandler', () => {
       }),
     });
 
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(7);
@@ -231,7 +203,7 @@ describe('AudioBinaryHandler', () => {
       }),
     });
 
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     const events = context.send.mock.calls.map(
@@ -248,6 +220,41 @@ describe('AudioBinaryHandler', () => {
     expect(events.some((event) => event.event === 'ai:question')).toBe(false);
   });
 
+  it('FastAPI 분석 자체가 실패하면 저장 없이 AUDIO_ANALYSIS_FAILED만 전송한다', async () => {
+    const context = createContext();
+    context.analysisService.isFastApiConfigured.mockReturnValue(true);
+    context.analysisService.processPendingAnswerBatch.mockRejectedValue(
+      new Error('음성 분석에 실패했습니다.'),
+    );
+    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
+      isBatchOwner: true,
+      ready: Promise.resolve({
+        questionMessageId: 101,
+        seniorId: 7,
+        continueConversation: true,
+        answers: [{ tempAnswerId: 1 }, { tempAnswerId: 2 }],
+      }),
+    });
+
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    const events = context.send.mock.calls.map(
+      (call) => JSON.parse(call[0]) as { event?: string; payload?: unknown },
+    );
+    expect(events.some((event) => event.event === 'audio:transcript')).toBe(
+      false,
+    );
+    expect(
+      events.some(
+        (event) =>
+          event.event === 'error' &&
+          (event.payload as { code?: string } | undefined)?.code ===
+            'AUDIO_ANALYSIS_FAILED',
+      ),
+    ).toBe(true);
+  });
+
   it('답변 묶음 준비 Promise가 실패하면 AUDIO_ANALYSIS_FAILED를 전송한다', async () => {
     const context = createContext();
     context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
@@ -255,7 +262,7 @@ describe('AudioBinaryHandler', () => {
       ready: Promise.reject(new Error('batch failed')),
     });
 
-    await context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
     await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(

@@ -178,29 +178,23 @@ Frontend
   → 음성 크기·중복 전송 검사
 
 
-[3. 시니어 답변 저장]
+[3. 음성 수신 확인]
 NestJS AudioBinaryHandler
-  → AudioAnswerRepository
-  → MySQL CONVERSATION_MESSAGE
-     시니어 답변 메시지 저장
-  → MySQL MESSAGE_RELATIONSHIP
-     AI 질문과 시니어 답변 관계 저장
-  → 저장된 messageId 반환
-
-
-[4. 음성 수신 결과 전송]
-NestJS AudioBinaryHandler
+  → tempAnswerId 발급(프로세스 메모리 전용 일련번호, 아직 DB 저장 없음)
+  → QuestionAnswerQueueService에 등록
   → audio:ack
   → Frontend
 
 audio:ack payload
 {
-  "audioTransferId": "audio-uuid",
-  "messageId": 101
+  "audioTransferId": "audio-uuid"
 }
 
+[결정사항] 이 시점엔 CONVERSATION_MESSAGE에 아무것도 저장하지 않는다 — 분석이
+실패하면 DB에 흔적을 남기지 않기 위해서다(그래서 messageId도 아직 없다).
 
-[5. 추가 답변 대기 및 질문별 답변 확정]
+
+[4. 추가 답변 대기 및 질문별 답변 확정]
 NestJS QuestionAnswerQueueService
   → 같은 questionMessageId의 답변을 큐에 추가
   → 마지막 음성 수신 시점부터 10초 대기
@@ -208,26 +202,26 @@ NestJS QuestionAnswerQueueService
   → 10초 동안 추가 음성이 없으면 질문별 답변 묶음 확정
 
 
-[6. FastAPI 분석 요청]
+[5. FastAPI 분석 요청]
 NestJS AnalysisService
   → TemporaryAudioRepository에서 음성 조회
   → AiClient
   → POST /analysis/audio/batch
   → FastAPI
 
-전송 데이터
+전송 데이터(messageIds는 tempAnswerId를 그대로 보낸다 — FastAPI 계약 필드명은 그대로 유지)
 {
   "seniorId": 1,
   "questionMessageId": 50,
   "generationId": "generation-uuid",
   "answers": [
     {
-      "messageId": 101,
+      "messageId": 1,
       "audioTransferId": "audio-uuid-1",
       "audio": "binary"
     },
     {
-      "messageId": 102,
+      "messageId": 2,
       "audioTransferId": "audio-uuid-2",
       "audio": "binary"
     }
@@ -235,27 +229,31 @@ NestJS AnalysisService
 }
 
 
-[7. FastAPI 분석 응답]
+[6. FastAPI 분석 응답]
 FastAPI
   → 메시지별 STT·감성·척도 분석
   → 전체 답변을 참고해 다음 AI 질문 생성
-  → JSON 응답
+  → JSON 응답(요청받은 messageId를 그대로 echo)
   → NestJS AiClient
 
 
-[8. 분석 결과와 다음 질문 저장]
+[7a. 분석 성공 — 이 시점에 처음 저장]
 NestJS AnalysisService
   → AnalysisResultRepository
-  → MySQL에 메시지별 분석 결과 저장
-  → ConversationMessageRepository
+  → MySQL CONVERSATION_MESSAGE에 시니어 답변 메시지 새로 저장 → 실제 messageId 발급
+  → MySQL MESSAGE_RELATIONSHIP에 AI 질문과 답변 관계 저장
+  → MySQL에 감정 태그·척도 결과 저장(방금 발급된 messageId 기준)
   → MySQL CONVERSATION_MESSAGE에 다음 AI 질문 저장
-  → 저장된 다음 질문의 messageId 반환
+  → audio:transcript(방금 저장된 실제 messageId 포함) → Frontend
+  → (Typecast 성공 시) tts:audio → Frontend
+  → ai:question → Frontend
 
-
-[9. 다음 AI 질문 전송]
+[7b. 분석 실패 — 아무것도 저장하지 않음]
 NestJS AnalysisService
-  → ai:question
-  → Frontend
+  → 저장 없이 그대로 예외 전파
+  → NestJS AudioBinaryHandler
+  → error(code: AUDIO_ANALYSIS_FAILED) → Frontend
+  → Frontend는 배너로 실패를 안내하고 같은 질문에 대한 녹음을 곧바로 다시 연다
 ```
 
 위 그림에서 FastAPI는 별도 서버다. 가운데 REST 화살표의 실제 방향은 `NestJS → FastAPI 요청`, `FastAPI → NestJS 응답`이다.
@@ -340,6 +338,21 @@ NestJS → Frontend:
 }
 ```
 
+Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio`를 보낸다(`QuestionDeliveryService.deliver()`가 두 이벤트의 순서를 보장한다). `messageId`로 어느 질문의 음성인지 연결한다 — 프론트는 아직 `currentQuestion`이 이 질문으로 갱신되기 전이므로, `ai:question`이 올 때까지 messageId로 잠깐 보관해뒀다가 짝지어야 한다(`pages/senior-conversation`의 구현 참고):
+
+```json
+{
+  "event": "tts:audio",
+  "payload": {
+    "ttsTransferId": "8f14e45f-...",
+    "messageId": 101,
+    "base64": "//uQxAAD...",
+    "mimeType": "audio/mpeg"
+  },
+  "ts": "2026-08-12T06:00:01.150Z"
+}
+```
+
 ```json
 {
   "event": "ai:question",
@@ -352,9 +365,10 @@ NestJS → Frontend:
 }
 ```
 
-- 최초 질문을 DB에 저장한 뒤 `chat:started`, `ai:question` 순서로 보낸다.
+- 최초 질문을 DB에 저장한 뒤 `chat:started`, (TTS 성공 시 `tts:audio`,) `ai:question` 순서로 보낸다.
 - 활성 질문이 있는데 다시 시작하면 `CHAT_ALREADY_STARTED` 오류를 보낸다.
 - `generationId`는 질문 생성 작업 단위다.
+- Typecast 호출이 실패하면 `tts:audio` 없이 `ai:question`만 보낸다 — 텍스트 질문으로 대화는 계속된다(프론트는 TTS 재생 없이 곧바로 마이크를 연다).
 
 ### 4.3 `audio:metadata` / binary / `audio:ack`
 
@@ -393,8 +407,7 @@ NestJS → Frontend:
 {
   "event": "audio:ack",
   "payload": {
-    "audioTransferId": "audio-transfer-001",
-    "messageId": 102
+    "audioTransferId": "audio-transfer-001"
   },
   "ts": "2026-08-12T06:00:04.200Z"
 }
@@ -404,8 +417,8 @@ NestJS → Frontend:
 - metadata 없이 binary가 오거나 pending metadata가 있는데 새 metadata가 오면 거부한다.
 - 질문 ID와 `generationId`가 현재 또는 같은 연결에서 전달한 질문과 일치해야 한다.
 - 음성 한 건은 최대 10MB이다.
-- 답변 메시지와 질문·답변 관계를 DB에 저장한 직후 ACK를 보낸다.
-- 같은 `audioTransferId`를 재전송하면 중복 저장 없이 기존 ACK를 다시 보낸다.
+- **[결정사항] 답변 메시지는 이 시점에 DB에 저장되지 않는다** — `audio:ack`는 바이너리를 정상적으로 접수해 질문별 큐에 등록했다는 확인일 뿐이며, `messageId`를 포함하지 않는다(분석이 성공하기 전에는 실제 DB ID가 존재하지 않는다). 실제 메시지는 §6.3의 `audio:transcript`로 분석 성공이 확정된 시점에야 처음 생성된다.
+- 같은 `audioTransferId`를 재전송하면 큐에 다시 등록하지 않고 기존 ACK를 다시 보낸다.
 
 ### 4.4 `chat:idle-warning`
 
@@ -610,6 +623,20 @@ FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 기존 `a
 }
 ```
 
+`ai:question` 직전(또는 늦은 답변이라 다음 질문이 없는 경우 단독으로) STT(LLM 교정 포함) 결과를 `audio:transcript`로 보낸다. **[결정사항] 여기 담긴 `messageId`는 이 이벤트를 보내는 시점에 막 DB에 처음 저장된 실제 메시지 ID다** — `audio:metadata`/`audio:binary`/`audio:ack` 어디에도 메시지 ID가 없었던 이유가 이것이다. 프론트는 이 이벤트를 받아야 비로소 시니어 답변 말풍선을 대화 목록에 추가한다(그 전까지는 화면에 아무 말풍선도 없다 — "답변을 보내드렸어요" 같은 낙관적 placeholder를 먼저 보여주지 않는다):
+
+```json
+{
+  "event": "audio:transcript",
+  "payload": {
+    "transcripts": [{ "messageId": 102, "content": "오늘 산책했어요." }]
+  },
+  "ts": "2026-08-12T06:00:21.500Z"
+}
+```
+
+**분석 자체가 실패한 경우**(예: 무음 녹음이라 STT 결과가 없음, FastAPI 5xx 재시도 소진 등)엔 **아무것도 저장되지 않으므로 `audio:transcript` 자체를 보내지 않는다** — 실패한 답변은 애초에 메시지로 존재한 적이 없다. `error`(`code: "AUDIO_ANALYSIS_FAILED"`) 이벤트만으로 실패를 알린다. 프론트(시니어 녹음 화면)는 이 이벤트를 받으면 배너로 실패를 안내하고, 같은 질문에 대한 녹음을 곧바로 다시 열어 처음 화면 진입 때와 같은 "답변 대기" 상태로 돌아간다(무한 대기하거나 실패 말풍선이 남지 않는다).
+
 ## 7. Frontend ↔ NestJS 과거 메시지 REST API
 
 과거 대화 전체를 한 번에 불러오지 않고 cursor 기반 REST API로 일정 개수씩 나누어 조회한다.
@@ -662,11 +689,12 @@ NestJS → Frontend:
 
 - JWT WS 인증과 이벤트 분배
 - 대화 시작·수동 종료·무응답 자동 종료
-- metadata와 binary 결합
-- 답변 메시지·관계 저장 및 `audio:ack`
+- metadata와 binary 결합, 질문별 큐 등록과 `audio:ack`
 - 질문별 10초 추가 답변 큐
 - FastAPI multipart Client와 응답 계약 검증
+- **[결정사항] 답변 메시지는 분석 성공 시점에야 처음 DB에 저장된다** — 분석 실패 시 아무것도 저장하지 않고 `error`(`AUDIO_ANALYSIS_FAILED`)만 보낸다(§4.3, §6.3)
 - 메시지별 분석 결과 저장과 다음 질문 WS 전송
+- 질문(최초·후속 공통)마다 Typecast TTS 생성과 `tts:audio` WS 중계, 프론트 재생까지 연결 완료(§4.2)
 - 중복 전송 기존 ACK 재전송
 - 과거 메시지 cursor REST API
 - 같은 서버 프로세스의 단기 현재 질문 복원
@@ -679,7 +707,6 @@ NestJS → Frontend:
 - ACK 전 Blob 보관과 재전송
 - 메시지별 말풍선 표시
 - 30초 안내·2분 종료 UI
-- 분석 실패 UI
 
 ### FastAPI와 맞춰야 할 부분
 
