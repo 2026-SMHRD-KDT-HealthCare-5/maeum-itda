@@ -33,6 +33,7 @@
     questionPop 650ms ease-out 120ms;
 }
 
+.characterFrame[data-state='waiting'] img,
 .characterFrame[data-state='listening'] img {
   animation:
     characterEnter 360ms ease-out,

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.main import _tts_mime_type, app
+from app.services.emotion import EmotionInferenceError
 from app.services.stt import SttResult
 from app.session_manager import SessionState
 
@@ -345,6 +346,40 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertIn("messageId=102 STT 실패", response.json()["detail"])
         classify.assert_not_called()
         generate.assert_not_called()
+
+    def test_emotion_inference_failure_falls_back_to_neutral_instead_of_500(self):
+        """텍스트/음성 감정모델이 둘 다 실패해도(EmotionInferenceError) STT가 이미
+        성공한 턴은 500으로 죽지 않고 중립 감정으로 대체되어 계속 진행해야 한다."""
+        with (
+            patch(
+                "app.main.stt_service.transcribe",
+                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
+            ),
+            patch(
+                "app.main.emotion_service.classify_and_fuse",
+                side_effect=EmotionInferenceError("Both emotion models failed"),
+            ),
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "산책은 어떠셨어요?"},
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/audio/batch",
+                files=self._multipart(),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["answers"][0]["sentimentLabel"], "NEUTRAL")
+        called_answers = generate.call_args[0][0]
+        self.assertEqual(
+            called_answers[0]["emotion"],
+            {"happy": 0.0, "angry": 0.0, "sad": 0.0, "anxious": 0.0, "neutral": 1.0},
+        )
 
     def test_empty_llm_question_returns_502_without_tts(self):
         with (

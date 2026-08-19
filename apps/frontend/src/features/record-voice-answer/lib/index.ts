@@ -144,10 +144,12 @@ export interface VoiceActivityWatcherHandle {
   stop: () => void
 }
 
-// 아직 녹음 중이 아닌 구간(다음 질문을 기다리는 '생각 중', 또는 TTS가 재생 중인
-// '질문' 구간)에 시니어가 말을 시작하는 첫 순간을 감지한다 — 감지되면
-// onVoiceDetected를 한 번만 부르고 스스로 멈춘다(끼어들기/barge-in 트리거).
-// createSilenceWatcher와 반대 방향 조건(첫 말소리를 기다림)이라 별도 함수로 둔다.
+// 아직 녹음 중이 아닌 구간(다음 질문을 기다리는 '생각 중')에 시니어가 말을
+// 시작하는 첫 순간을 감지한다 — 감지되면 onVoiceDetected를 한 번만 부르고
+// 스스로 멈춘다. TTS 재생 중(다슬이가 말하는 '질문' 구간)에는 스피커 소리가
+// 마이크로 새어 들어와 오탐지되는 문제가 있어 쓰지 않는다(끼어들기 기능 자체를
+// 제거함, 2026-08-19). createSilenceWatcher와 반대 방향 조건(첫 말소리를
+// 기다림)이라 별도 함수로 둔다.
 export function createVoiceActivityWatcher(
   stream: MediaStream,
   { onVoiceDetected }: { onVoiceDetected: () => void },

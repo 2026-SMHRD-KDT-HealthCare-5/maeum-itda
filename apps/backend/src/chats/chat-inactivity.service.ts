@@ -1,7 +1,10 @@
 /*
-역할: AI 질문 이후 시니어의 첫 답변을 기다리며 30초 안내와 총 2분 무응답 자동 종료를 관리한다.
+역할: AI 질문 이후 시니어의 첫 답변을 기다리며 30초 안내와 총 10분 무음(무응답) 자동 종료를 관리한다.
 연결 흐름: ChatStartHandler/AudioBinaryHandler → ChatInactivityService → chat:idle-warning 또는 chat:ended
 [완료] 자동 종료는 대화 상태만 종료하고 WebSocket 연결 자체는 닫지 않는다.
+[2026-08-19 수정] 무음 판정 기준: 답변 도중 3초 이상 무음이면 그 답변을 종료로 보고
+(프론트 AUTO_SILENCE_MS, useRecordVoiceAnswer), 질문을 던진 뒤 시니어가 아예 말을
+시작하지 않은 채로 10분간 무음이 이어지면 대화 자체를 종료한다.
 [제약] 타이머는 프로세스 메모리에 있어 서버 재시작·다중 인스턴스 간에 이어지지 않는다.
 */
 import { Injectable } from '@nestjs/common';
@@ -15,7 +18,7 @@ import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 import { sendWsEvent } from './ws-event';
 
 export const IDLE_WARNING_MS = 30_000;
-export const INACTIVITY_TIMEOUT_MS = 120_000;
+export const INACTIVITY_TIMEOUT_MS = 10 * 60_000;
 
 interface InactivityTimers {
   warning: NodeJS.Timeout;
@@ -53,7 +56,7 @@ export class ChatInactivityService {
     const warning = setTimeout(() => {
       sendWsEvent(client, 'chat:idle-warning', {
         message: '천천히 생각하시고 편하게 말씀해 주세요.',
-        remainingSeconds: 90,
+        remainingSeconds: (INACTIVITY_TIMEOUT_MS - IDLE_WARNING_MS) / 1000,
       });
     }, IDLE_WARNING_MS);
     const timeout = setTimeout(

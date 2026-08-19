@@ -15,10 +15,16 @@ import questionCharacterImage from './character-daseul-question.png'
 import thinkingCharacterImage from './character-daseul-thinking.png'
 import styles from './SeniorConversationPage.module.css'
 
-type CharacterState = 'listening' | 'question' | 'thinking'
+type CharacterState = 'waiting' | 'listening' | 'question' | 'thinking'
 type TtsAudio = { base64: string; mimeType: string }
 
+// 'waiting'은 전용 캐릭터 그림이 아직 없어 'listening'과 같은 그림을 쓰고
+// alt 텍스트와 하단 배지 문구로만 구분한다(RecordVoiceAnswerAction 참고).
 const characterByState: Record<CharacterState, { alt: string; src: string }> = {
+  waiting: {
+    alt: '어르신의 말씀을 기다리는 다슬',
+    src: listeningCharacterImage,
+  },
   listening: {
     alt: '어르신의 말씀을 듣고 있는 다슬',
     src: listeningCharacterImage,
@@ -142,11 +148,21 @@ export function SeniorConversationPage() {
     // 실행의 결과는 상태에 반영하지 않는다.
     let cancelled = false
 
+    // 인증 후 소켓이 예기치 않게 끊기면(네트워크 단절, 서버 재시작 등) 아무
+    // 이벤트도 더 오지 않아 화면이 "대화 중" 상태로 멈춰버린다 — 최소한 끊김을
+    // 감지해 안내라도 보여준다(자동 재연결까지는 하지 않음).
+    const handleUnexpectedClose = () => {
+      if (cancelled) return
+      setConnectionState('error')
+      setConnectionError('다슬이와의 연결이 끊어졌어요. 화면을 새로고침해 다시 시도해 주세요.')
+    }
+
     socket
       .connect(accessToken)
       .then(() => {
         if (cancelled) return
         setConnectionState('ready')
+        socket.onClose(handleUnexpectedClose)
         socket.startChat()
       })
       .catch((error: unknown) => {
