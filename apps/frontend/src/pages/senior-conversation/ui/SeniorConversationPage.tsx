@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ConversationHistoryList, type ChatMessage } from '../../../entities/conversation'
 import {
@@ -16,6 +16,7 @@ import thinkingCharacterImage from './character-daseul-thinking.png'
 import styles from './SeniorConversationPage.module.css'
 
 type CharacterState = 'listening' | 'question' | 'thinking'
+type TtsAudio = { base64: string; mimeType: string }
 
 const characterByState: Record<CharacterState, { alt: string; src: string }> = {
   listening: {
@@ -60,6 +61,11 @@ export function SeniorConversationPage() {
   const [answerRetryNotice, setAnswerRetryNotice] = useState<string | null>(null)
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
+  const [currentQuestionTts, setCurrentQuestionTts] = useState<TtsAudio | null>(null)
+  // tts:audio는 같은 질문의 ai:question보다 먼저 도착한다(QuestionDeliveryService.deliver
+  // 순서) — ai:question이 올 때 messageId로 짝지어 currentQuestionTts에 반영하기 전까지
+  // messageId별로 임시 보관한다. 리렌더를 유발할 필요 없는 값이라 state가 아니라 ref다.
+  const pendingTtsByMessageIdRef = useRef(new Map<number, TtsAudio>())
 
   useEffect(() => {
     // 로그인 정보가 없으면 연결을 시도하지 않는다 — 아래 렌더링이 이 경우를
@@ -68,10 +74,21 @@ export function SeniorConversationPage() {
     const accessToken = session.accessToken
 
     const handleAiQuestion: Parameters<typeof socket.on<'ai:question'>>[1] = (payload) => {
+      const ttsAudio = pendingTtsByMessageIdRef.current.get(payload.messageId) ?? null
+      pendingTtsByMessageIdRef.current.delete(payload.messageId)
       setCurrentQuestion(payload)
+      setCurrentQuestionTts(ttsAudio)
       setIdleNotice(null)
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
+    }
+    // tts:audio는 ai:question 직전에 온다(§4.2) — 아직 currentQuestion이 갱신되기
+    // 전이므로 일단 messageId로만 보관해뒀다가 handleAiQuestion에서 짝짓는다.
+    const handleTtsAudio: Parameters<typeof socket.on<'tts:audio'>>[1] = (payload) => {
+      pendingTtsByMessageIdRef.current.set(payload.messageId, {
+        base64: payload.base64,
+        mimeType: payload.mimeType,
+      })
     }
     // 답변 메시지는 분석이 성공해 실제로 저장된 시점에야 처음 이 이벤트로
     // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
@@ -110,6 +127,7 @@ export function SeniorConversationPage() {
     }
 
     socket.on('ai:question', handleAiQuestion)
+    socket.on('tts:audio', handleTtsAudio)
     socket.on('audio:transcript', handleAudioTranscript)
     socket.on('chat:idle-warning', handleIdleWarning)
     socket.on('chat:ended', handleChatEnded)
@@ -142,6 +160,7 @@ export function SeniorConversationPage() {
     return () => {
       cancelled = true
       socket.off('ai:question', handleAiQuestion)
+      socket.off('tts:audio', handleTtsAudio)
       socket.off('audio:transcript', handleAudioTranscript)
       socket.off('chat:idle-warning', handleIdleWarning)
       socket.off('chat:ended', handleChatEnded)
@@ -153,11 +172,7 @@ export function SeniorConversationPage() {
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
-    // AiQuestionPayload에 TTS 오디오 필드가 아직 없어(백엔드 8/18 예정) 항상
-    // null — TTS가 없으니 재생을 기다리지 않고 곧바로 마이크가 열린다. 다음
-    // 질문을 기다리는 동안 끼어드는 발화를 추가 답변으로 받는 동작은 TTS 유무와
-    // 무관하게 이미 지금부터 동작한다.
-    ttsAudio: null,
+    ttsAudio: currentQuestionTts,
   })
 
   const character = characterByState[phase]
