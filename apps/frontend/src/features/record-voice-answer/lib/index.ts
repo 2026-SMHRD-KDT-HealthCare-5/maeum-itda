@@ -34,8 +34,8 @@ const VOICE_CONFIRM_FRAMES = 3
 function isSpeechLikeFrame(
   analyser: AnalyserNode,
   sampleRate: number,
-  timeDomainBuffer: Uint8Array,
-  frequencyBuffer: Uint8Array,
+  timeDomainBuffer: Uint8Array<ArrayBuffer>,
+  frequencyBuffer: Uint8Array<ArrayBuffer>,
 ): boolean {
   analyser.getByteTimeDomainData(timeDomainBuffer)
   let sumSquares = 0
