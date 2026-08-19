@@ -84,7 +84,7 @@ export class GuardianDashboardService {
         reportDate: period.reportDate,
         emotionIndex: latest?.emotionIndex ?? null,
         emotionLevel: toEmotionLevel(latest?.emotionIndex ?? null),
-        oneLineSummary: latest?.oneLineSummary ?? null,
+        conversationSummary: latest?.oneLineSummary ?? null,
         recommendedAction: latest?.recommendedAction ?? null,
         generationStatus: latest?.generationStatus ?? null,
       },

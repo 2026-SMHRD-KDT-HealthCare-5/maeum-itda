@@ -25,6 +25,10 @@ import { ReportCalendarQueryService } from './report-calendar-query.service';
 import { ReportCalendarRepository } from './repositories/report-calendar.repository';
 import { WeeklyReportGenerationService } from './weekly-report-generation.service';
 import { WeeklyReportQueryService } from './weekly-report-query.service';
+import { EmotionTag } from '../analysis/entities/emotion-tag.entity';
+import { ConversationMessage } from '../chats/entities/conversation-message.entity';
+import { DailySummaryClient } from './daily-summary.client';
+import { DailySummaryContextRepository } from './repositories/daily-summary-context.repository';
 
 // DailyEmotionReport Repository와 리포트 요청 처리 객체를 등록한다.
 @Module({
@@ -37,6 +41,8 @@ import { WeeklyReportQueryService } from './weekly-report-query.service';
       DailyReportEvidence,
       WeeklyEmotionReport,
       GuardianSeniorRelationship,
+      ConversationMessage,
+      EmotionTag,
     ]),
   ],
   controllers: [ReportsController],
@@ -55,6 +61,8 @@ import { WeeklyReportQueryService } from './weekly-report-query.service';
     ReportAccessRepository,
     ReportCalendarRepository,
     ReportGenerationTargetRepository,
+    DailySummaryClient,
+    DailySummaryContextRepository,
   ],
   exports: [ReportsService, EmotionIndexRecalcTriggerService],
 })

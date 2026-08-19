@@ -4,6 +4,8 @@ import { GenerationStatus } from './entities/daily-emotion-report.entity';
 import type { DailyScaleAnalysisInput } from './lib/daily-emotion-index.calculator';
 import type { DailyReportRepository } from './repositories/daily-report.repository';
 import type { DailyReportEvidenceRepository } from './repositories/daily-report-evidence.repository';
+import type { DailySummaryClient } from './daily-summary.client';
+import type { DailySummaryContextRepository } from './repositories/daily-summary-context.repository';
 import { ReportsService } from './reports.service';
 
 describe('ReportsService', () => {
@@ -42,13 +44,32 @@ describe('ReportsService', () => {
             }),
         ),
     };
+    const summaryContextRepository = {
+      findTurns: jest.fn().mockResolvedValue([
+        {
+          speakerType: 'SENIOR',
+          content: '오늘은 기분이 괜찮아요.',
+          sentimentLabel: 'POSITIVE',
+        },
+      ]),
+    };
+    const dailySummaryClient = {
+      generate: jest.fn().mockResolvedValue({
+        conversationSummary: '차분하게 하루를 보내셨어요.',
+        recommendedAction: '가볍게 안부를 확인해 주세요.',
+      }),
+    };
     return {
       service: new ReportsService(
         repository as unknown as DailyReportRepository,
         evidenceRepository as unknown as DailyReportEvidenceRepository,
+        summaryContextRepository as unknown as DailySummaryContextRepository,
+        dailySummaryClient as unknown as DailySummaryClient,
       ),
       repository,
       evidenceRepository,
+      summaryContextRepository,
+      dailySummaryClient,
     };
   };
 
@@ -69,6 +90,8 @@ describe('ReportsService', () => {
       80,
       GenerationStatus.COMPLETED,
       [101, 102],
+      '차분하게 하루를 보내셨어요.',
+      '가볍게 안부를 확인해 주세요.',
     );
   });
 
@@ -88,6 +111,34 @@ describe('ReportsService', () => {
       null,
       GenerationStatus.WAITING,
       [101, 102],
+      '차분하게 하루를 보내셨어요.',
+      '가볍게 안부를 확인해 주세요.',
+    );
+  });
+
+  it('FastAPI 요약이 실패해도 정서지수와 근거는 저장한다', async () => {
+    const { service, repository, dailySummaryClient } = createService([
+      analysis(1, 1, 1),
+      analysis(2, 2, 0),
+      analysis(3, 3, 0),
+      analysis(4, 4, 0),
+      analysis(5, 5, 0),
+    ]);
+    dailySummaryClient.generate.mockRejectedValueOnce(
+      new Error('FastAPI 연결 실패'),
+    );
+
+    await expect(
+      service.generateDailyReport(7, '2026-08-14'),
+    ).resolves.toBeDefined();
+    expect(repository.saveDailyReport).toHaveBeenCalledWith(
+      7,
+      '2026-08-14',
+      80,
+      GenerationStatus.COMPLETED,
+      [101, 102],
+      undefined,
+      undefined,
     );
   });
 });

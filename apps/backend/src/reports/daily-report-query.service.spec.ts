@@ -73,7 +73,7 @@ describe('DailyReportQueryService', () => {
       seniorId: 7,
       reportDate: '2026-08-14',
       emotionIndex: 80,
-      oneLineSummary: null,
+      conversationSummary: null,
       recommendedAction: null,
       generationStatus: GenerationStatus.COMPLETED,
       evidences: [

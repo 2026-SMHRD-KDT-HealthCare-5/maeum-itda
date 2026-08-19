@@ -71,12 +71,27 @@ export class DailyReportRepository {
     emotionIndex: number | null,
     generationStatus: GenerationStatus,
     evidenceMessageIds: number[],
+    conversationSummary?: string | null,
+    recommendedAction?: string | null,
   ): Promise<DailyEmotionReport> {
     // 리포트 갱신과 근거 연결 교체가 일부만 반영되지 않도록 한 트랜잭션으로 저장한다.
     return this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(DailyEmotionReport);
+      const summaryColumns =
+        conversationSummary === undefined
+          ? {}
+          : { oneLineSummary: conversationSummary };
+      const actionColumns =
+        recommendedAction === undefined ? {} : { recommendedAction };
       await repository.upsert(
-        { seniorId, reportDate, emotionIndex, generationStatus },
+        {
+          seniorId,
+          reportDate,
+          emotionIndex,
+          generationStatus,
+          ...summaryColumns,
+          ...actionColumns,
+        },
         ['seniorId', 'reportDate'],
       );
       const report = await repository.findOneByOrFail({ seniorId, reportDate });

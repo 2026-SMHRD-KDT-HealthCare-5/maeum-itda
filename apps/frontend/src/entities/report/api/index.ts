@@ -30,10 +30,9 @@ function toEvidenceSentence(dto: DailyReportEvidenceResponseDto): EvidenceSenten
   }
 }
 
-// emotionIndex/oneLineSummary는 백엔드 DTO에 명시적 타입이 없어 swagger-typescript-api가
-// `object | null`로 생성한다(entities/connection과 동일한 이슈) — 실제 런타임 값은
-// number/string이므로 여기서만 좁힌다. oneLineSummary는 결정사항상 conversationSummary로
-// 이름이 바뀌었지만 백엔드 컬럼명 리네임은 별도 작업이라 아직 이 필드명 그대로 온다.
+// emotionIndex는 생성된 API 타입보다 실제 런타임 계약이 좁아 이 경계에서 number로 변환한다.
+// DB 컬럼 ONE_LINE_SUMMARY는 유지하되
+// 프론트·백엔드·FastAPI 사이의 외부 JSON 필드명은 conversationSummary로 통일한다.
 function toDailyReport(dto: DailyReportResponseDto): DailyReport {
   const emotionScore = dto.emotionIndex as number | null
   return {
@@ -43,7 +42,7 @@ function toDailyReport(dto: DailyReportResponseDto): DailyReport {
     // 일간 리포트 응답엔 emotionLevel 필드 자체가 없다(GuardianDashboard/주간 응답과 달리
     // 점수만 온다) — entities/report/ui의 EmotionScoreCard와 같은 기준으로 직접 계산한다.
     emotionLevel: emotionScore === null ? null : getEmotionLevel(emotionScore),
-    conversationSummary: dto.oneLineSummary as string | null,
+    conversationSummary: dto.conversationSummary as string | null,
     recommendedAction: dto.recommendedAction as string | null,
     evidenceSentences: dto.evidences.map(toEvidenceSentence),
   }
@@ -103,7 +102,7 @@ function toGuardianDashboard(dto: GuardianDashboardResponseDto): GuardianDashboa
     latestDailyReport: {
       emotionScore: dto.latestDailyReport.emotionIndex as number | null,
       emotionLevel: emotionLevelFromApi(dto.latestDailyReport.emotionLevel),
-      conversationSummary: dto.latestDailyReport.oneLineSummary as string | null,
+      conversationSummary: dto.latestDailyReport.conversationSummary as string | null,
       recommendedAction: dto.latestDailyReport.recommendedAction as string | null,
     },
     recentSevenDays: dto.recentSevenDays.map((point) => ({

@@ -69,13 +69,15 @@ export class DailyReportResponseDto {
 
   @ApiPropertyOptional({
     description: '하루 대화 한 줄 요약. 생성 전이면 null',
+    type: String,
     nullable: true,
     example: '오늘은 가족과 산책한 이야기를 편안하게 나누셨어요.',
   })
-  oneLineSummary: string | null;
+  conversationSummary: string | null;
 
   @ApiPropertyOptional({
     description: '보호자에게 제안하는 행동. 생성 전이면 null',
+    type: String,
     nullable: true,
     example: '가벼운 안부 전화를 건네 보세요.',
   })
