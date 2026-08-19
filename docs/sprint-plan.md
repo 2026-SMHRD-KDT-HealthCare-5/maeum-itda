@@ -12,7 +12,7 @@
 
 ### 완료됨
 
-- **프론트**: 로그인(localStorage 세션 유지)/회원가입, 시니어·보호자 연결 요청·수락·거절·해제, 시니어 대화 화면(WS 실연동, 다슬이 발화 중 끼어들기/barge-in 지원), STT 실시간 반영, TTS 재생 컴포넌트(마이크 오픈 순서·iOS 자동재생 보정 포함), 보호자 대시보드/알림함/일간·주간 리포트, 시니어 이전 대화 기록, 내 정보(기본정보/체크인 알림/알림 임계치), 출석 캘린더, 웹 푸시 구독 등록 플로우(`features/enable-push-notifications`) — 전부 실 API 연동됨
+- **프론트**: 로그인(localStorage 세션 유지)/회원가입, 시니어·보호자 연결 요청·수락·거절·해제, 시니어 대화 화면(WS 실연동), STT 실시간 반영, TTS 재생 컴포넌트(마이크 오픈 순서·iOS 자동재생 보정 포함), 보호자 대시보드/알림함/일간·주간 리포트, 시니어 이전 대화 기록, 내 정보(기본정보/체크인 알림/알림 임계치), 출석 캘린더, 웹 푸시 구독 등록 플로우(`features/enable-push-notifications`) — 전부 실 API 연동됨
 - **AI서버**: STT(OpenAI 우선+whisper 폴백), STT 교정(`corrected_transcript`), 척도 채점(SGDS-K/GAD-7/LSNS-6, 고정 문항 은행), 꼬리질문 생성, TTS(Typecast), UC-06-4 일간 요약·추천행동 생성(`POST /reports/daily-summary`), 문항 커버리지/이전 세션 요약을 받을 Form 필드(`pendingScaleItems`/`prevSessionSummary`, 백엔드가 안 보내도 안전하게 기본값 처리) — 전부 구현 완료
 - **5감정 모델**: KLUE 텍스트·Kresnik 음성 모델 체크포인트, 단문 추론, 온도 보정, 클래스별 가중합 연동 완료. 현재 파라미터는 최종 테스트 세트 평가 전 후보값이며, 음성 기반 모델은 Hugging Face 캐시/네트워크 의존성을 완전한 로컬 배포 자산으로 전환해야 함
 - **백엔드**: 로그인, WS 인증·대화·음성 수신, 정서지수 즉시 재계산 트리거, 웹 푸시 발송 인프라(VAPID·구독 저장·임계치 발송, REST 엔드포인트 전부 존재), WS 리스너 정리 버그 수정
@@ -39,6 +39,7 @@
 - **백엔드: `chat:start`가 짧은 간격으로 두 번 도착하면 AI 질문이 중복 생성되던 race condition** — `ChatConnectionStateService`에 `isStarting`/`markStarting`/`clearStarting`을 추가해 활성 질문 체크와 DB 저장 사이의 틈을 동기적으로 막음(`chat-start.handler.spec.ts`에 동시 요청 재현 테스트 추가).
 - **프론트: WS 연결이 인증 후 예기치 않게 끊겨도 화면이 "대화 중" 상태로 멈춰있던 문제** — `SeniorConversationPage`가 `socket.onClose`로 끊김을 감지해 안내 문구를 보여주도록 수정(자동 재연결까지는 안 함, 최소한의 안전망).
 - **프론트: 답변 대기중/듣는중 상태 구분 표시** — `RecordingPhase`에 `waiting`(마이크는 열렸지만 말소리 미감지)을 추가해 기존 `listening`(말소리 감지됨)과 배지 문구로 구분. 캐릭터 그림은 전용 에셋이 없어 재사용.
+- **프론트: TTS 재생 중 끼어들기(barge-in)가 스피커 에코를 사람 목소리로 오인해 오작동하던 문제** — 첫 질문 TTS가 재생되자마자 끊기고, 사용자가 말하지 않았는데도 그 잡음이 답변으로 전송돼 `AUDIO_ANALYSIS_FAILED`가 뜨는 원인이었다. `useRecordVoiceAnswer`에서 끼어들기 기능(TTS 재생 중 음성 감지) 자체를 제거 — TTS는 항상 끝까지 재생하고 그 뒤에만 마이크를 연다. 답변 전송 후 다음 질문을 기다리는 '생각 중' 구간의 추가 발화 감지는 TTS가 재생 중이 아니라 에코 문제가 없어 그대로 유지.
 
 ### 의도적으로 미룸 (sprint-plan에만 기록, 데모 전 손대지 않음)
 
