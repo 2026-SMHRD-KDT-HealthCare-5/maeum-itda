@@ -19,7 +19,6 @@ import { ConversationMessageRepository } from './repositories/conversation-messa
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioBinaryHandler } from './handlers/audio-binary.handler';
-import { AudioAnswerRepository } from './repositories/audio-answer.repository';
 import { QuestionAnswerQueueService } from './question-answer-queue.service';
 import { ChatEndHandler } from './handlers/chat-end.handler';
 import { AudioTransferStateService } from './audio-transfer-state.service';
@@ -52,7 +51,6 @@ import { QuestionDeliveryService } from './question-delivery.service';
     ChatHistoryQueryService,
     ConversationMessageRepository,
     ChatHistoryRepository,
-    AudioAnswerRepository,
     QuestionAnswerQueueService,
     AudioTransferStateService,
     ChatInactivityService,

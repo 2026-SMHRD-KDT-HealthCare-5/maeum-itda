@@ -13,6 +13,8 @@ import type { AddressInfo } from 'node:net';
 import WebSocket from 'ws';
 import { AiClient } from '../src/analysis/ai.client';
 import { AnalysisService } from '../src/analysis/analysis.service';
+import { TtsClient } from '../src/analysis/tts.client';
+import { AnalysisContextRepository } from '../src/analysis/repositories/analysis-context.repository';
 import { AnalysisResultRepository } from '../src/analysis/repositories/analysis-result.repository';
 import { TemporaryAudioRepository } from '../src/analysis/repositories/temporary-audio.repository';
 import { AuthService } from '../src/auth/auth.service';
@@ -27,9 +29,9 @@ import { ChatStartHandler } from '../src/chats/handlers/chat-start.handler';
 import { QuestionAnswerQueueService } from '../src/chats/question-answer-queue.service';
 import { AudioTransferStateService } from '../src/chats/audio-transfer-state.service';
 import { ChatInactivityService } from '../src/chats/chat-inactivity.service';
-import { AudioAnswerRepository } from '../src/chats/repositories/audio-answer.repository';
 import { ConversationMessageRepository } from '../src/chats/repositories/conversation-message.repository';
 import { LastTurnRecalcTimerService } from '../src/chats/last-turn-recalc-timer.service';
+import { QuestionDeliveryService } from '../src/chats/question-delivery.service';
 import { rawDataToString } from '../src/chats/ws-event';
 import { EmotionIndexRecalcTriggerService } from '../src/reports/emotion-index-recalc-trigger.service';
 import { UserRole } from '../src/users/entities/user.entity';
@@ -91,35 +93,38 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
       content: '오늘 하루는 어땠나요?',
     }),
   };
-  const audioAnswerRepository = {
-    savePendingAnswer: jest.fn().mockResolvedValue({ messageId: 102 }),
+  const analysisContextRepository = {
+    findForBatch: jest.fn().mockResolvedValue({
+      pendingScaleItems: { SGDS_K: [], GAD_7: [], LSNS_6: [] },
+      prevSessionSummary: '',
+      conversationTurns: [],
+    }),
   };
   const analysisResultRepository = {
-    markWaiting: jest.fn().mockResolvedValue(undefined),
-    markProcessing: jest.fn().mockResolvedValue(undefined),
-    markFailed: jest.fn().mockResolvedValue(undefined),
     findStatus: jest.fn(),
+    // 실제 저장소는 분석 성공 시점에야 새 MESSAGE_ID를 발급한다 — 이 mock도
+    // tempAnswerId(FastAPI 요청·응답 상관용)와 무관한 새 messageId(102)를
+    // 흉내 내 반환한다.
     saveCompleted: jest.fn().mockImplementation(
       (
         _batch,
         nextGenerationId: string,
         result: {
-          answers: Array<{ messageId: number; transcript: string }>;
+          answers: Array<{ tempAnswerId: number; transcript: string }>;
           nextQuestion: string | null;
         },
       ) =>
         Promise.resolve({
-          answerTranscripts: result.answers.map(
-            ({ messageId, transcript }) => ({
-              messageId,
-              content: transcript,
-            }),
-          ),
+          answerTranscripts: result.answers.map(({ transcript }) => ({
+            messageId: 102,
+            content: transcript,
+          })),
           nextQuestion: {
             messageId: 201,
             generationId: nextGenerationId,
             content: result.nextQuestion,
           },
+          ttsAudio: null,
         }),
     ),
   };
@@ -133,15 +138,20 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
         response.writeHead(200, { 'content-type': 'application/json' });
         response.end(
           JSON.stringify({
+            // AudioBinaryHandler의 tempAnswerId 카운터는 이 테스트에서 1부터
+            // 시작한다(첫 번째로 받는 음성 한 건) — 검증기가 요청·응답의
+            // messageId(=tempAnswerId) 집합 일치를 확인하므로 그대로 echo한다.
             answers: [
               {
-                messageId: 102,
+                messageId: 1,
                 transcript: '오늘 산책을 다녀왔어요.',
                 sentimentLabel: 'POSITIVE',
                 scaleAnalyses: [],
               },
             ],
             nextQuestion: '산책하면서 무엇이 가장 좋으셨어요?',
+            ttsAudioBase64: null,
+            ttsMimeType: null,
           }),
         );
       });
@@ -165,9 +175,11 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
         AudioTransferStateService,
         ChatInactivityService,
         LastTurnRecalcTimerService,
+        QuestionDeliveryService,
         ChatsService,
         AnalysisService,
         AiClient,
+        TtsClient,
         TemporaryAudioRepository,
         {
           provide: EmotionIndexRecalcTriggerService,
@@ -194,12 +206,12 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
           useValue: conversationMessageRepository,
         },
         {
-          provide: AudioAnswerRepository,
-          useValue: audioAnswerRepository,
-        },
-        {
           provide: AnalysisResultRepository,
           useValue: analysisResultRepository,
+        },
+        {
+          provide: AnalysisContextRepository,
+          useValue: analysisContextRepository,
         },
       ],
     }).compile();
@@ -266,7 +278,7 @@ describe('Chats WebSocket + FastAPI REST mock (e2e)', () => {
 
     await expect(events.next('audio:ack')).resolves.toEqual(
       expect.objectContaining({
-        payload: { audioTransferId: 'audio-transfer-001', messageId: 102 },
+        payload: { audioTransferId: 'audio-transfer-001' },
       }),
     );
     await expect(events.next('audio:transcript', 15_000)).resolves.toEqual(

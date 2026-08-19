@@ -4,6 +4,8 @@
   "packageManager": "pnpm@11.17.0",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:ai-server": "powershell -ExecutionPolicy Bypass -File scripts/dev-ai-server.ps1",
+    "dev:all": "concurrently -n frontend+backend,ai-server -c blue,green \"pnpm dev\" \"pnpm dev:ai-server\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "format": "prettier --write \"apps/frontend/**/*.{ts,tsx,js,css}\" \"packages/shared-types/src/**/*.ts\"",
@@ -16,6 +18,7 @@
     "apps/backend/{src,apps,libs,test}/**/*.ts": ["eslint --fix"]
   },
   "devDependencies": {
+    "concurrently": "^9.1.0",
     "eslint": "^10.8.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",

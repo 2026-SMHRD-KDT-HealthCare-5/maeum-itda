@@ -1,15 +1,21 @@
 /*
 역할: 질문별 복수 답변의 STT·감성·척도 결과와 다음 AI 질문을 하나의 DB 트랜잭션으로 저장한다.
 전체 흐름: AnalysisService → AnalysisResultRepository → TypeORM → MySQL
-주의: 이전·다음 답변 컬럼을 만들지 않고 각 답변은 고유 MESSAGE_ID와 SPEAKER_TYPE으로 저장한다.
+주의: 답변 메시지는 분석이 성공해 실제 transcript가 확정된 이 시점에야 처음 INSERT된다
+     (결정사항: 분석 실패 시 CONVERSATION_MESSAGE에 아무 흔적도 남기지 않는다) — 대기/처리
+     중 상태를 미리 만들어두고 UPDATE하는 방식이 아니다.
 */
 import { Injectable } from '@nestjs/common';
-import { DataSource, In } from 'typeorm';
+import { DataSource } from 'typeorm';
 import {
   ConversationMessage,
   SpeakerType,
   SttStatus,
 } from '../../chats/entities/conversation-message.entity';
+import {
+  MessageRelationship,
+  MessageRelationshipType,
+} from '../../chats/entities/message-relationship.entity';
 import {
   CompletedAudioAnalysis,
   QuestionAnswerAnalysisResult,
@@ -26,92 +32,84 @@ import {
 export class AnalysisResultRepository {
   constructor(private readonly dataSource: DataSource) {}
 
-  // 역할: 큐가 확정된 모든 시니어 답변의 음성 분석 상태를 WAITING으로 만든다.
-  async markWaiting(messageIds: number[]): Promise<void> {
-    const repository = this.dataSource.getRepository(VoiceAnalysisStatus);
-    for (const messageId of messageIds) {
-      const existing = await repository.findOne({ where: { messageId } });
-      await repository.save(
-        repository.create({
-          ...existing,
-          messageId,
-          processingStatus: ProcessingStatus.WAITING,
-          analyzedAt: null,
-          errorMessage: null,
-        }),
-      );
-    }
-  }
-
-  // 역할: FastAPI 호출 직전에 묶음의 모든 음성·STT 상태를 PROCESSING으로 변경한다.
-  async markProcessing(messageIds: number[]): Promise<void> {
-    await this.dataSource.getRepository(VoiceAnalysisStatus).update(
-      { messageId: In(messageIds) },
-      {
-        processingStatus: ProcessingStatus.PROCESSING,
-        analyzedAt: null,
-        errorMessage: null,
-      },
-    );
-    await this.dataSource
-      .getRepository(ConversationMessage)
-      .update(
-        { messageId: In(messageIds) },
-        { sttStatus: SttStatus.PROCESSING, sttErrorMessage: null },
-      );
-  }
-
-  // 역할: 답변별 분석 결과를 각 MESSAGE_ID에 저장하고 묶음 전체를 바탕으로 만든 다음 질문을 한 번 저장한다.
+  // 역할: 답변별 분석 결과를 새 MESSAGE_ID로 저장하고 묶음 전체를 바탕으로 만든 다음 질문을 한 번 저장한다.
   async saveCompleted(
     batch: QuestionAnswerBatch,
     nextGenerationId: string,
     result: QuestionAnswerAnalysisResult,
   ): Promise<CompletedAudioAnalysis> {
     return this.dataSource.transaction(async (manager) => {
-      for (const answer of result.answers) {
-        await manager.update(
-          ConversationMessage,
-          { messageId: answer.messageId },
-          {
+      const resultByTempId = new Map(
+        result.answers.map((answer) => [answer.tempAnswerId, answer]),
+      );
+      // 같은 질문에 이미 저장된 답변 수만큼 뒤이어 번호가 매겨지도록 시작값을 조회한다
+      // (첫 답변은 ANSWER, 그 뒤로 도착한 답변은 ADDITIONAL_ANSWER).
+      let answerIndex = await manager.count(MessageRelationship, {
+        where: { sourceMessageId: batch.questionMessageId },
+      });
+
+      // FastAPI 응답 배열 순서가 아니라 batch.answers(실제 제출 순서) 기준으로 저장해야
+      // ANSWER/ADDITIONAL_ANSWER 라벨과 audio:transcript 전달 순서가 뒤섞이지 않는다.
+      const answerTranscripts: CompletedAudioAnalysis['answerTranscripts'] = [];
+      for (const queuedAnswer of batch.answers) {
+        const answer = resultByTempId.get(queuedAnswer.tempAnswerId);
+        if (answer === undefined) {
+          throw new Error(
+            `FastAPI 응답에 tempAnswerId=${queuedAnswer.tempAnswerId} 결과가 없습니다.`,
+          );
+        }
+
+        const savedAnswer = await manager.save(
+          manager.create(ConversationMessage, {
+            seniorId: batch.seniorId,
+            speakerType: SpeakerType.SENIOR,
             content: answer.transcript,
             sttStatus: SttStatus.COMPLETED,
             sttErrorMessage: null,
-          },
+          }),
         );
-        await manager.update(
-          VoiceAnalysisStatus,
-          { messageId: answer.messageId },
-          {
+        await manager.save(
+          manager.create(MessageRelationship, {
+            sourceMessageId: batch.questionMessageId,
+            targetMessageId: savedAnswer.messageId,
+            relationshipType:
+              answerIndex === 0
+                ? MessageRelationshipType.ANSWER
+                : MessageRelationshipType.ADDITIONAL_ANSWER,
+          }),
+        );
+        answerIndex += 1;
+
+        await manager.save(
+          manager.create(VoiceAnalysisStatus, {
+            messageId: savedAnswer.messageId,
             processingStatus: ProcessingStatus.COMPLETED,
             analyzedAt: new Date(),
             errorMessage: null,
-          },
+          }),
         );
-        // 같은 답변을 재분석해도 MESSAGE_ID unique 충돌 없이 최신 감정 결과로 갱신한다.
-        await manager.upsert(
-          EmotionTag,
-          {
-            messageId: answer.messageId,
+        await manager.save(
+          manager.create(EmotionTag, {
+            messageId: savedAnswer.messageId,
             sentimentLabel: answer.sentimentLabel,
             analyzedAt: new Date(),
-          },
-          ['messageId'],
+          }),
         );
-
-        // FastAPI 재시도 결과를 답변별 최신 스냅샷으로 교체해 중복과 이전 분석 잔존을 함께 막는다.
-        await manager.delete(ScaleQuestionAnalysis, {
-          messageId: answer.messageId,
-        });
         if (answer.scaleAnalyses.length > 0) {
           await manager.save(
             answer.scaleAnalyses.map((scale) =>
               manager.create(ScaleQuestionAnalysis, {
-                messageId: answer.messageId,
+                messageId: savedAnswer.messageId,
                 ...scale,
               }),
             ),
           );
         }
+
+        answerTranscripts.push({
+          messageId: savedAnswer.messageId,
+          content: answer.transcript,
+        });
       }
 
       let nextQuestion: CompletedAudioAnalysis['nextQuestion'] = null;
@@ -132,10 +130,7 @@ export class AnalysisResultRepository {
         };
       }
       return {
-        answerTranscripts: result.answers.map(({ messageId, transcript }) => ({
-          messageId,
-          content: transcript,
-        })),
+        answerTranscripts,
         nextQuestion,
         ttsAudio:
           nextQuestion === null ||
@@ -147,26 +142,6 @@ export class AnalysisResultRepository {
                 mimeType: result.ttsMimeType,
               },
       };
-    });
-  }
-
-  // 역할: 요청 또는 저장 실패를 묶음의 모든 답변에 동일하게 기록해 재시도 대상을 보존한다.
-  async markFailed(messageIds: number[], errorMessage: string): Promise<void> {
-    await this.dataSource.transaction(async (manager) => {
-      await manager.update(
-        ConversationMessage,
-        { messageId: In(messageIds) },
-        { sttStatus: SttStatus.FAILED, sttErrorMessage: errorMessage },
-      );
-      await manager.update(
-        VoiceAnalysisStatus,
-        { messageId: In(messageIds) },
-        {
-          processingStatus: ProcessingStatus.FAILED,
-          analyzedAt: null,
-          errorMessage,
-        },
-      );
     });
   }
 

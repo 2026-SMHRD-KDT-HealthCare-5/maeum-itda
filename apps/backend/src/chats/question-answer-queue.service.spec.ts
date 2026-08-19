@@ -17,16 +17,16 @@ describe('QuestionAnswerQueueService', () => {
 
   afterEach(() => jest.useRealTimers());
 
-  const answer = (messageId: number): QueuedAnswerSegment => ({
-    messageId,
+  const answer = (tempAnswerId: number): QueuedAnswerSegment => ({
+    tempAnswerId,
     seniorId: 7,
     questionMessageId: 101,
     generationId: 'generation-001',
-    audioTransferId: `audio-${messageId}`,
+    audioTransferId: `audio-${tempAnswerId}`,
     mimeType: 'audio/webm',
     capturedAt: '2026-08-11T00:00:00.000Z',
     endType: 'auto',
-    audioBuffer: Buffer.from([messageId]),
+    audioBuffer: Buffer.from([tempAnswerId]),
     continueConversation: true,
   });
 
