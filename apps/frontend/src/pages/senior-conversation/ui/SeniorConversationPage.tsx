@@ -129,6 +129,12 @@ export function SeniorConversationPage() {
         setAnswerRetryNotice('음성을 분석하지 못했어요. 다시 말씀해주세요.')
         return
       }
+      if (payload.code === 'CHAT_ALREADY_STARTED') {
+        // 같은 서버 프로세스에 짧게 재접속하면 서버가 chat:restored+ai:question으로
+        // 기존 질문을 이미 복원해 보낸 뒤라, 뒤이어 우리가 보낸 chat:start는
+        // 정상적으로 거부된 것이다 — 실패가 아니라 예상된 응답이므로 무시한다.
+        return
+      }
       setConnectionError(payload.message)
     }
 
