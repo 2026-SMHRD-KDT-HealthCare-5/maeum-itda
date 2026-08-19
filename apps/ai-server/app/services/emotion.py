@@ -45,6 +45,17 @@ TEST_EMOTION = {
     "anxious": 0.0,
     "neutral": 0.0,
 }
+# 텍스트/음성 모델이 둘 다 실패했을 때(예: 무음 답변 + 손상된 오디오)의 안전한
+# 대체값. classify_and_fuse() 호출부가 EmotionInferenceError를 못 잡으면 그 턴
+# 전체가 500으로 죽으므로, 이 값으로 감정분석만 중립 처리하고 나머지 파이프라인
+# (STT 결과, 꼬리질문 생성)은 계속 진행한다.
+NEUTRAL_EMOTION = {
+    "happy": 0.0,
+    "angry": 0.0,
+    "sad": 0.0,
+    "anxious": 0.0,
+    "neutral": 1.0,
+}
 
 
 class EmotionInferenceError(RuntimeError):

@@ -80,12 +80,23 @@ async def analyze_audio_batch(
                 detail=f"messageId={message_id} STT 실패: {stt_result.reason}",
             )
 
-        emotion = await asyncio.to_thread(
-            emotion_service.classify_and_fuse,
-            stt_result.text,
-            audio_bytes,
-            16000,
-        )
+        try:
+            emotion = await asyncio.to_thread(
+                emotion_service.classify_and_fuse,
+                stt_result.text,
+                audio_bytes,
+                16000,
+            )
+        except emotion_service.EmotionInferenceError:
+            # 텍스트/음성 감정모델이 둘 다 실패한 경우에만 발생한다(한쪽만 실패하면
+            # classify_and_fuse가 이미 나머지 하나로 폴백함). STT는 이미 성공했으니
+            # 이 턴 전체를 500으로 죽이는 대신 중립 감정으로 대체하고 계속 진행한다.
+            logger.warning(
+                "messageId=%s 감정분석이 두 모달리티 모두 실패해 중립값으로 대체합니다.",
+                message_id,
+            )
+            emotion = dict(emotion_service.NEUTRAL_EMOTION)
+
         processed_answers.append(
             {"message_id": message_id, "text": stt_result.text, "emotion": emotion}
         )

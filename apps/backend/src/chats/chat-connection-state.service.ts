@@ -31,6 +31,10 @@ export class ChatConnectionStateService {
     WebSocket,
     Map<number, CurrentQuestionState>
   >();
+  // chat:start 처리 중(DB 저장 완료 전)인 연결 표시. 활성 질문 존재 여부 체크와
+  // 질문 저장 사이에는 await로 인한 틈이 있어, 이 표시가 없으면 짧은 간격으로
+  // 도착한 두 번째 chat:start가 같은 틈을 통과해 질문이 중복 생성될 수 있다.
+  private readonly startingClients = new WeakSet<WebSocket>();
 
   constructor() {
     this.currentQuestionByClient = new WeakMap<
@@ -38,6 +42,21 @@ export class ChatConnectionStateService {
       CurrentQuestionState
     >();
     this.endedClients = new WeakSet<WebSocket>();
+  }
+
+  // 역할: chat:start 처리 시작을 동기적으로 표시해 중복 요청을 차단한다.
+  // 연결 흐름: ChatStartHandler가 활성 질문 체크 직후, startChat() 호출 전에 호출.
+  isStarting(client: WebSocket): boolean {
+    return this.startingClients.has(client);
+  }
+
+  markStarting(client: WebSocket): void {
+    this.startingClients.add(client);
+  }
+
+  // 연결 흐름: ChatStartHandler가 startChat() 완료(성공/실패 무관) 직후 finally에서 호출.
+  clearStarting(client: WebSocket): void {
+    this.startingClients.delete(client);
   }
 
   // 역할: DB 저장이 완료된 현재 AI 질문 식별정보 보관
@@ -143,5 +162,6 @@ export class ChatConnectionStateService {
     this.seniorIdByClient.delete(client);
     this.knownQuestionsByClient.delete(client);
     this.endedClients.delete(client);
+    this.startingClients.delete(client);
   }
 }

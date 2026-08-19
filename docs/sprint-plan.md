@@ -19,17 +19,36 @@
 
 ### 남은 작업 (전부 백엔드 담당 시작 시 처리)
 
-1. **`.env` 모드 플래그 설정 — 제일 먼저, 제일 저렴함.** `apps/ai-server/.env`에 `OPENAI_API_KEY`/`TYPECAST_API_KEY`/`TYPECAST_VOICE_ID`는 있지만 `SCALE_ANALYSIS_MODE`/`STT_CORRECTION_MODE`/`DAILY_SUMMARY_MODE`가 전부 없어서 코드 기본값(`test`)대로 아직도 고정 목업만 나온다. 셋 다 `.env`에 `=model`로 추가하면 그 즉시 실제로 동작한다. **이거 하나 안 하면 나머지 다 완성해도 데모에서 티 안 나는 스텁 값이 계속 나옴.**
-2. **문항 커버리지/이전 세션 요약 연동** — `audio-analysis.contract.ts`(`QuestionAnswerBatch`)에 `pendingScaleItems`/`prevSessionSummary` 필드 추가, DB에서 오늘 채점된 문항·최근 요약 조회해서 AI서버 호출 시 실어 보내기. AI서버는 이미 받을 준비 끝남.
-   - **주의: 이 두 필드만으로는 "같은 대화 안에서 방금 전 턴에 뭐라고 답했는지"까지는 안 채워짐.** `pendingScaleItems`/`prevSessionSummary`는 각각 "오늘 이미 채점된 문항"과 "이전 세션 요약"이라 크로스-세션/일자 맥락만 다룬다. 지금 AI서버는 `POST /analysis/audio/batch` 호출마다 `SessionState`를 매번 새로 만들고(`session_manager.py`의 `SessionManager` 싱글턴은 정의만 돼있고 실제로는 어디서도 호출 안 됨) `turns`가 항상 빈 배열로 시작해서, 한 대화 세션 안에 질문-답변이 여러 번 오가도 LLM은 "방금 들은 답변"만 보고 다음 질문을 만든다 — 여러 턴에 걸쳐 반복 질문하거나 맥락이 끊기는 꼬리질문이 나올 위험. 이 부분까지 고치려면 (a) 백엔드가 매 호출마다 같은 세션의 이전 턴들(질문/답변 텍스트)을 함께 실어 보내거나, (b) AI서버가 `generationId`/세션ID 기준으로 `SessionManager`를 실제로 사용해 `add_turn()`을 호출하며 상태를 유지하는 방식 중 하나를 정해야 함 — 담당자 배정 시 이 결정부터 하고 시작할 것.
-3. **TTS 배관** — `audio-analysis.contract.ts`/검증기에 `ttsAudioBase64`/`ttsMimeType` 반영, `tts:audio` WS 이벤트 실제 emit. 프론트는 이미 이 이벤트를 받아 재생하는 코드가 있음(목업으로만 테스트됨). `docs/ws-protocol.md` §6.2/§8도 이 방식(배치 base64)으로 갱신 — 지금 §8 "MVP 이후"에 TTS binary 전송이라고 잘못 남아있음.
-4. **UC-06-4 연동** — AI서버 `POST /reports/daily-summary` 호출해서 받은 결과를 `ReportsService.generateDailyReport()`에서 저장하도록 연결. **필드명 불일치 주의**: AI서버 응답과 프론트 `entities/report/model`은 `conversationSummary`를 쓰는데, 백엔드 엔티티/DTO(`DailyEmotionReport`, `daily-report-response.dto.ts`)는 아직 `oneLineSummary`임 — 연동하면서 `conversationSummary`로 이름을 맞출지 결정 필요.
-5. **감정분석 모델 최종 확정·배포** — `EMOTION_MODE=model`의 로컬 실추론과 65개 단위 테스트는 통과함. 잠가둔 최종 테스트 750개로 현재 보정·가중합 후보값을 한 번 평가해 확정하고, Hugging Face에서 로드하는 음성 기반 모델/전처리기를 배포 환경에 함께 포함할 것. 체크포인트는 Git ignore에서 제외했지만 단일 파일이 GitHub 일반 제한을 초과하므로 Git LFS 또는 별도 모델 저장소 전략을 확정할 것.
-6. (낮은 우선순위) `SCALE_QUESTION_ANALYSIS` 테이블에 스펙 문서(`테이블명세서_마음잇다.pdf`)엔 있는 `IS_MATCHED` 컬럼이 실제 엔티티/스키마엔 없음 — TextScore 계산엔 영향 없어서 보류 중.
+> **2026-08-19 갱신**: 아래 옛 2~4번 항목("문항 커버리지/이전 세션 요약 연동", "TTS 배관", "UC-06-4 연동")은 이 문서가 갱신되지 않은 사이 **이미 전부 구현 완료된 상태였다** — `analysis-context.repository.ts`가 `pendingScaleItems`/`prevSessionSummary`/`conversationTurns`(최근 5턴, 옛 항목 2가 우려했던 세션 내 맥락 문제까지 포함)를 실제로 채워 보내고, `question-delivery.service.ts`가 `tts:audio`를 실제로 중계하며, `reports.service.ts`가 `daily-summary` 결과를 저장한다(필드명은 DTO 레벨에서 `conversationSummary`로 이미 맞춰져 있음). **이 문서만 보고 재구현을 시도하지 말 것** — 코드가 진짜 상태다. 상세 근거는 이 스프린트의 코드 리뷰 세션 기록 참고.
+
+1. **`.env` 모드 플래그 설정 — 제일 먼저, 제일 저렴함.** `apps/ai-server/.env`에 `OPENAI_API_KEY`/`TYPECAST_API_KEY`/`TYPECAST_VOICE_ID`와 `SCALE_ANALYSIS_MODE`/`STT_CORRECTION_MODE`/`DAILY_SUMMARY_MODE`/`EMOTION_MODE` 항목 자체는 이제 존재하지만, 값이 전부 여전히 `test`로 남아있어 고정 목업만 나온다. 넷 다 `model`로 바꾸면 그 즉시 실제로 동작한다. **이거 하나 안 하면 나머지 다 완성해도 데모에서 티 안 나는 스텁 값이 계속 나옴.**
+2. **감정분석 모델 최종 확정·배포** — `EMOTION_MODE=model`의 로컬 실추론과 단위 테스트는 통과함. 잠가둔 최종 테스트 750개로 현재 보정·가중합 후보값(`emotion.py`의 `TEXT_TEMPERATURE`/`VOICE_TEMPERATURE`/`CLASSWISE_TEXT_WEIGHTS`)을 한 번 평가해 확정하고, Hugging Face에서 로드하는 음성 기반 모델/전처리기를 배포 환경에 함께 포함할 것. 체크포인트는 Git ignore에서 제외했지만 단일 파일이 GitHub 일반 제한을 초과하므로 Git LFS 또는 별도 모델 저장소 전략을 확정할 것.
+3. (낮은 우선순위) `SCALE_QUESTION_ANALYSIS` 테이블에 스펙 문서(`테이블명세서_마음잇다.pdf`)엔 있는 `IS_MATCHED` 컬럼이 실제 엔티티/스키마엔 없음 — TextScore 계산엔 영향 없어서 보류 중.
 
 ### 최종 확인할 것 (위 1~4 끝난 뒤)
 
 로그인→WS인증→마이크 답변→STT반영→척도채점→질문생성→TTS재생→리포트갱신(일간요약 포함)→위험 알림 발생 시 푸시 수신까지 전체 흐름을, **노트북 브라우저와 모바일(PWA 설치) 둘 다**로 완주 확인. 모바일에서는 특히 묵음 감지(`AudioContext` suspended 이슈)와 TTS 자동재생이 실제로 되는지 확인 — 코드상 보정은 들어가 있지만 실기기 확인은 아직.
+
+## 2026-08-19 데모 D-2 긴급 안정화 (`fix/voice-chat-demo-hardening`)
+
+이틀 뒤 시연 목표: 음성 안부 대화 골든패스가 라이브로 실제로 끊기지 않고 동작하는 것. "지금 당장 고칠 것"과 "그럴듯해 보이기만 하면 되니 미룰 것"을 나눠서, 후자는 아래에 의도적으로 기록만 하고 손대지 않았다.
+
+### 지금 고친 것 (데모 중 실제로 깨질 뻔한 버그)
+
+- **AI서버: 감정분석이 텍스트/음성 두 모달리티 모두 실패하면 턴 전체가 500으로 죽던 문제** — `emotion.py`에 `NEUTRAL_EMOTION` 폴백값 추가, `main.py`가 `EmotionInferenceError`를 잡아 중립 감정으로 대체하고 파이프라인을 계속 진행하도록 수정(`tests/test_main.py`에 회귀 테스트 추가).
+- **백엔드: `chat:start`가 짧은 간격으로 두 번 도착하면 AI 질문이 중복 생성되던 race condition** — `ChatConnectionStateService`에 `isStarting`/`markStarting`/`clearStarting`을 추가해 활성 질문 체크와 DB 저장 사이의 틈을 동기적으로 막음(`chat-start.handler.spec.ts`에 동시 요청 재현 테스트 추가).
+- **프론트: WS 연결이 인증 후 예기치 않게 끊겨도 화면이 "대화 중" 상태로 멈춰있던 문제** — `SeniorConversationPage`가 `socket.onClose`로 끊김을 감지해 안내 문구를 보여주도록 수정(자동 재연결까지는 안 함, 최소한의 안전망).
+
+### 의도적으로 미룸 (sprint-plan에만 기록, 데모 전 손대지 않음)
+
+- 다중 기기(탭) 동시 접속 시 질문/답변 상태 충돌 — 데모는 단일 기기로 진행하므로 위험 낮음.
+- `chat:restored` 미처리로 인한 재접속 시 질문 말풍선 중복 — 데모 시나리오에 재접속이 없다면 불필요.
+- UC-04 감성분석 아키텍처를 요구사항정의서 스펙(질문생성 LLM과 같은 구조화 출력)에 맞추는 재설계 — 현재 구현(KLUE/Kresnik 별도 분류 → LLM 입력)도 기능은 정상 동작하므로 데모 블로커 아님.
+- UC-06-3 "acoustic feature(톤/피치) 추출" 문구를 실제 구현(엔드투엔드 음성 감정분류 모델)에 맞게 문서화하는 작업.
+- UC-02 무응답 재촉진 타이밍(스펙 10초 vs 실제 30초 안내/2분 강제종료) 스펙 일치화.
+- STT/TTS 외부 API 호출 재시도 로직 추가 — STT는 이미 OpenAI 실패 시 로컬 whisper 폴백이 있어 우선순위를 낮춤. 데모 전 최소 1회는 반드시 실제 모드로 end-to-end 스모크 테스트해서 이 가정이 맞는지 확인할 것.
+- 코드 품질 리팩터링 전반(`useRecordVoiceAnswer` 복잡도, `SttStatus` 죽은 상태값, `session_manager.py` 죽은 코드, 프론트 `wsClient.ts`의 shared-types 타입 중복 등) — 전부 기능에 영향 없는 유지보수성 이슈.
+- 척도 문항(SGDS-K/GAD-7/LSNS-6) 공식 번역 대조, 테스트 커버리지 보강 전반.
 
 ## 화면 우선순위 (docs/screens 기준, 12개 전부 구현)
 

@@ -142,11 +142,21 @@ export function SeniorConversationPage() {
     // 실행의 결과는 상태에 반영하지 않는다.
     let cancelled = false
 
+    // 인증 후 소켓이 예기치 않게 끊기면(네트워크 단절, 서버 재시작 등) 아무
+    // 이벤트도 더 오지 않아 화면이 "대화 중" 상태로 멈춰버린다 — 최소한 끊김을
+    // 감지해 안내라도 보여준다(자동 재연결까지는 하지 않음).
+    const handleUnexpectedClose = () => {
+      if (cancelled) return
+      setConnectionState('error')
+      setConnectionError('다슬이와의 연결이 끊어졌어요. 화면을 새로고침해 다시 시도해 주세요.')
+    }
+
     socket
       .connect(accessToken)
       .then(() => {
         if (cancelled) return
         setConnectionState('ready')
+        socket.onClose(handleUnexpectedClose)
         socket.startChat()
       })
       .catch((error: unknown) => {

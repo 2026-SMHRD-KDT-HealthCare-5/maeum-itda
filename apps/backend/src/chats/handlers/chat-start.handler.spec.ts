@@ -3,7 +3,7 @@ import { UserRole } from '../../users/entities/user.entity';
 import type { EmotionIndexRecalcTriggerService } from '../../reports/emotion-index-recalc-trigger.service';
 import type { ChatsService } from '../chats.service';
 import { ChatStartHandler } from './chat-start.handler';
-import type { ChatConnectionStateService } from '../chat-connection-state.service';
+import { ChatConnectionStateService } from '../chat-connection-state.service';
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatStartEvent } from '../client-ws-event';
 import type { ChatInactivityService } from '../chat-inactivity.service';
@@ -39,6 +39,9 @@ describe('ChatStartHandler', () => {
     const chatConnectionStateService = {
       getCurrentQuestion: jest.fn().mockReturnValue(undefined),
       setCurrentQuestion: jest.fn(),
+      isStarting: jest.fn().mockReturnValue(false),
+      markStarting: jest.fn(),
+      clearStarting: jest.fn(),
     };
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
@@ -60,6 +63,9 @@ describe('ChatStartHandler', () => {
       client,
       expect.objectContaining({ messageId: 101 }),
       1,
+    );
+    expect(chatConnectionStateService.clearStarting).toHaveBeenCalledWith(
+      client,
     );
     expect(
       client.send.mock.calls.map(([message]) => JSON.parse(message) as unknown),
@@ -87,6 +93,9 @@ describe('ChatStartHandler', () => {
     const chatConnectionStateService = {
       getCurrentQuestion: jest.fn().mockReturnValue(undefined),
       setCurrentQuestion: jest.fn(),
+      isStarting: jest.fn().mockReturnValue(false),
+      markStarting: jest.fn(),
+      clearStarting: jest.fn(),
     };
     const recalcTriggerService = { recalcToday: jest.fn() };
     const lastTurnRecalcTimerService = { arm: jest.fn() };
@@ -118,6 +127,9 @@ describe('ChatStartHandler', () => {
         generationId: 'generation-001',
       }),
       setCurrentQuestion: jest.fn(),
+      isStarting: jest.fn().mockReturnValue(false),
+      markStarting: jest.fn(),
+      clearStarting: jest.fn(),
     };
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
@@ -139,6 +151,64 @@ describe('ChatStartHandler', () => {
       expect.objectContaining({
         event: 'error',
         // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다.
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        payload: expect.objectContaining({ code: 'CHAT_ALREADY_STARTED' }),
+      }),
+    );
+  });
+
+  it('첫 chat:start의 DB 저장이 끝나기 전에 두 번째 chat:start가 도착하면 중복 시작을 거부한다', async () => {
+    // 실제 ChatConnectionStateService를 써서 isStarting/markStarting이 동기적으로
+    // 서로를 보게 한다 — mock끼리는 이 race condition을 재현할 수 없다.
+    const chatConnectionStateService = new ChatConnectionStateService();
+    let resolveStartChat: (value: {
+      messageId: number;
+      generationId: string;
+      content: string;
+      ttsAudio: null;
+    }) => void = () => undefined;
+    const chatsService = {
+      startChat: jest.fn().mockReturnValue(
+        new Promise((resolve) => {
+          resolveStartChat = resolve;
+        }),
+      ),
+    };
+    const firstClient = { send: jest.fn<void, [string]>(), readyState: 1 };
+    const handler = new ChatStartHandler(
+      chatsService as unknown as ChatsService,
+      chatConnectionStateService,
+      chatInactivityService,
+      recalcTriggerService,
+      lastTurnRecalcTimerService,
+      new QuestionDeliveryService(),
+    );
+
+    // 같은 연결(firstClient)에서 아직 startChat()이 끝나기 전에 두 번째
+    // chat:start가 도착한 상황을 재현한다.
+    const firstCall = handler.handleChatStart(
+      firstClient as unknown as WebSocket,
+      { sub: 1, role: UserRole.SENIOR },
+      chatStartEvent,
+    );
+    const secondCall = handler.handleChatStart(
+      firstClient as unknown as WebSocket,
+      { sub: 1, role: UserRole.SENIOR },
+      chatStartEvent,
+    );
+
+    resolveStartChat({
+      messageId: 101,
+      generationId: 'generation-001',
+      content: '오늘 하루는 어땠나요?',
+      ttsAudio: null,
+    });
+    await Promise.all([firstCall, secondCall]);
+
+    expect(chatsService.startChat).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(firstClient.send.mock.calls[0][0]) as unknown).toEqual(
+      expect.objectContaining({
+        event: 'error',
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
         payload: expect.objectContaining({ code: 'CHAT_ALREADY_STARTED' }),
       }),

@@ -51,9 +51,14 @@ export class ChatStartHandler {
   ): Promise<void> {
     void event;
 
-    // 활성 질문이 남아 있으면 기존 대화를 종료하지 않은 중복 시작 요청으로 판단한다.
+    // 활성 질문이 남아 있거나 이미 chat:start 처리가 진행 중이면 중복 시작
+    // 요청으로 판단한다. isStarting 체크는 아래 markStarting과 함께 동기적으로
+    // 이뤄져야 한다 — 그 사이에 await가 끼면 짧은 간격으로 도착한 두 번째
+    // chat:start가 같은 틈을 통과해 질문이 두 번 생성될 수 있다.
     if (
-      this.chatConnectionStateService.getCurrentQuestion(client) !== undefined
+      this.chatConnectionStateService.getCurrentQuestion(client) !==
+        undefined ||
+      this.chatConnectionStateService.isStarting(client)
     ) {
       sendWsError(client, {
         code: 'CHAT_ALREADY_STARTED',
@@ -63,6 +68,7 @@ export class ChatStartHandler {
       });
       return;
     }
+    this.chatConnectionStateService.markStarting(client);
 
     try {
       const startedChat = await this.chatsService.startChat(
@@ -92,6 +98,8 @@ export class ChatStartHandler {
         requestEvent: 'chat:start',
         retryable: true,
       });
+    } finally {
+      this.chatConnectionStateService.clearStarting(client);
     }
   }
 
