@@ -99,6 +99,28 @@ def _build_openai_form(model: str) -> dict:
     return fields
 
 
+class OpenAiSttUnavailableError(RuntimeError):
+    """OpenAI STT API 키가 무효하거나(401) 쿼터가 소진된 경우(429,
+    code=insufficient_quota)에만 발생시키는 예외. transcribe()는 이 예외일 때만
+    로컬 whisper로 폴백한다 — 그 외 에러(네트워크 오류, 일시적 5xx, 요청 형식
+    오류, 단순 rate limit 등)는 키/쿼터 문제가 아니므로 폴백 없이 바로 실패
+    처리한다(로컬 whisper는 무겁고, 원인이 다른 에러에 무조건 재시도하듯
+    넘기는 건 낭비이자 오진단 위험)."""
+
+
+_QUOTA_EXHAUSTED_ERROR_CODE = "insufficient_quota"
+
+
+def _raise_openai_stt_error(status_code: int, detail) -> None:
+    error_code = None
+    if isinstance(detail, dict):
+        error_code = (detail.get("error") or {}).get("code")
+
+    if status_code == 401 or (status_code == 429 and error_code == _QUOTA_EXHAUSTED_ERROR_CODE):
+        raise OpenAiSttUnavailableError(f"OpenAI STT 사용 불가(status={status_code}): {detail}")
+    raise RuntimeError(f"OpenAI STT 오류 {status_code}: {detail}")
+
+
 def _transcribe_openai(audio_bytes: bytes, audio_format: str) -> str:
     ext = audio_format.lower().lstrip(".")
     mime = MIME_BY_EXT.get(ext, "application/octet-stream")
@@ -120,7 +142,7 @@ def _transcribe_openai(audio_bytes: bytes, audio_format: str) -> str:
             detail = resp.json()
         except ValueError:
             detail = resp.text
-        raise RuntimeError(f"OpenAI STT 오류 {resp.status_code}: {detail}")
+        _raise_openai_stt_error(resp.status_code, detail)
 
     result = resp.json()
     return (result.get("text") or "").strip()
@@ -188,22 +210,31 @@ def transcribe(audio_bytes: bytes, audio_format: str = "webm") -> SttResult:
     if not audio_bytes:
         return SttResult(ok=False, reason="empty_audio")
 
-    # 1) OpenAI STT 우선 시도
+    # 1) OpenAI STT 우선 시도. 키 무효/쿼터 소진(OpenAiSttUnavailableError)일 때만
+    # 로컬 whisper로 폴백한다 — 그 외 실패(네트워크 오류, 5xx 등)는 원인이 다르므로
+    # 폴백 없이 바로 실패 처리한다.
     try:
         text = _transcribe_openai(audio_bytes, audio_format)
-        if text and _is_plausible_korean_answer(text):
-            return SttResult(ok=True, text=text, engine="openai")
-        if text:
-            logger.warning(
-                "OpenAI STT 결과가 한국어로 보이지 않아 환각 의심, 로컬로 폴백: %r", text
-            )
-        else:
-            logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 로컬로 폴백")
-    except Exception as e:  # noqa: BLE001 - 폴백을 위해 광범위 캐치
-        logger.warning("OpenAI STT 실패, 로컬 whisper로 폴백: %s", e)
+    except OpenAiSttUnavailableError as e:
+        logger.warning("OpenAI STT 키 무효/쿼터 소진, 로컬 whisper로 폴백: %s", e)
+        return _transcribe_local_and_validate(audio_bytes, audio_format)
+    except Exception as e:  # noqa: BLE001 - 폴백 대상 아님, 바로 실패 처리
+        logger.error("OpenAI STT 실패(키/쿼터 문제 아님, 폴백하지 않음): %s", e)
+        return SttResult(ok=False, reason=f"openai_stt_failed: {e}")
 
-    # 2) 로컬 whisper 폴백 — language를 명시적으로 강제하므로 OpenAI보다는
-    # 다른 언어를 환각할 가능성이 낮지만, 그래도 같은 검증을 한 번 더 거친다.
+    if text and _is_plausible_korean_answer(text):
+        return SttResult(ok=True, text=text, engine="openai")
+    if text:
+        logger.warning("OpenAI STT 결과가 한국어로 보이지 않아 환각 의심, 로컬로 폴백: %r", text)
+    else:
+        logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 로컬로 폴백")
+
+    # 2) 언어 환각 의심 시에만 로컬 whisper로 한 번 더 검증(language 강제라 다른
+    # 언어 환각 가능성이 낮음).
+    return _transcribe_local_and_validate(audio_bytes, audio_format)
+
+
+def _transcribe_local_and_validate(audio_bytes: bytes, audio_format: str) -> SttResult:
     try:
         text = _transcribe_local(audio_bytes, audio_format)
         if text and _is_plausible_korean_answer(text):
