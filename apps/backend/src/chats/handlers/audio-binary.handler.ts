@@ -1,8 +1,9 @@
 /*
 역할: 음성 Binary frame을 metadata와 결합해 답변을 저장하고 질문별 추가 답변 큐에 등록한다.
 연결 객체: ChatsGateway → AudioBinaryHandler → AudioAnswerRepository → QuestionAnswerQueueService → AnalysisService
-전체 흐름: 바이너리 검증 → 답변·관계 DB 저장 → audio:ack → 5초간 추가 답변 결합 → FastAPI REST 요청 → 다음 ai:question
-주의: STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·저장·전달 흐름만 담당한다.
+전체 흐름: 바이너리 검증 → 답변·관계 DB 저장 → audio:ack → 10초간 추가 답변 결합 → FastAPI REST 요청 → 다음 ai:question
+[완료] STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·저장·전달 흐름만 담당한다.
+[제약] 질문별 처리 순서는 프로세스 메모리 Map으로 제어하므로 서버 재시작·다중 인스턴스 간에는 공유되지 않는다.
 */
 import { Injectable, Logger } from '@nestjs/common';
 import type WebSocket from 'ws';
@@ -19,6 +20,7 @@ import { AudioMetadataHandler } from './audio-metadata.handler';
 import { AudioTransferStateService } from '../audio-transfer-state.service';
 import { ChatInactivityService } from '../chat-inactivity.service';
 import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
+import { QuestionDeliveryService } from '../question-delivery.service';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
@@ -30,17 +32,37 @@ export class AudioBinaryHandler {
     number,
     Promise<void>
   >();
+  private readonly audioMetadataHandler: AudioMetadataHandler;
+  private readonly audioAnswerRepository: AudioAnswerRepository;
+  private readonly questionAnswerQueueService: QuestionAnswerQueueService;
+  private readonly analysisService: AnalysisService;
+  private readonly chatConnectionStateService: ChatConnectionStateService;
+  private readonly audioTransferStateService: AudioTransferStateService;
+  private readonly chatInactivityService: ChatInactivityService;
+  private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
+  private readonly questionDeliveryService: QuestionDeliveryService;
 
   constructor(
-    private readonly audioMetadataHandler: AudioMetadataHandler,
-    private readonly audioAnswerRepository: AudioAnswerRepository,
-    private readonly questionAnswerQueueService: QuestionAnswerQueueService,
-    private readonly analysisService: AnalysisService,
-    private readonly chatConnectionStateService: ChatConnectionStateService,
-    private readonly audioTransferStateService: AudioTransferStateService,
-    private readonly chatInactivityService?: ChatInactivityService,
-    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
-  ) {}
+    audioMetadataHandler: AudioMetadataHandler,
+    audioAnswerRepository: AudioAnswerRepository,
+    questionAnswerQueueService: QuestionAnswerQueueService,
+    analysisService: AnalysisService,
+    chatConnectionStateService: ChatConnectionStateService,
+    audioTransferStateService: AudioTransferStateService,
+    chatInactivityService: ChatInactivityService,
+    lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+    questionDeliveryService: QuestionDeliveryService,
+  ) {
+    this.audioMetadataHandler = audioMetadataHandler;
+    this.audioAnswerRepository = audioAnswerRepository;
+    this.questionAnswerQueueService = questionAnswerQueueService;
+    this.analysisService = analysisService;
+    this.chatConnectionStateService = chatConnectionStateService;
+    this.audioTransferStateService = audioTransferStateService;
+    this.chatInactivityService = chatInactivityService;
+    this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+    this.questionDeliveryService = questionDeliveryService;
+  }
 
   // 역할: 음성 한 건은 즉시 저장·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
   async handleAudioBinary(client: WebSocket, data: RawData): Promise<void> {
@@ -199,7 +221,7 @@ export class AudioBinaryHandler {
           batch.generationId,
         );
       await this.analysisService.enqueueAnswerBatch(batch);
-      if (!this.analysisService.isFastApiConnected()) return;
+      if (!this.analysisService.isFastApiConfigured()) return;
 
       const completed = await this.analysisService.processPendingAnswerBatch(
         batch.questionMessageId,
@@ -224,10 +246,14 @@ export class AudioBinaryHandler {
         client,
         completed.nextQuestion,
       );
-      sendWsEvent(client, 'ai:question', completed.nextQuestion);
-      this.chatInactivityService?.startWaitingForAnswer(client);
-      // 새 턴이 생길 때마다 "마지막 턴 후 10분 무재접속" 타이머를 다시 시작한다.
-      this.lastTurnRecalcTimerService?.arm(batch.seniorId);
+      this.questionDeliveryService.deliver(
+        client,
+        completed.nextQuestion,
+        completed.ttsAudio,
+      );
+      this.chatInactivityService.startWaitingForAnswer(client);
+      // [완료] 다음 질문을 전달한 시점부터 10분 재계산 타이머를 다시 시작한다.
+      this.lastTurnRecalcTimerService.arm(batch.seniorId);
     } catch {
       if (this.isClientOpen(client)) {
         this.sendError(

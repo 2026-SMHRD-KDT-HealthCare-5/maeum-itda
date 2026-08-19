@@ -10,6 +10,7 @@ import {
 import type { ChatConnectionStateService } from './chat-connection-state.service';
 import type { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import type { QuestionAnswerQueueService } from './question-answer-queue.service';
+import type { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 
 describe('ChatInactivityService', () => {
   beforeEach(() => jest.useFakeTimers());
@@ -31,12 +32,14 @@ describe('ChatInactivityService', () => {
       markChatEnded: jest.fn(),
     };
     const recalcTriggerService = { recalcToday: jest.fn() };
+    const lastTurnRecalcTimerService = { cancel: jest.fn() };
     const service = new ChatInactivityService(
       queue as unknown as QuestionAnswerQueueService,
       metadata as unknown as AudioMetadataHandler,
       transfer as unknown as AudioTransferStateService,
       state as unknown as ChatConnectionStateService,
       recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
+      lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
     );
     return {
       service,
@@ -47,6 +50,7 @@ describe('ChatInactivityService', () => {
       transfer,
       state,
       recalcTriggerService,
+      lastTurnRecalcTimerService,
     };
   }
 
@@ -77,5 +81,6 @@ describe('ChatInactivityService', () => {
     jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
 
     expect(context.recalcTriggerService.recalcToday).toHaveBeenCalledWith(7);
+    expect(context.lastTurnRecalcTimerService.cancel).toHaveBeenCalledWith(7);
   });
 });

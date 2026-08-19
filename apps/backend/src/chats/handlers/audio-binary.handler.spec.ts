@@ -8,6 +8,8 @@ import type { ChatConnectionStateService } from '../chat-connection-state.servic
 import type { QuestionAnswerQueueService } from '../question-answer-queue.service';
 import type { AudioTransferStateService } from '../audio-transfer-state.service';
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
+import type { ChatInactivityService } from '../chat-inactivity.service';
+import { QuestionDeliveryService } from '../question-delivery.service';
 
 describe('AudioBinaryHandler', () => {
   const metadata = {
@@ -32,7 +34,7 @@ describe('AudioBinaryHandler', () => {
     };
     const analysisService = {
       enqueueAnswerBatch: jest.fn().mockResolvedValue(undefined),
-      isFastApiConnected: jest.fn().mockReturnValue(false),
+      isFastApiConfigured: jest.fn().mockReturnValue(false),
       processPendingAnswerBatch: jest.fn(),
     };
     const questionAnswerQueueService = {
@@ -53,6 +55,7 @@ describe('AudioBinaryHandler', () => {
       clearClient: jest.fn(),
     };
     const lastTurnRecalcTimerService = { arm: jest.fn() };
+    const chatInactivityService = { startWaitingForAnswer: jest.fn() };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
       answerRepository as unknown as AudioAnswerRepository,
@@ -60,8 +63,9 @@ describe('AudioBinaryHandler', () => {
       analysisService as unknown as AnalysisService,
       connectionStateService as unknown as ChatConnectionStateService,
       transferStateService as unknown as AudioTransferStateService,
-      undefined,
+      chatInactivityService as unknown as ChatInactivityService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
+      new QuestionDeliveryService(),
     );
 
     return {
@@ -184,9 +188,9 @@ describe('AudioBinaryHandler', () => {
     );
   });
 
-  it('다음 질문을 전송하면 마지막 턴 재계산 타이머를 다시 시작한다', async () => {
+  it('다음 질문을 전송하면 10분 재계산 타이머를 다시 시작한다', async () => {
     const context = createContext();
-    context.analysisService.isFastApiConnected.mockReturnValue(true);
+    context.analysisService.isFastApiConfigured.mockReturnValue(true);
     context.analysisService.processPendingAnswerBatch.mockResolvedValue({
       answerTranscripts: [],
       nextQuestion: {
@@ -194,6 +198,7 @@ describe('AudioBinaryHandler', () => {
         generationId: 'generation-002',
         content: '산책하면서 무엇이 좋으셨어요?',
       },
+      ttsAudio: null,
     });
     context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
       isBatchOwner: true,
@@ -212,10 +217,11 @@ describe('AudioBinaryHandler', () => {
 
   it('다음 질문이 없는 늦은 답변이어도 STT 결과는 audio:transcript로 전송한다', async () => {
     const context = createContext();
-    context.analysisService.isFastApiConnected.mockReturnValue(true);
+    context.analysisService.isFastApiConfigured.mockReturnValue(true);
     context.analysisService.processPendingAnswerBatch.mockResolvedValue({
       answerTranscripts: [{ messageId: 102, content: '오늘 산책했어요.' }],
       nextQuestion: null,
+      ttsAudio: null,
     });
     context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
       isBatchOwner: true,

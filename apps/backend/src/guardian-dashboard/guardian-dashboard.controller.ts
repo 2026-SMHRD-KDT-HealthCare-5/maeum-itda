@@ -15,7 +15,7 @@ import { ApiErrorResponseDto } from '../common/dto/api-error-response.dto';
 import { GuardianDashboardResponseDto } from './dto/guardian-dashboard-response.dto';
 import { GuardianDashboardService } from './guardian-dashboard.service';
 
-@ApiTags('6. 보호자 대시보드')
+@ApiTags('8. 보호자 대시보드')
 @ApiBearerAuth()
 @UseGuards(AccessTokenGuard)
 @Controller('guardian/dashboard')

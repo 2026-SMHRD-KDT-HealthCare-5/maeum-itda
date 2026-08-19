@@ -1,6 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { Notification } from '../../../entities/notification'
+import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.png'
 import { formatNotificationDate, groupByDay, reportLinkPath } from '../model'
 import styles from './MarkNotificationReadAction.module.css'
 
@@ -26,7 +27,11 @@ export function MarkNotificationReadAction({
             모두 읽음
           </button>
         </div>
-        <p className={styles.empty}>아직 도착한 알림이 없어요.</p>
+        <section className={styles.empty} aria-labelledby="empty-notification-title">
+          <img src={daseulNoNotificationImage} alt="새로운 소식을 기다리는 다슬" />
+          <h2 id="empty-notification-title">아직 도착한 알림이 없어요.</h2>
+          <p>새로운 소식이 생기면 이곳에서 알려드릴게요.</p>
+        </section>
       </div>
     )
   }

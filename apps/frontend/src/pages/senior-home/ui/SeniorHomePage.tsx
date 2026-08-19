@@ -8,24 +8,73 @@ import {
 import { useSession } from '../../../entities/user'
 import { StartConversationAction } from '../../../features/start-conversation'
 import { ViewAttendanceCalendarAction } from '../../../features/view-attendance-calendar'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './SeniorHomePage.module.css'
 
-function connectionSummaryText(connection: Connection | undefined): string {
-  if (!connection) return '보호자 연결 상태를 불러오는 중이에요'
-  if (connection.status === 'CONNECTED') {
-    return `${connection.counterpart?.name ?? '보호자'}님과 연결되어 있어요`
+interface ConnectionCardCopy {
+  label: string
+  title: string
+  description: string
+  action?: string
+}
+
+// 홈에서는 연결 관계의 핵심 상태만 요약하고, 수락·거절 같은 실제 조작은
+// 연결 요청 화면에서 담당한다. 조회 실패도 연결 없음으로 오해하지 않도록 분리한다.
+function connectionCardCopy(
+  connection: Connection | undefined,
+  isPending: boolean,
+  isError: boolean,
+): ConnectionCardCopy {
+  if (isPending) {
+    return {
+      label: '보호자 연결',
+      title: '연결 상태를 확인하고 있어요',
+      description: '잠시만 기다려 주세요.',
+    }
   }
-  if (connection.status === 'REQUESTED') {
-    return '보호자님의 연결 요청이 도착했어요'
+
+  if (isError) {
+    return {
+      label: '보호자 연결',
+      title: '연결 상태를 확인하지 못했어요',
+      description: '연결 관리에서 다시 확인해 주세요.',
+    }
   }
-  return '아직 연결된 보호자가 없어요'
+
+  if (connection?.status === 'CONNECTED') {
+    return {
+      label: '연결 완료',
+      title: `${connection.counterpart?.name ?? '보호자'}님과 연결되어 있어요`,
+      description: '마음잇다가 두 분의 안부를 따뜻하게 이어드릴게요.',
+    }
+  }
+
+  if (connection?.status === 'REQUESTED') {
+    return {
+      label: '새로운 요청',
+      title: `${connection.counterpart?.name ?? '보호자'}님의 연결 요청이 왔어요`,
+      description: '요청을 확인하고 연결 여부를 선택해 주세요.',
+    }
+  }
+
+  return {
+    label: '연결 전',
+    title: '아직 연결된 보호자가 없어요',
+    description: '보호자가 요청을 보내면 이곳에서 알려드릴게요.',
+    action: '연결 정보 보기',
+  }
 }
 
 // SENIOR_HOME_01 (UC-01, UC-13)
 export function SeniorHomePage() {
   const { session } = useSession()
   const connectionQuery = useQuery({ queryKey: CONNECTION_QUERY_KEY, queryFn: fetchMyConnection })
+  const connectionCopy = connectionCardCopy(
+    connectionQuery.data,
+    connectionQuery.isPending,
+    connectionQuery.isError,
+  )
 
   return (
     <>
@@ -43,21 +92,26 @@ export function SeniorHomePage() {
 
           <StartConversationAction />
 
-          <Link className={styles.connection} to="/senior/connection">
-            <span className={styles.connectionIcon} aria-hidden="true">
-              <svg viewBox="0 0 24 24">
-                <circle cx="9" cy="8" r="3" />
-                <circle cx="16.5" cy="9.5" r="2.5" />
-                <path d="M3.5 19c.5-3.6 2.3-5.5 5.5-5.5s5 1.9 5.5 5.5M14 14.5c3.5-.7 5.7.9 6.5 4.5" />
-              </svg>
+          <Link
+            className={styles.connection}
+            to="/senior/connection"
+            aria-label={
+              connectionCopy.action
+                ? `${connectionCopy.title}. ${connectionCopy.action}`
+                : connectionCopy.title
+            }
+          >
+            <span className={styles.connectionCopy}>
+              <span className={styles.connectionLabel}>{connectionCopy.label}</span>
+              <strong>{connectionCopy.title}</strong>
+              <small>{connectionCopy.description}</small>
+              {connectionCopy.action && (
+                <span className={styles.connectionAction}>
+                  {connectionCopy.action} <span aria-hidden="true">›</span>
+                </span>
+              )}
             </span>
-            <span>
-              <strong>보호자 연결 상태를 확인해 주세요</strong>
-              <small>{connectionSummaryText(connectionQuery.data)}</small>
-            </span>
-            <span className={styles.chevron} aria-hidden="true">
-              ›
-            </span>
+            <img className={styles.connectionImage} src={guardianCoupleImage} alt="" />
           </Link>
 
           <ViewAttendanceCalendarAction />

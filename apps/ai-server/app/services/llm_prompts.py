@@ -152,12 +152,9 @@ SYSTEM_PROMPT = f"""\
 # STT_CORRECTION_MODE로 토글한다("model"이어야 위 교정 결과를 신뢰하고,
 # 기본값 "test"는 STT 원문을 그대로 쓴다) — 척도 채점 신뢰 여부와는 독립적이다.
 #
-# 알려진 남은 갭(오늘 스코프 밖): apps/ai-server/app/main.py는 REST 요청마다
-# SessionState를 새로 만든다(session_manager.py의 싱글턴 미사용). pendingScaleItems/
-# prevSessionSummary Form 필드는 받아서 채우도록 8/16에 구현했지만, 백엔드가 실제
-# 값을 채워 보내는 연동(오늘 채점된 문항·최근 요약 DB 조회)은 아직 없어 항상 빈
-# 값이 들어온다 — 8/18에 백엔드 쪽 연동이 붙어야 이 프롬프트가 "오늘 이미 채점된
-# 문항"을 실제로 알게 된다.
+# REST 요청마다 SessionState를 새로 만들되, NestJS가 DB에서 조회한 미채점 문항,
+# 이전 요약, 최근 대화 5개를 함께 보내므로 프로세스 메모리에 세션을 유지하지 않아도
+# 질문 생성에 필요한 문맥을 복원할 수 있다.
 
 # UC-06-4(FR-03-06): 일간 요약(conversationSummary)·추천 행동(recommendedAction) 생성.
 # 시니어가 아니라 "보호자"에게 오늘 하루를 대신 전해주는 역할이라 SYSTEM_PROMPT와는

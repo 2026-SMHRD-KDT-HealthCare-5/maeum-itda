@@ -1,6 +1,6 @@
 /*
 역할: 보호자-시니어 연결의 상태 전이와 사용자별 접근 권한을 처리한다.
-전체 흐름: ConnectionsController → ConnectionsService → 관계/User Repository → MySQL
+전체 흐름: ConnectionsController → ConnectionsService → ConnectionsRepository → MySQL
 */
 import {
   ConflictException,
@@ -8,8 +8,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, QueryFailedError, Repository } from 'typeorm';
+import { QueryFailedError } from 'typeorm';
 import type { AccessTokenPayload } from '../auth/auth.service';
 import {
   ConnectionStatus,
@@ -17,20 +16,11 @@ import {
 } from '../users/entities/guardian-senior-relationship.entity';
 import { User, UserRole } from '../users/entities/user.entity';
 import type { CreateConnectionRequestDto } from './dto/create-connection-request.dto';
-
-const ACTIVE_STATUSES = [
-  ConnectionStatus.REQUESTED,
-  ConnectionStatus.CONNECTED,
-];
+import { ConnectionsRepository } from './repositories/connections.repository';
 
 @Injectable()
 export class ConnectionsService {
-  constructor(
-    @InjectRepository(GuardianSeniorRelationship)
-    private readonly relationshipsRepository: Repository<GuardianSeniorRelationship>,
-    @InjectRepository(User)
-    private readonly usersRepository: Repository<User>,
-  ) {}
+  constructor(private readonly connectionsRepository: ConnectionsRepository) {}
 
   async getMyConnection(authenticatedUser: AccessTokenPayload) {
     const relationship = await this.findActiveForUser(authenticatedUser);
@@ -44,25 +34,18 @@ export class ConnectionsService {
   ) {
     this.requireRole(authenticatedUser, UserRole.GUARDIAN);
 
-    const senior = await this.usersRepository.findOne({
-      where: {
-        loginId: dto.seniorLoginId,
-        role: UserRole.SENIOR,
-        withdrawnAt: IsNull(),
-      },
-    });
+    const senior = await this.connectionsRepository.findSeniorByLoginId(
+      dto.seniorLoginId,
+    );
     if (!senior) {
       throw new NotFoundException('해당 아이디의 시니어를 찾을 수 없습니다.');
     }
     if (await this.findActiveForUser(authenticatedUser)) {
       throw new ConflictException('이미 대기 중인 요청 또는 연결이 있습니다.');
     }
-    const seniorActive = await this.relationshipsRepository.findOne({
-      where: {
-        seniorId: senior.userId,
-        connectionStatus: In(ACTIVE_STATUSES),
-      },
-    });
+    const seniorActive = await this.connectionsRepository.findActiveForSenior(
+      senior.userId,
+    );
     if (seniorActive) {
       throw new ConflictException(
         '해당 시니어는 이미 요청 또는 연결 상태입니다.',
@@ -70,14 +53,10 @@ export class ConnectionsService {
     }
 
     try {
-      const relationship = this.relationshipsRepository.create({
-        guardianId: authenticatedUser.sub,
-        seniorId: senior.userId,
-        connectionStatus: ConnectionStatus.REQUESTED,
-        approvedAt: null,
-        disconnectedAt: null,
-      });
-      const saved = await this.relationshipsRepository.save(relationship);
+      const saved = await this.connectionsRepository.createRequest(
+        authenticatedUser.sub,
+        senior.userId,
+      );
       return this.toResponse(saved, authenticatedUser, senior);
     } catch (error: unknown) {
       if (this.isDuplicateEntry(error)) {
@@ -101,7 +80,7 @@ export class ConnectionsService {
     );
     relationship.connectionStatus = ConnectionStatus.CONNECTED;
     relationship.approvedAt = new Date();
-    const saved = await this.relationshipsRepository.save(relationship);
+    const saved = await this.connectionsRepository.save(relationship);
     return this.toResponse(saved, authenticatedUser);
   }
 
@@ -116,7 +95,7 @@ export class ConnectionsService {
       UserRole.SENIOR,
     );
     relationship.connectionStatus = ConnectionStatus.REJECTED;
-    await this.relationshipsRepository.save(relationship);
+    await this.connectionsRepository.save(relationship);
   }
 
   async cancelRequest(
@@ -131,35 +110,27 @@ export class ConnectionsService {
     );
     // 테이블 명세에는 요청 취소 상태가 없으므로 아직 수락되지 않은 요청 행만 제거한다.
     // 연결 완료·거절·해제 이력은 기존 상태값으로 계속 보존한다.
-    await this.relationshipsRepository.remove(relationship);
+    await this.connectionsRepository.remove(relationship);
   }
 
   async disconnect(authenticatedUser: AccessTokenPayload): Promise<void> {
-    const relationship = await this.relationshipsRepository.findOne({
-      where: {
-        ...(authenticatedUser.role === UserRole.GUARDIAN
-          ? { guardianId: authenticatedUser.sub }
-          : { seniorId: authenticatedUser.sub }),
-        connectionStatus: ConnectionStatus.CONNECTED,
-      },
-    });
+    const relationship = await this.connectionsRepository.findConnectedForUser(
+      authenticatedUser.sub,
+      authenticatedUser.role,
+    );
     if (!relationship) {
       throw new NotFoundException('현재 연결된 사용자가 없습니다.');
     }
     relationship.connectionStatus = ConnectionStatus.DISCONNECTED;
     relationship.disconnectedAt = new Date();
-    await this.relationshipsRepository.save(relationship);
+    await this.connectionsRepository.save(relationship);
   }
 
   private findActiveForUser(authenticatedUser: AccessTokenPayload) {
-    return this.relationshipsRepository.findOne({
-      where: {
-        ...(authenticatedUser.role === UserRole.GUARDIAN
-          ? { guardianId: authenticatedUser.sub }
-          : { seniorId: authenticatedUser.sub }),
-        connectionStatus: In(ACTIVE_STATUSES),
-      },
-    });
+    return this.connectionsRepository.findActiveForUser(
+      authenticatedUser.sub,
+      authenticatedUser.role,
+    );
   }
 
   private async getOwnedRequestedRelationship(
@@ -167,9 +138,8 @@ export class ConnectionsService {
     relationshipId: number,
     ownerRole: UserRole,
   ): Promise<GuardianSeniorRelationship> {
-    const relationship = await this.relationshipsRepository.findOne({
-      where: { relationshipId },
-    });
+    const relationship =
+      await this.connectionsRepository.findById(relationshipId);
     if (!relationship) {
       throw new NotFoundException('연결 요청을 찾을 수 없습니다.');
     }
@@ -197,9 +167,7 @@ export class ConnectionsService {
         : relationship.guardianId;
     const counterpart =
       knownCounterpart ??
-      (await this.usersRepository.findOne({
-        where: { userId: counterpartId },
-      }));
+      (await this.connectionsRepository.findUserById(counterpartId));
     if (!counterpart || counterpart.withdrawnAt !== null) {
       throw new NotFoundException('연결 상대방을 찾을 수 없습니다.');
     }

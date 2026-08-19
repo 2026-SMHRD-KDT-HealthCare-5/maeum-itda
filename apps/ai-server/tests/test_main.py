@@ -224,8 +224,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.json()["answers"][0]["transcript"], "오늘 산책했어요.")
 
     def test_audio_batch_defaults_session_context_when_backend_omits_it(self):
-        """백엔드가 아직 prevSessionSummary/pendingScaleItems를 안 보내는 8/16 시점에도
-        기존과 동일하게 빈 값(SessionState 기본값)으로 동작해야 한다."""
+        """이전 백엔드가 문맥 필드를 생략해도 안전한 기본값으로 동작한다."""
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -254,6 +253,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertIsInstance(session, SessionState)
         self.assertEqual(session.prev_session_summary, "")
         self.assertEqual(session.pending_scale_items, {})
+        self.assertEqual(session.conversation_turns, [])
 
     def test_audio_batch_fills_session_context_from_backend_fields(self):
         with (
@@ -277,6 +277,13 @@ class AudioBatchApiTests(unittest.TestCase):
             fields = self._multipart() + [
                 ("prevSessionSummary", (None, "어제는 산책을 다녀오셨다고 함")),
                 ("pendingScaleItems", (None, '{"SGDS_K": ["1", "2"]}')),
+                (
+                    "conversationTurns",
+                    (
+                        None,
+                        '[{"speakerType":"AI","content":"오늘 기분은 어떠세요?"}]',
+                    ),
+                ),
             ]
             response = self.client.post("/analysis/audio/batch", files=fields)
 
@@ -284,6 +291,20 @@ class AudioBatchApiTests(unittest.TestCase):
         session = generate.call_args[0][1]
         self.assertEqual(session.prev_session_summary, "어제는 산책을 다녀오셨다고 함")
         self.assertEqual(session.pending_scale_items, {"SGDS_K": ["1", "2"]})
+        self.assertEqual(
+            session.conversation_turns,
+            [{"speakerType": "AI", "content": "오늘 기분은 어떠세요?"}],
+        )
+
+    def test_audio_batch_rejects_invalid_conversation_turns(self):
+        with patch("app.main.stt_service.transcribe") as transcribe:
+            fields = self._multipart() + [
+                ("conversationTurns", (None, '[{"speakerType":"SYSTEM","content":"x"}]')),
+            ]
+            response = self.client.post("/analysis/audio/batch", files=fields)
+
+        self.assertEqual(response.status_code, 422)
+        transcribe.assert_not_called()
 
     def test_audio_batch_rejects_malformed_pending_scale_items(self):
         with patch("app.main.stt_service.transcribe") as transcribe:
@@ -353,7 +374,7 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "LLM 다음 질문 생성에 실패했습니다.")
         synthesize.assert_not_awaited()
 
-    def test_tts_exception_returns_502(self):
+    def test_tts_exception_returns_text_question_with_null_tts(self):
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -377,10 +398,12 @@ class AudioBatchApiTests(unittest.TestCase):
                 files=self._multipart(),
             )
 
-        self.assertEqual(response.status_code, 502)
-        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
+        self.assertIsNone(response.json()["ttsAudioBase64"])
+        self.assertIsNone(response.json()["ttsMimeType"])
 
-    def test_empty_tts_audio_returns_502(self):
+    def test_empty_tts_audio_returns_text_question_with_null_tts(self):
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -403,6 +426,66 @@ class AudioBatchApiTests(unittest.TestCase):
                 "/analysis/audio/batch",
                 files=self._multipart(),
             )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
+        self.assertIsNone(response.json()["ttsAudioBase64"])
+        self.assertIsNone(response.json()["ttsMimeType"])
+
+
+class TtsSynthesizeApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_synthesizes_first_question(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(return_value=b"mock-mp3"),
+        ) as synthesize:
+            response = self.client.post(
+                "/tts/synthesize",
+                json={"text": "오늘 하루는 어땠나요?"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "ttsAudioBase64": base64.b64encode(b"mock-mp3").decode("ascii"),
+                "ttsMimeType": _tts_mime_type(
+                    get_settings().typecast_audio_format.lower()
+                ),
+            },
+        )
+        synthesize.assert_awaited_once_with("오늘 하루는 어땠나요?")
+
+    def test_rejects_blank_text(self):
+        response = self.client.post("/tts/synthesize", json={"text": "   "})
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "TTS 변환 문장이 비어 있습니다.")
+
+    def test_rejects_text_longer_than_2000_characters(self):
+        response = self.client.post("/tts/synthesize", json={"text": "가" * 2001})
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_typecast_failure_returns_502(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(side_effect=RuntimeError("Typecast unavailable")),
+        ):
+            response = self.client.post("/tts/synthesize", json={"text": "첫 질문"})
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+
+    def test_empty_audio_returns_502(self):
+        with patch(
+            "app.main.tts_service.synthesize_full",
+            new=AsyncMock(return_value=b""),
+        ):
+            response = self.client.post("/tts/synthesize", json={"text": "첫 질문"})
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")

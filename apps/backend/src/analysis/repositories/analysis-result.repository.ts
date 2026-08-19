@@ -115,7 +115,7 @@ export class AnalysisResultRepository {
       }
 
       let nextQuestion: CompletedAudioAnalysis['nextQuestion'] = null;
-      if (batch.continueConversation && result.nextQuestion !== null) {
+      if (batch.continueConversation) {
         const savedQuestion = await manager.save(
           manager.create(ConversationMessage, {
             seniorId: batch.seniorId,
@@ -137,6 +137,15 @@ export class AnalysisResultRepository {
           content: transcript,
         })),
         nextQuestion,
+        ttsAudio:
+          nextQuestion === null ||
+          result.ttsAudioBase64 === null ||
+          result.ttsMimeType === null
+            ? null
+            : {
+                base64: result.ttsAudioBase64,
+                mimeType: result.ttsMimeType,
+              },
       };
     });
   }

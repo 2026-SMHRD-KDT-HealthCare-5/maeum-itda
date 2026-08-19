@@ -3,9 +3,9 @@
 없으면 그날 정서지수를 재계산한다.
 연결 흐름: ChatStartHandler/AudioBinaryHandler(새 질문 전달 시점마다) → arm(seniorId)
 → 10분 안에 다시 arm되지 않으면 EmotionIndexRecalcTriggerService.recalcToday 실행.
-주의: chat:end/유휴 타임아웃의 즉시 재계산과 달리 WebSocket 연결 객체 생존 여부와
+[완료] chat:end/유휴 타임아웃의 즉시 재계산과 달리 WebSocket 연결 객체 생존 여부와
 무관하게(seniorId 기준 setTimeout) 동작해, 재연결 없이 조용히 끊긴 연결도 잡아낸다.
-MVP는 단일 인스턴스 메모리 기준이라 서버 재시작 시 타이머가 사라진다(결정사항 로그 §0).
+[제약] 단일 인스턴스 메모리 기준이라 서버 재시작 시 타이머가 사라지고 다른 서버와 공유되지 않는다(결정사항 로그 §0).
 */
 import { Injectable } from '@nestjs/common';
 import { EmotionIndexRecalcTriggerService } from '../reports/emotion-index-recalc-trigger.service';
@@ -33,5 +33,14 @@ export class LastTurnRecalcTimerService {
     // 만큼 급하지 않다.
     timer.unref();
     this.timersBySeniorId.set(seniorId, timer);
+  }
+
+  // [완료] 대화가 명시적으로 종료되면 예약된 재계산을 제거해 중복 집계를 막는다.
+  cancel(seniorId: number): void {
+    const timer = this.timersBySeniorId.get(seniorId);
+    if (timer === undefined) return;
+
+    clearTimeout(timer);
+    this.timersBySeniorId.delete(seniorId);
   }
 }

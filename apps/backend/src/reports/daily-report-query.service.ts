@@ -58,7 +58,7 @@ export class DailyReportQueryService {
       seniorId: report.seniorId,
       reportDate: report.reportDate,
       emotionIndex: report.emotionIndex,
-      oneLineSummary: report.oneLineSummary,
+      conversationSummary: report.oneLineSummary,
       recommendedAction: report.recommendedAction,
       generationStatus: report.generationStatus,
       evidences: mapDailyEvidenceRows(evidenceRows),

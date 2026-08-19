@@ -368,12 +368,12 @@ export interface DailyReportResponseDto {
    * 하루 대화 한 줄 요약. 생성 전이면 null
    * @example "오늘은 가족과 산책한 이야기를 편안하게 나누셨어요."
    */
-  oneLineSummary?: object | null;
+  conversationSummary?: string | null;
   /**
    * 보호자에게 제안하는 행동. 생성 전이면 null
    * @example "가벼운 안부 전화를 건네 보세요."
    */
-  recommendedAction?: object | null;
+  recommendedAction?: string | null;
   /** @example "COMPLETED" */
   generationStatus: "WAITING" | "COMPLETED" | "FAILED";
   evidences: DailyReportEvidenceResponseDto[];
@@ -589,9 +589,9 @@ export interface GuardianDashboardDailyReportDto {
   /** @example "BAD" */
   emotionLevel?: "BAD" | "NORMAL" | "GOOD" | null;
   /** @example "평소보다 정서지수가 낮게 나타났어요." */
-  oneLineSummary?: object | null;
+  conversationSummary?: string | null;
   /** @example "가볍게 안부를 확인해 주세요." */
-  recommendedAction?: object | null;
+  recommendedAction?: string | null;
   generationStatus?: "WAITING" | "COMPLETED" | "FAILED" | null;
 }
 

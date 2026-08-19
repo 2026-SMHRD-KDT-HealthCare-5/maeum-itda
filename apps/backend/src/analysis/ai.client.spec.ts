@@ -8,6 +8,15 @@ describe('AiClient', () => {
     seniorId: 7,
     generationId: 'generation-001',
     continueConversation: true,
+    pendingScaleItems: {
+      SGDS_K: ['2'],
+      GAD_7: ['1'],
+      LSNS_6: ['4'],
+    },
+    prevSessionSummary: '어제는 산책을 하셨어요.',
+    conversationTurns: [
+      { speakerType: 'AI', content: '오늘 기분은 어떠세요?' },
+    ],
     answers: [
       {
         messageId: 102,
@@ -33,6 +42,8 @@ describe('AiClient', () => {
       },
     ],
     nextQuestion: '어떤 일이 가장 좋았나요?',
+    ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
+    ttsMimeType: 'audio/mpeg',
   };
 
   const createClient = () =>
@@ -68,5 +79,25 @@ describe('AiClient', () => {
       'HTTP 422',
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('질문 생성 문맥 세 필드를 multipart 요청에 포함한다', async () => {
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(validResult), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await createClient().analyzeAnswerBatch(batch);
+
+    const form = fetchMock.mock.calls[0]?.[1]?.body as FormData;
+    expect(form.get('pendingScaleItems')).toBe(
+      JSON.stringify(batch.pendingScaleItems),
+    );
+    expect(form.get('prevSessionSummary')).toBe(batch.prevSessionSummary);
+    expect(form.get('conversationTurns')).toBe(
+      JSON.stringify(batch.conversationTurns),
+    );
   });
 });

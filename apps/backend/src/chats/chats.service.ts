@@ -1,11 +1,12 @@
 /*
 역할: Handler가 전달한 대화 요청의 업무 처리 순서 관리
-연결 객체: ConversationMessageRepository, AnalysisService
-전체 흐름: ChatStartHandler → ChatsService → ConversationMessageRepository 또는 AnalysisService
+연결 객체: ConversationMessageRepository
+전체 흐름: ChatStartHandler → ChatsService → ConversationMessageRepository
 */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { AnalysisService } from '../analysis/analysis.service';
+import type { TtsAudioResult } from '../analysis/dto/audio-analysis.contract';
+import { TtsClient } from '../analysis/tts.client';
 import { ConversationMessageRepository } from './repositories/conversation-message.repository';
 
 const INITIAL_AI_QUESTION = '오늘 하루는 어땠나요?'; // 대화 시작 시 사용하는 최초 고정 질문
@@ -15,20 +16,22 @@ export interface StartedChat {
   messageId: number;
   generationId: string;
   content: string;
+  ttsAudio: TtsAudioResult | null;
 }
 
 @Injectable()
 export class ChatsService {
-  private readonly analysisService: AnalysisService; // 이후 시니어 답변을 FastAPI로 전달할 객체
+  private readonly logger = new Logger(ChatsService.name);
   private readonly conversationMessageRepository: ConversationMessageRepository; // 대화 메시지 DB 처리 객체
+  private readonly ttsClient: TtsClient;
 
   // NestJS DI 컨테이너가 AnalysisService와 ConversationMessageRepository 객체를 주입
   constructor(
-    analysisService: AnalysisService,
     conversationMessageRepository: ConversationMessageRepository,
+    ttsClient: TtsClient,
   ) {
-    this.analysisService = analysisService;
     this.conversationMessageRepository = conversationMessageRepository;
+    this.ttsClient = ttsClient;
   }
 
   // 역할: generationId 발급과 최초 고정 질문 저장 순서 관리
@@ -46,10 +49,28 @@ export class ChatsService {
       );
 
     // DB MESSAGE_ID를 AI 질문임이 드러나는 WS 필드명으로 Handler에 전달
+    const content = savedQuestion.content ?? INITIAL_AI_QUESTION;
+    const ttsAudio = await this.synthesizeInitialQuestion(content);
+
     return {
       messageId: savedQuestion.messageId,
       generationId,
-      content: savedQuestion.content ?? INITIAL_AI_QUESTION,
+      content,
+      ttsAudio,
     };
+  }
+
+  // [완료] TTS 장애가 대화 시작을 막지 않도록 실패 시 텍스트 질문만 반환한다.
+  private async synthesizeInitialQuestion(
+    content: string,
+  ): Promise<TtsAudioResult | null> {
+    try {
+      return await this.ttsClient.synthesize(content);
+    } catch (error: unknown) {
+      this.logger.warn(
+        `첫 질문 TTS 생성 실패, 텍스트 질문으로 대체: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    }
   }
 }

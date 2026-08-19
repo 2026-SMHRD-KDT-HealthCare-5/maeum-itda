@@ -6,6 +6,8 @@ import { ChatStartHandler } from './chat-start.handler';
 import type { ChatConnectionStateService } from '../chat-connection-state.service';
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatStartEvent } from '../client-ws-event';
+import type { ChatInactivityService } from '../chat-inactivity.service';
+import { QuestionDeliveryService } from '../question-delivery.service';
 
 const chatStartEvent: ChatStartEvent = {
   event: 'chat:start',
@@ -14,12 +16,23 @@ const chatStartEvent: ChatStartEvent = {
 };
 
 describe('ChatStartHandler', () => {
+  const chatInactivityService = {
+    startWaitingForAnswer: jest.fn(),
+  } as unknown as ChatInactivityService;
+  const recalcTriggerService = {
+    recalcToday: jest.fn(),
+  } as unknown as EmotionIndexRecalcTriggerService;
+  const lastTurnRecalcTimerService = {
+    arm: jest.fn(),
+  } as unknown as LastTurnRecalcTimerService;
+
   it('chat:start 수신 시 chat:started와 ai:question을 순서대로 전송한다', async () => {
     const chatsService = {
       startChat: jest.fn().mockResolvedValue({
         messageId: 101,
         generationId: 'generation-001',
         content: '오늘 하루는 어땠나요?',
+        ttsAudio: null,
       }),
     };
     const client = { send: jest.fn<void, [string]>(), readyState: 1 };
@@ -30,6 +43,10 @@ describe('ChatStartHandler', () => {
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
       chatConnectionStateService as unknown as ChatConnectionStateService,
+      chatInactivityService,
+      recalcTriggerService,
+      lastTurnRecalcTimerService,
+      new QuestionDeliveryService(),
     );
 
     await handler.handleChatStart(
@@ -63,6 +80,7 @@ describe('ChatStartHandler', () => {
         messageId: 101,
         generationId: 'generation-001',
         content: '오늘 하루는 어땠나요?',
+        ttsAudio: null,
       }),
     };
     const client = { send: jest.fn<void, [string]>(), readyState: 1 };
@@ -75,9 +93,10 @@ describe('ChatStartHandler', () => {
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
       chatConnectionStateService as unknown as ChatConnectionStateService,
-      undefined,
+      chatInactivityService,
       recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
+      new QuestionDeliveryService(),
     );
 
     await handler.handleChatStart(
@@ -103,6 +122,10 @@ describe('ChatStartHandler', () => {
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
       state as unknown as ChatConnectionStateService,
+      chatInactivityService,
+      recalcTriggerService,
+      lastTurnRecalcTimerService,
+      new QuestionDeliveryService(),
     );
 
     await handler.handleChatStart(

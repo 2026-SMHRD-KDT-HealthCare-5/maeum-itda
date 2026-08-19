@@ -1,7 +1,9 @@
 /*
 역할: audio:metadata 이벤트 검증과 음성 바이너리 수신 전 임시 상태 보관
 연결 객체: WebSocket 연결 객체, 인증된 사용자 정보
-전체 흐름: ChatsGateway → AudioMetadataHandler → 연결별 pending metadata → 음성 바이너리 처리 예정
+전체 흐름: ChatsGateway → AudioMetadataHandler → 연결별 pending metadata → AudioBinaryHandler
+[완료] metadata와 다음 binary frame을 연결별로 한 번만 페어링하고 제한 시간 뒤 폐기한다.
+[제약] pending metadata는 프로세스 메모리에 있어 서버 재시작이나 다른 인스턴스로의 재접속 시 복원되지 않는다.
 */
 import { Injectable } from '@nestjs/common';
 import type WebSocket from 'ws';
@@ -109,7 +111,7 @@ export class AudioMetadataHandler {
   }
 
   // 역할: 다음 음성 바이너리와 연결할 pending metadata 조회
-  // 다음 호출: 바이너리 처리 Handler 구현 시 사용
+  // 다음 호출: AudioBinaryHandler가 binary frame과 metadata를 페어링할 때 사용
   getPendingMetadata(client: WebSocket): AudioMetadata | undefined {
     return this.pendingMetadataByClient.get(client)?.metadata;
   }

@@ -29,6 +29,15 @@ export interface QuestionAnswerBatch {
   // false면 종료 직전 답변 분석 결과만 저장하고 다음 AI 질문은 저장·전송하지 않는다.
   continueConversation: boolean;
   answers: QueuedAnswerSegment[];
+  // AnalysisService가 FastAPI 호출 직전에 DB 기준 최신 컨텍스트로 채운다.
+  pendingScaleItems?: Record<ScaleType, string[]>;
+  prevSessionSummary?: string;
+  conversationTurns?: ConversationTurn[];
+}
+
+export interface ConversationTurn {
+  speakerType: 'AI' | 'SENIOR';
+  content: string;
 }
 
 export interface ScaleAnalysisResult {
@@ -49,7 +58,15 @@ export interface AnswerAnalysisResult {
 // FastAPI가 질문별 음성 묶음 전체를 분석한 응답이다.
 export interface QuestionAnswerAnalysisResult {
   answers: AnswerAnalysisResult[];
-  nextQuestion: string | null;
+  nextQuestion: string;
+  // FastAPI에서 다음 질문 생성은 성공했지만 TTS만 실패한 경우 두 필드는 함께 null이다.
+  ttsAudioBase64: string | null;
+  ttsMimeType: string | null;
+}
+
+export interface TtsAudioResult {
+  base64: string;
+  mimeType: string;
 }
 
 // DB 저장 완료 후 WebSocket으로 다음 질문을 보낼 때 사용하는 NestJS 내부 결과다.
@@ -61,4 +78,5 @@ export interface CompletedAudioAnalysis {
     generationId: string;
     content: string;
   } | null;
+  ttsAudio: TtsAudioResult | null;
 }

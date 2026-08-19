@@ -1,7 +1,8 @@
 /*
 역할: 질문별 음성 묶음의 임시 보관, FastAPI REST 호출, 분석 결과 DB 저장 순서를 관리한다.
 전체 흐름: AudioBinaryHandler → AnalysisService → TemporaryAudioRepository/AiClient/AnalysisResultRepository
-주의: STT·감성·척도·다음 질문 생성 자체는 FastAPI 책임이며 NestJS는 전달과 영속화만 담당한다.
+[완료] STT·감성·척도·다음 질문 생성 자체는 FastAPI 책임이며 NestJS는 전달과 영속화만 담당한다.
+[연동 대기] 실제 FastAPI 가용성은 분석 요청 결과로 확인하며 현재 메서드는 URL 설정 여부만 판단한다.
 */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -12,6 +13,7 @@ import {
 } from './dto/audio-analysis.contract';
 import { AnalysisResultRepository } from './repositories/analysis-result.repository';
 import { TemporaryAudioRepository } from './repositories/temporary-audio.repository';
+import { AnalysisContextRepository } from './repositories/analysis-context.repository';
 
 @Injectable()
 export class AnalysisService {
@@ -19,9 +21,10 @@ export class AnalysisService {
     private readonly aiClient: AiClient,
     private readonly temporaryAudioRepository: TemporaryAudioRepository,
     private readonly analysisResultRepository: AnalysisResultRepository,
+    private readonly analysisContextRepository: AnalysisContextRepository,
   ) {}
 
-  // 역할: 5초 추가 답변 대기가 끝난 묶음을 보관하고 모든 답변을 WAITING으로 표시한다.
+  // 역할: 10초 추가 답변 대기가 끝난 묶음을 보관하고 모든 답변을 WAITING으로 표시한다.
   async enqueueAnswerBatch(batch: QuestionAnswerBatch): Promise<void> {
     this.temporaryAudioRepository.save(batch);
     await this.analysisResultRepository.markWaiting(
@@ -29,15 +32,15 @@ export class AnalysisService {
     );
   }
 
-  isFastApiConnected(): boolean {
-    return this.aiClient.isConnected();
+  isFastApiConfigured(): boolean {
+    return this.aiClient.isConfigured();
   }
 
   // 역할: 질문별 음성 전체를 FastAPI에 한 번 요청하고 답변별 결과와 다음 질문을 저장한다.
   async processPendingAnswerBatch(
     questionMessageId: number,
   ): Promise<CompletedAudioAnalysis | null> {
-    if (!this.aiClient.isConnected()) return null;
+    if (!this.aiClient.isConfigured()) return null;
 
     const batch =
       this.temporaryAudioRepository.findByQuestionMessageId(questionMessageId);
@@ -50,9 +53,11 @@ export class AnalysisService {
     const messageIds = batch.answers.map(({ messageId }) => messageId);
     await this.analysisResultRepository.markProcessing(messageIds);
     try {
-      const result = await this.aiClient.analyzeAnswerBatch(batch);
+      const context = await this.analysisContextRepository.findForBatch(batch);
+      const requestBatch = { ...batch, ...context };
+      const result = await this.aiClient.analyzeAnswerBatch(requestBatch);
       const completed = await this.analysisResultRepository.saveCompleted(
-        batch,
+        requestBatch,
         randomUUID(),
         result,
       );

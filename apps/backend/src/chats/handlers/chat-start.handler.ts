@@ -13,22 +13,32 @@ import { ChatConnectionStateService } from '../chat-connection-state.service';
 import { ChatInactivityService } from '../chat-inactivity.service';
 import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatStartEvent } from '../client-ws-event';
+import { QuestionDeliveryService } from '../question-delivery.service';
 
 @Injectable()
 export class ChatStartHandler {
   private readonly chatsService: ChatsService; // 최초 질문 생성·저장 업무 객체
   private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
+  private readonly chatInactivityService: ChatInactivityService;
+  private readonly recalcTriggerService: EmotionIndexRecalcTriggerService;
+  private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
+  private readonly questionDeliveryService: QuestionDeliveryService;
 
   // NestJS DI 컨테이너가 ChatsService 객체를 생성자에 주입
   constructor(
     chatsService: ChatsService,
     chatConnectionStateService: ChatConnectionStateService,
-    private readonly chatInactivityService?: ChatInactivityService,
-    private readonly recalcTriggerService?: EmotionIndexRecalcTriggerService,
-    private readonly lastTurnRecalcTimerService?: LastTurnRecalcTimerService,
+    chatInactivityService: ChatInactivityService,
+    recalcTriggerService: EmotionIndexRecalcTriggerService,
+    lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+    questionDeliveryService: QuestionDeliveryService,
   ) {
     this.chatsService = chatsService;
     this.chatConnectionStateService = chatConnectionStateService;
+    this.chatInactivityService = chatInactivityService;
+    this.recalcTriggerService = recalcTriggerService;
+    this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+    this.questionDeliveryService = questionDeliveryService;
   }
 
   // 역할: chat:start 검증 후 최초 고정 질문 생성 요청과 결과 전송
@@ -66,16 +76,15 @@ export class ChatStartHandler {
         authenticatedUser.sub,
       );
 
-      // 같은 날 다시 대화를 시작하는 시점에 그날 리포트를 최신 상태로 갱신한다
-      // (결정사항 로그 §0 "같은 날 다시 대화하면... 재계산하고 갱신한다"). 그날
-      // 첫 대화라도 멱등이라 안전하다.
-      this.recalcTriggerService?.recalcToday(authenticatedUser.sub);
-      this.lastTurnRecalcTimerService?.arm(authenticatedUser.sub);
+      // [완료] 첫 대화와 재대화를 구분하지 않고 대화 시작 시 오늘 리포트를 갱신한다.
+      // 같은 날짜의 기존 리포트는 덮어쓰는 멱등 처리이므로 첫 대화에서도 안전하다.
+      this.recalcTriggerService.recalcToday(authenticatedUser.sub);
+      this.lastTurnRecalcTimerService.arm(authenticatedUser.sub);
 
       // DB 저장이 끝난 경우에만 시작 완료와 AI 질문을 순서대로 전송
       this.handleChatStarted(client);
       this.handleAiQuestion(client, startedChat);
-      this.chatInactivityService?.startWaitingForAnswer(client);
+      this.chatInactivityService.startWaitingForAnswer(client);
     } catch {
       sendWsError(client, {
         code: 'INTERNAL_ERROR',
@@ -97,6 +106,7 @@ export class ChatStartHandler {
   // 연결 객체: WebSocket 연결 객체, ChatsService 반환 결과
   // 다음 호출: ai:question 전송 → 프론트 질문 출력
   private handleAiQuestion(client: WebSocket, startedChat: StartedChat): void {
-    sendWsEvent(client, 'ai:question', startedChat);
+    const { ttsAudio, ...question } = startedChat;
+    this.questionDeliveryService.deliver(client, question, ttsAudio);
   }
 }

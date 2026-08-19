@@ -11,6 +11,7 @@ import {
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, LoadingSpinner } from '../../../shared/ui'
+import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.png'
 import styles from './SeniorConnectionPage.module.css'
 
 // SENIOR_LINK_01 (UC-00-1) — 받은 연결 요청(GET /connections/me의 status가
@@ -84,7 +85,15 @@ export function SeniorConnectionPage() {
           />
         ) : (
           connectionQuery.isSuccess && (
-            <p className={styles.statusMessage}>받은 연결 요청이 없어요.</p>
+            <section className={styles.emptyState} aria-labelledby="empty-connection-title">
+              <img
+                className={styles.emptyCharacter}
+                src={daseulNoNotificationImage}
+                alt="새로운 소식을 기다리는 다슬"
+              />
+              <h1 id="empty-connection-title">아직 도착한 연결 요청이 없어요.</h1>
+              <p>보호자가 연결을 요청하면 이곳에서 바로 확인할 수 있어요.</p>
+            </section>
           )
         ))}
     </main>

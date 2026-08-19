@@ -14,6 +14,8 @@ from app.schemas import (
     BatchAnalysisResponse,
     DailySummaryRequest,
     DailySummaryResponse,
+    TtsSynthesizeRequest,
+    TtsSynthesizeResponse,
 )
 from app.services import emotion as emotion_service
 from app.services import llm as llm_service
@@ -43,11 +45,12 @@ async def analyze_audio_batch(
     end_types: list[str] = Form(alias="endTypes"),
     prev_session_summary: str = Form(alias="prevSessionSummary", default=""),
     pending_scale_items: str = Form(alias="pendingScaleItems", default="{}"),
+    conversation_turns: str = Form(alias="conversationTurns", default="[]"),
 ) -> BatchAnalysisResponse:
     """WebSocket 대신 한 질문의 음성 묶음을 REST로 분석한다.
 
-    prevSessionSummary/pendingScaleItems는 백엔드가 아직 채워 보내지 않으므로
-    (8/18 연동 예정) 기본값(빈 문자열/빈 객체)으로도 기존과 동일하게 동작해야 한다.
+    세 문맥 필드는 백엔드가 DB에서 조회해 JSON 문자열로 전달한다. 기본값은 이전
+    클라이언트와의 호환을 위해 유지한다.
     """
     lengths = {
         len(audio_files),
@@ -62,6 +65,7 @@ async def analyze_audio_batch(
         raise HTTPException(status_code=422, detail="endTypes 값이 올바르지 않습니다.")
 
     pending_scale_items_dict = _parse_pending_scale_items(pending_scale_items)
+    conversation_turns_list = _parse_conversation_turns(conversation_turns)
 
     processed_answers: list[dict] = []
 
@@ -91,6 +95,7 @@ async def analyze_audio_batch(
         user_id=str(question_message_id),
         prev_session_summary=prev_session_summary,
         pending_scale_items=pending_scale_items_dict,
+        conversation_turns=conversation_turns_list,
     )
     llm_result = await asyncio.to_thread(
         llm_service.generate_next_question,
@@ -120,20 +125,50 @@ async def analyze_audio_batch(
         for answer in processed_answers
     ]
 
+    # 분석·질문 생성과 TTS 장애를 분리한다. Typecast가 실패해도 텍스트 대화는 계속된다.
+    tts_audio_base64: str | None = None
+    tts_mime_type: str | None = None
     try:
         tts_audio = await tts_service.synthesize_full(next_question)
+        if tts_audio:
+            audio_format = get_settings().typecast_audio_format.lower()
+            tts_audio_base64 = base64.b64encode(tts_audio).decode("ascii")
+            tts_mime_type = _tts_mime_type(audio_format)
+        else:
+            logger.warning("다음 질문 TTS 결과가 비어 있어 텍스트 질문만 반환합니다.")
+    except Exception:  # noqa: BLE001
+        logger.exception("다음 질문 TTS 생성 실패, 텍스트 질문으로 계속 진행합니다.")
+
+    return BatchAnalysisResponse(
+        answers=answers,
+        nextQuestion=next_question,
+        ttsAudioBase64=tts_audio_base64,
+        ttsMimeType=tts_mime_type,
+    )
+
+
+@app.post("/tts/synthesize", response_model=TtsSynthesizeResponse)
+async def synthesize_tts(request: TtsSynthesizeRequest) -> TtsSynthesizeResponse:
+    """NestJS가 저장한 첫 질문을 Typecast 음성으로 변환한다.
+
+    첫 질문은 음성 분석 요청 전에 생성되므로 `/analysis/audio/batch`와 분리한다.
+    이 API가 실패하면 NestJS는 텍스트 질문으로 대화를 계속한다.
+    """
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="TTS 변환 문장이 비어 있습니다.")
+
+    try:
+        tts_audio = await tts_service.synthesize_full(text)
     except Exception as exc:  # noqa: BLE001
-        logger.exception("TTS 생성 실패: %s", exc)
+        logger.exception("첫 질문 TTS 생성 실패: %s", exc)
         raise HTTPException(status_code=502, detail="TTS 음성 생성에 실패했습니다.") from exc
 
     if not tts_audio:
         raise HTTPException(status_code=502, detail="TTS 음성 결과가 비어 있습니다.")
 
     audio_format = get_settings().typecast_audio_format.lower()
-
-    return BatchAnalysisResponse(
-        answers=answers,
-        nextQuestion=next_question,
+    return TtsSynthesizeResponse(
         ttsAudioBase64=base64.b64encode(tts_audio).decode("ascii"),
         ttsMimeType=_tts_mime_type(audio_format),
     )
@@ -201,6 +236,40 @@ def _parse_pending_scale_items(raw: str) -> dict[str, list[str]]:
             detail="pendingScaleItems는 {scaleType: [questionNumber, ...]} 형태의 JSON 객체여야 합니다.",
         )
     return parsed
+
+
+def _parse_conversation_turns(raw: str) -> list[dict[str, str]]:
+    """NestJS가 전달한 최근 대화 최대 5개를 프롬프트용 안전한 형태로 검증한다."""
+    try:
+        parsed = json.loads(raw) if raw else []
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=422, detail="conversationTurns가 올바른 JSON이 아닙니다."
+        ) from exc
+
+    if not isinstance(parsed, list) or len(parsed) > 5:
+        raise HTTPException(
+            status_code=422, detail="conversationTurns는 최대 5개의 JSON 배열이어야 합니다."
+        )
+
+    validated: list[dict[str, str]] = []
+    for turn in parsed:
+        if not isinstance(turn, dict):
+            raise HTTPException(status_code=422, detail="대화 항목은 JSON 객체여야 합니다.")
+        speaker_type = turn.get("speakerType")
+        content = turn.get("content")
+        if (
+            speaker_type not in {"AI", "SENIOR"}
+            or not isinstance(content, str)
+            or not content.strip()
+            or len(content) > 4000
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail="대화 항목에는 올바른 speakerType과 content가 필요합니다.",
+            )
+        validated.append({"speakerType": speaker_type, "content": content.strip()})
+    return validated
 
 
 def _resolve_audio_format(audio_file: UploadFile) -> str:

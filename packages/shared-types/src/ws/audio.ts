@@ -26,8 +26,10 @@ export interface AudioTranscriptPayload {
   transcripts: Array<{ messageId: number; content: string }>
 }
 
-// TTS는 MVP 구현 범위 밖이지만 향후 시니어 음성과 구분할 전송 ID 이름만 확정한다.
+// 질문별 완성 TTS를 Base64로 전달한다. messageId로 ai:question과 연결한다.
 export interface TtsTransferPayload {
   ttsTransferId: string
   messageId: number
+  base64: string
+  mimeType: string
 }

@@ -13,6 +13,9 @@ import { ConversationMessage } from '../chats/entities/conversation-message.enti
 import { AnalysisController } from './analysis.controller';
 import { AnalysisResultRepository } from './repositories/analysis-result.repository';
 import { TemporaryAudioRepository } from './repositories/temporary-audio.repository';
+import { TtsClient } from './tts.client';
+import { DailyEmotionReport } from '../reports/entities/daily-emotion-report.entity';
+import { AnalysisContextRepository } from './repositories/analysis-context.repository';
 
 // 역할: 분석 REST 진입점, 업무 Service, FastAPI Client와 DB·메모리 Repository를 등록한다.
 // 연결 흐름: ChatsModule → AnalysisService → AiClient/Repository이며 외부에는 AnalysisService만 공개한다.
@@ -25,15 +28,18 @@ import { TemporaryAudioRepository } from './repositories/temporary-audio.reposit
       EmotionTag,
       VoiceAnalysisStatus,
       ConversationMessage,
+      DailyEmotionReport,
     ]),
   ],
   controllers: [AnalysisController],
   providers: [
     AnalysisService,
     AiClient,
+    TtsClient,
     AnalysisResultRepository,
     TemporaryAudioRepository,
+    AnalysisContextRepository,
   ],
-  exports: [AnalysisService],
+  exports: [AnalysisService, TtsClient],
 })
 export class AnalysisModule {}

@@ -33,7 +33,25 @@ describe('validateQuestionAnswerAnalysisResponse', () => {
       },
     ],
     nextQuestion: '어떤 일이 가장 좋았나요?',
+    ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
+    ttsMimeType: 'audio/mpeg',
   };
+
+  it('TTS가 실패한 응답은 Base64와 MIME이 모두 null일 때만 허용한다', () => {
+    expect(
+      validateQuestionAnswerAnalysisResponse(
+        { ...validResult, ttsAudioBase64: null, ttsMimeType: null },
+        batch,
+      ),
+    ).toEqual({ ...validResult, ttsAudioBase64: null, ttsMimeType: null });
+
+    expect(() =>
+      validateQuestionAnswerAnalysisResponse(
+        { ...validResult, ttsAudioBase64: null },
+        batch,
+      ),
+    ).toThrow('함께 제공');
+  });
 
   it.each([
     ['SGDS_K', 1],

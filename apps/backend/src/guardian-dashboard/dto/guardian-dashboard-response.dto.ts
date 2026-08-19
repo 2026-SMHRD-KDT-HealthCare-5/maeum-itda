@@ -45,12 +45,14 @@ export class GuardianDashboardDailyReportDto {
   emotionLevel: EmotionLevel | null;
 
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example: '평소보다 정서지수가 낮게 나타났어요.',
   })
-  oneLineSummary: string | null;
+  conversationSummary: string | null;
 
   @ApiPropertyOptional({
+    type: String,
     nullable: true,
     example: '가볍게 안부를 확인해 주세요.',
   })
