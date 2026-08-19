@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
   WeeklyStatsCards,
   fetchReportCalendar,
   fetchWeeklyReport,
+  type WeeklyReport,
 } from '../../../entities/report'
 import { SelectReportWeekAction } from '../../../features/select-report-week'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.png'
@@ -39,17 +40,32 @@ export function GuardianWeeklyReportPage() {
     queryKey: ['weekly-report', selectedWeekStart],
     queryFn: () => fetchWeeklyReport(selectedWeekStart),
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
-    placeholderData: keepPreviousData,
   })
 
-  // isPending 대신 isFetching — placeholderData(keepPreviousData)로 주가 바뀌어도
-  // isPending은 계속 false다.
   const showSpinner = useDelayedPending(weeklyReportQuery.isFetching)
-  // isPlaceholderData인 동안 data는 이전 주 값이다 — 그대로 노출하면 다른 주
-  // 카드가 잠깐 보였다 사라지는 것처럼 보이므로, fetch가 끝나 이 주 값으로
-  // 확정되기 전까지는 비워서 스피너만 보이게 한다.
-  const report = weeklyReportQuery.isPlaceholderData ? undefined : weeklyReportQuery.data
-  const reportMissing = weeklyReportQuery.isError && isNotFoundError(weeklyReportQuery.error)
+
+  // react-query의 placeholderData(keepPreviousData)는 "이전 성공 데이터"만 이어줄 뿐
+  // "이전 주도 리포트가 없었다(404)"는 상태는 안 이어준다 — 그래서 데이터 없는 주에서
+  // 데이터 없는 주로 넘어갈 때도 fetch 도중 화면이 비었다 돌아오며 깜빡였다.
+  // 성공/404 둘 다 확정 결과로 기억해뒀다가 새 주 fetch가 끝나기 전까진 그대로
+  // 보여준다. useEffect 대신 렌더 중 state 조정 패턴(react.dev 권장)을 쓴다 —
+  // resolvedWeekStart가 selectedWeekStart와 달라졌을 때만 갱신해 무한 렌더를 막는다.
+  const [resolvedWeekStart, setResolvedWeekStart] = useState<string | null>(null)
+  const [resolvedView, setResolvedView] = useState<
+    { kind: 'found'; report: WeeklyReport } | { kind: 'missing' } | null
+  >(null)
+  const queryReportMissing = weeklyReportQuery.isError && isNotFoundError(weeklyReportQuery.error)
+
+  if (resolvedWeekStart !== selectedWeekStart && weeklyReportQuery.isSuccess) {
+    setResolvedWeekStart(selectedWeekStart)
+    setResolvedView({ kind: 'found', report: weeklyReportQuery.data })
+  } else if (resolvedWeekStart !== selectedWeekStart && queryReportMissing) {
+    setResolvedWeekStart(selectedWeekStart)
+    setResolvedView({ kind: 'missing' })
+  }
+
+  const report = resolvedView?.kind === 'found' ? resolvedView.report : null
+  const reportMissing = resolvedView?.kind === 'missing'
 
   return (
     <>
