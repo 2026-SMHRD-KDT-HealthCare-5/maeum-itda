@@ -468,6 +468,118 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertIsNone(response.json()["ttsMimeType"])
 
 
+class NextQuestionFromTextApiTests(unittest.TestCase):
+    """재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난 경우, 새 음성 답변
+    없이 기존 문맥만으로 이어갈 질문을 생성하는 /analysis/text/next-question."""
+
+    def setUp(self):
+        self.client = TestClient(app)
+
+    def test_generates_question_from_context_without_new_audio(self):
+        with (
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={
+                    "ai_question": "잠을 설치실 때 특별히 신경 쓰이는 게 있으셨어요?"
+                },
+            ) as generate,
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(return_value=b"mock-mp3"),
+            ) as synthesize,
+        ):
+            response = self.client.post(
+                "/analysis/text/next-question",
+                json={
+                    "seniorId": 7,
+                    "prevSessionSummary": "어제는 산책을 하셨어요.",
+                    "pendingScaleItems": {"SGDS_K": ["2"]},
+                    "conversationTurns": [
+                        {"speakerType": "AI", "content": "오늘 하루는 어땠나요?"},
+                        {"speakerType": "SENIOR", "content": "요즘 잠을 잘 못 자요."},
+                    ],
+                },
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(
+            response.json(),
+            {
+                "question": "잠을 설치실 때 특별히 신경 쓰이는 게 있으셨어요?",
+                "ttsAudioBase64": base64.b64encode(b"mock-mp3").decode("ascii"),
+                "ttsMimeType": _tts_mime_type(
+                    get_settings().typecast_audio_format.lower()
+                ),
+            },
+        )
+        answers, session = generate.call_args[0]
+        self.assertEqual(answers, [])
+        self.assertEqual(session.prev_session_summary, "어제는 산책을 하셨어요.")
+        self.assertEqual(session.pending_scale_items, {"SGDS_K": ["2"]})
+        self.assertEqual(
+            session.conversation_turns,
+            [
+                {"speakerType": "AI", "content": "오늘 하루는 어땠나요?"},
+                {"speakerType": "SENIOR", "content": "요즘 잠을 잘 못 자요."},
+            ],
+        )
+        synthesize.assert_awaited_once_with(
+            "잠을 설치실 때 특별히 신경 쓰이는 게 있으셨어요?"
+        )
+
+    def test_empty_llm_question_returns_502_without_tts(self):
+        with (
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "   "},
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(),
+            ) as synthesize,
+        ):
+            response = self.client.post(
+                "/analysis/text/next-question",
+                json={"seniorId": 7},
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "LLM 이어가기 질문 생성에 실패했습니다.")
+        synthesize.assert_not_awaited()
+
+    def test_tts_exception_returns_text_question_with_null_tts(self):
+        with (
+            patch(
+                "app.main.llm_service.generate_next_question",
+                return_value={"ai_question": "오늘은 어떠셨어요?"},
+            ),
+            patch(
+                "app.main.tts_service.synthesize_full",
+                new=AsyncMock(side_effect=RuntimeError("Typecast unavailable")),
+            ),
+        ):
+            response = self.client.post(
+                "/analysis/text/next-question",
+                json={"seniorId": 7},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["question"], "오늘은 어떠셨어요?")
+        self.assertIsNone(response.json()["ttsAudioBase64"])
+        self.assertIsNone(response.json()["ttsMimeType"])
+
+    def test_rejects_invalid_speaker_type(self):
+        response = self.client.post(
+            "/analysis/text/next-question",
+            json={
+                "seniorId": 7,
+                "conversationTurns": [{"speakerType": "GUARDIAN", "content": "x"}],
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+
+
 class TtsSynthesizeApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)

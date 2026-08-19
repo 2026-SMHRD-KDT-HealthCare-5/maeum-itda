@@ -372,7 +372,8 @@ Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio
 }
 ```
 
-- 최초 질문을 DB에 저장한 뒤 `chat:started`, (TTS 성공 시 `tts:audio`,) `ai:question` 순서로 보낸다.
+- 오늘(Asia/Seoul) 이 시니어의 마지막 메시지를 DB에서 조회해 질문을 정한다 — 오늘 메시지가 없으면 고정 문구("오늘 하루는 어땠나요?")로 새로 시작하고, 마지막 메시지가 AI 질문(아직 답변 못 받음)이면 새로 만들지 않고 그 메시지를 그대로 재사용하며, 마지막 메시지가 시니어 답변으로 끝났으면(주로 `chat:end` 중 처리되던 답변만 저장되고 다음 질문은 저장되지 않은 경우) FastAPI `/analysis/text/next-question`으로 그 문맥을 이어갈 질문을 새로 생성한다(실패하거나 FastAPI 미설정이면 고정 문구로 대체). 이렇게 정해진 질문을 DB에 저장(또는 재사용)한 뒤 `chat:started`, (TTS 성공 시 `tts:audio`,) `ai:question` 순서로 보낸다.
+- 위 DB 기준 재개는 서버 프로세스 재시작·인스턴스 교체 후에도 동작한다(같은 프로세스 내 단기 재접속은 `ChatConnectionStateService`의 메모리 상태로 더 빠르게 `chat:restored`로 복원되며, 이 경우 뒤이은 `chat:start`는 `CHAT_ALREADY_STARTED`로 무시된다 — 8절 참고).
 - 활성 질문이 있는데 다시 시작하면 `CHAT_ALREADY_STARTED` 오류를 보낸다.
 - `generationId`는 질문 생성 작업 단위다.
 - Typecast 호출이 실패하면 `tts:audio` 없이 `ai:question`만 보낸다 — 텍스트 질문으로 대화는 계속된다(프론트는 TTS 재생 없이 곧바로 마이크를 연다).

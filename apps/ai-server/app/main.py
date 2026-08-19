@@ -14,6 +14,8 @@ from app.schemas import (
     BatchAnalysisResponse,
     DailySummaryRequest,
     DailySummaryResponse,
+    NextQuestionRequest,
+    NextQuestionResponse,
     TtsSynthesizeRequest,
     TtsSynthesizeResponse,
 )
@@ -153,6 +155,55 @@ async def analyze_audio_batch(
     return BatchAnalysisResponse(
         answers=answers,
         nextQuestion=next_question,
+        ttsAudioBase64=tts_audio_base64,
+        ttsMimeType=tts_mime_type,
+    )
+
+
+@app.post("/analysis/text/next-question", response_model=NextQuestionResponse)
+async def generate_next_question_from_text(
+    request: NextQuestionRequest,
+) -> NextQuestionResponse:
+    """재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난 경우(주로 chat:end 중
+    처리 중이던 답변만 저장되고 다음 질문은 저장되지 않은 경우), 새 음성 답변
+    없이 기존 문맥만으로 이어갈 질문을 생성한다.
+
+    이 답변은 이미 STT·척도채점이 끝난 뒤라 다시 채점하지 않는다 —
+    llm_service.generate_next_question을 답변 없이(빈 리스트) 호출해 질문
+    생성만 재사용한다. 그 답변의 내용 자체는 conversationTurns(최근 대화)에
+    이미 포함돼 있으므로 문맥에서 빠지지 않는다.
+    """
+    session = SessionState(
+        session_id=f"resume-{request.seniorId}",
+        user_id=str(request.seniorId),
+        prev_session_summary=request.prevSessionSummary,
+        pending_scale_items=request.pendingScaleItems,
+        conversation_turns=[
+            turn.model_dump() for turn in request.conversationTurns
+        ],
+    )
+    llm_result = await asyncio.to_thread(
+        llm_service.generate_next_question, [], session
+    )
+    question = llm_result.get("ai_question")
+    if not isinstance(question, str) or not question.strip():
+        raise HTTPException(status_code=502, detail="LLM 이어가기 질문 생성에 실패했습니다.")
+
+    tts_audio_base64: str | None = None
+    tts_mime_type: str | None = None
+    try:
+        tts_audio = await tts_service.synthesize_full(question)
+        if tts_audio:
+            audio_format = get_settings().typecast_audio_format.lower()
+            tts_audio_base64 = base64.b64encode(tts_audio).decode("ascii")
+            tts_mime_type = _tts_mime_type(audio_format)
+        else:
+            logger.warning("이어가기 질문 TTS 결과가 비어 있어 텍스트 질문만 반환합니다.")
+    except Exception:  # noqa: BLE001
+        logger.exception("이어가기 질문 TTS 생성 실패, 텍스트 질문으로 계속 진행합니다.")
+
+    return NextQuestionResponse(
+        question=question,
         ttsAudioBase64=tts_audio_base64,
         ttsMimeType=tts_mime_type,
     )
