@@ -7,7 +7,15 @@ app/services/stt.py의 한국어 환각(hallucination) 방어 로직을 검증�
 import unittest
 from unittest.mock import patch
 
-from app.services.stt import SttResult, _is_plausible_korean_answer, transcribe
+import httpx
+
+from app.services.stt import (
+    OpenAiSttUnavailableError,
+    SttResult,
+    _is_plausible_korean_answer,
+    _raise_openai_stt_error,
+    transcribe,
+)
 
 
 class IsPlausibleKoreanAnswerTests(unittest.TestCase):
@@ -72,6 +80,94 @@ class TranscribeHallucinationGuardTests(unittest.TestCase):
     def test_empty_audio_short_circuits_before_any_engine_call(self):
         result = transcribe(b"", "webm")
         self.assertEqual(result, SttResult(ok=False, reason="empty_audio"))
+
+
+class RaiseOpenaiSttErrorTests(unittest.TestCase):
+    def test_401_raises_unavailable(self):
+        with self.assertRaises(OpenAiSttUnavailableError):
+            _raise_openai_stt_error(401, {"error": {"code": "invalid_api_key"}})
+
+    def test_429_insufficient_quota_raises_unavailable(self):
+        with self.assertRaises(OpenAiSttUnavailableError):
+            _raise_openai_stt_error(429, {"error": {"code": "insufficient_quota"}})
+
+    def test_429_plain_rate_limit_raises_plain_runtime_error(self):
+        with self.assertRaises(RuntimeError):
+            _raise_openai_stt_error(429, {"error": {"code": "rate_limit_exceeded"}})
+        try:
+            _raise_openai_stt_error(429, {"error": {"code": "rate_limit_exceeded"}})
+        except OpenAiSttUnavailableError:
+            self.fail("rate_limit_exceeded는 폴백 대상 아님")
+        except RuntimeError:
+            pass
+
+    def test_500_raises_plain_runtime_error_not_unavailable(self):
+        try:
+            _raise_openai_stt_error(500, "internal error")
+        except OpenAiSttUnavailableError:
+            self.fail("500은 폴백 대상 아님")
+        except RuntimeError:
+            pass
+
+
+class OpenAiFailureFallbackPolicyTests(unittest.TestCase):
+    def test_invalid_key_falls_back_to_local(self):
+        with (
+            patch(
+                "app.services.stt._transcribe_openai",
+                side_effect=OpenAiSttUnavailableError("401"),
+            ),
+            patch("app.services.stt._transcribe_local", return_value="오늘 산책했어요."),
+        ):
+            result = transcribe(b"fake-audio", "webm")
+
+        self.assertEqual(
+            result,
+            SttResult(ok=True, text="오늘 산책했어요.", engine="local_whisper"),
+        )
+
+    def test_quota_exhausted_falls_back_to_local(self):
+        with (
+            patch(
+                "app.services.stt._transcribe_openai",
+                side_effect=OpenAiSttUnavailableError("429 insufficient_quota"),
+            ),
+            patch("app.services.stt._transcribe_local", return_value="오늘 산책했어요."),
+        ):
+            result = transcribe(b"fake-audio", "webm")
+
+        self.assertEqual(
+            result,
+            SttResult(ok=True, text="오늘 산책했어요.", engine="local_whisper"),
+        )
+
+    def test_other_openai_error_does_not_fall_back(self):
+        with (
+            patch(
+                "app.services.stt._transcribe_openai",
+                side_effect=RuntimeError("OpenAI STT 오류 500: internal error"),
+            ),
+            patch("app.services.stt._transcribe_local") as local_mock,
+        ):
+            result = transcribe(b"fake-audio", "webm")
+
+        local_mock.assert_not_called()
+        self.assertFalse(result.ok)
+        self.assertIn("openai_stt_failed", result.reason)
+
+    def test_network_error_does_not_fall_back(self):
+        with (
+            patch(
+                "app.services.stt._transcribe_openai",
+                side_effect=httpx.ConnectError("connection refused"),
+            ),
+            patch("app.services.stt._transcribe_local") as local_mock,
+        ):
+            result = transcribe(b"fake-audio", "webm")
+
+        local_mock.assert_not_called()
+        self.assertFalse(result.ok)
+        self.assertIn("openai_stt_failed", result.reason)
 
 
 if __name__ == "__main__":
