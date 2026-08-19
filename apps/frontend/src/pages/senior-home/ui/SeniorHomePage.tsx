@@ -92,27 +92,40 @@ export function SeniorHomePage() {
 
           <StartConversationAction />
 
-          <Link
-            className={styles.connection}
-            to="/senior/connection"
-            aria-label={
-              connectionCopy.action
-                ? `${connectionCopy.title}. ${connectionCopy.action}`
-                : connectionCopy.title
-            }
-          >
-            <span className={styles.connectionCopy}>
-              <span className={styles.connectionLabel}>{connectionCopy.label}</span>
-              <strong>{connectionCopy.title}</strong>
-              <small>{connectionCopy.description}</small>
-              {connectionCopy.action && (
-                <span className={styles.connectionAction}>
-                  {connectionCopy.action} <span aria-hidden="true">›</span>
-                </span>
-              )}
-            </span>
-            <img className={styles.connectionImage} src={guardianCoupleImage} alt="" />
-          </Link>
+          {connectionQuery.data?.status === 'CONNECTED' ? (
+            // 이미 연결된 보호자가 있으면 확인·조작할 대기 중인 요청이 없으므로
+            // 연결 요청 화면으로 보낼 이유가 없다 — 카드를 눌러도 아무 동작 안 함.
+            <div className={styles.connection}>
+              <span className={styles.connectionCopy}>
+                <span className={styles.connectionLabel}>{connectionCopy.label}</span>
+                <strong>{connectionCopy.title}</strong>
+                <small>{connectionCopy.description}</small>
+              </span>
+              <img className={styles.connectionImage} src={guardianCoupleImage} alt="" />
+            </div>
+          ) : (
+            <Link
+              className={styles.connection}
+              to="/senior/connection"
+              aria-label={
+                connectionCopy.action
+                  ? `${connectionCopy.title}. ${connectionCopy.action}`
+                  : connectionCopy.title
+              }
+            >
+              <span className={styles.connectionCopy}>
+                <span className={styles.connectionLabel}>{connectionCopy.label}</span>
+                <strong>{connectionCopy.title}</strong>
+                <small>{connectionCopy.description}</small>
+                {connectionCopy.action && (
+                  <span className={styles.connectionAction}>
+                    {connectionCopy.action} <span aria-hidden="true">›</span>
+                  </span>
+                )}
+              </span>
+              <img className={styles.connectionImage} src={guardianCoupleImage} alt="" />
+            </Link>
+          )}
 
           <ViewAttendanceCalendarAction />
         </section>

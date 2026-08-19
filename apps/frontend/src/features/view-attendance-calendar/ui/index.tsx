@@ -79,13 +79,7 @@ export function ViewAttendanceCalendarAction() {
 
       <div className={styles.legend}>
         <span>
-          <i className={styles.completedSample} aria-hidden="true">
-            ✓
-          </i>{' '}
-          대화 완료
-        </span>
-        <span>
-          <i className={styles.pendingSample} aria-hidden="true" /> 아직 대화 전
+          <i className={styles.completedSample} aria-hidden="true" /> 대화 완료
         </span>
       </div>
     </section>
