@@ -82,6 +82,32 @@ describe('QuestionAnswerQueueService', () => {
     );
   });
 
+  it('endType이 manual이면 10초를 기다리지 않고 즉시 확정한다', async () => {
+    const queued = service.enqueue({ ...answer(102), endType: 'manual' });
+
+    await expect(queued.ready).resolves.toEqual(
+      expect.objectContaining({
+        answers: [{ ...answer(102), endType: 'manual' }],
+      }),
+    );
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('추가 답변이 manual로 오면 그 시점에 바로 확정한다(10초 안 기다림)', async () => {
+    const first = service.enqueue(answer(102));
+    jest.advanceTimersByTime(4_000);
+
+    const second = service.enqueue({ ...answer(103), endType: 'manual' });
+    expect(second.isBatchOwner).toBe(false);
+
+    await expect(first.ready).resolves.toEqual(
+      expect.objectContaining({
+        answers: [answer(102), { ...answer(103), endType: 'manual' }],
+      }),
+    );
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it('한 질문의 전체 음성은 30MB를 초과할 수 없다', () => {
     for (let index = 0; index < 3; index += 1) {
       service.enqueue({
