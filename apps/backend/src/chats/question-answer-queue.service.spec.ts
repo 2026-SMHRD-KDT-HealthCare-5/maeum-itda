@@ -30,15 +30,15 @@ describe('QuestionAnswerQueueService', () => {
     continueConversation: true,
   });
 
-  it('추가 답변이 들어오면 10초 타이머를 갱신하고 순서대로 묶는다', async () => {
+  it('추가 답변이 들어오면 대기 타이머를 갱신하고 순서대로 묶는다', async () => {
     const first = service.enqueue(answer(102));
     expect(first.isBatchOwner).toBe(true);
 
-    jest.advanceTimersByTime(4_000);
+    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1);
     const second = service.enqueue(answer(103));
     expect(second.isBatchOwner).toBe(false);
 
-    jest.advanceTimersByTime(9_999);
+    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1);
     let resolved = false;
     void first.ready.then(() => (resolved = true));
     await Promise.resolve();
@@ -62,8 +62,8 @@ describe('QuestionAnswerQueueService', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('기본 추가 답변 대기 시간은 10초다', () => {
-    expect(ADDITIONAL_ANSWER_WAIT_MS).toBe(10_000);
+  it('기본 추가 답변 대기 시간은 3초다', () => {
+    expect(ADDITIONAL_ANSWER_WAIT_MS).toBe(3_000);
   });
   it('대화 종료 flush는 분석 후 다음 질문을 생성하지 않도록 표시한다', async () => {
     const queued = service.enqueue(answer(102));
@@ -93,9 +93,9 @@ describe('QuestionAnswerQueueService', () => {
     expect(jest.getTimerCount()).toBe(0);
   });
 
-  it('추가 답변이 manual로 오면 그 시점에 바로 확정한다(10초 안 기다림)', async () => {
+  it('추가 답변이 manual로 오면 그 시점에 바로 확정한다(대기 시간 안 기다림)', async () => {
     const first = service.enqueue(answer(102));
-    jest.advanceTimersByTime(4_000);
+    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1_000);
 
     const second = service.enqueue({ ...answer(103), endType: 'manual' });
     expect(second.isBatchOwner).toBe(false);

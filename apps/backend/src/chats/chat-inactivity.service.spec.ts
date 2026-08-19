@@ -54,7 +54,7 @@ describe('ChatInactivityService', () => {
     };
   }
 
-  it('30초 후 안내하고 총 2분 무응답이면 연결을 닫지 않고 대화를 종료한다', () => {
+  it('30초 후 안내하고 총 10분 무응답이면 연결을 닫지 않고 대화를 종료한다', () => {
     const context = createContext();
 
     context.service.startWaitingForAnswer(context.client);

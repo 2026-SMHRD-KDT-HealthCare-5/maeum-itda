@@ -23,7 +23,7 @@ AudioBinaryHandler
   ├→ AudioMetadataHandler                  // pending metadata 조회·제거
   ├→ AudioAnswerRepository                 // 답변 메시지와 질문·답변 관계 저장
   ├→ AudioTransferStateService             // 중복 전송 ID와 기존 ACK 임시 보관
-  ├→ QuestionAnswerQueueService            // 질문별 추가 답변 묶음 (auto는 10초 대기, manual은 즉시 확정)
+  ├→ QuestionAnswerQueueService            // 질문별 추가 답변 묶음 (auto는 3초 대기, manual은 즉시 확정)
   ├→ AnalysisService                       // 분석 요청과 결과 저장 순서 관리
   │    ├→ TemporaryAudioRepository         // 질문별 음성 Buffer 임시 보관
   │    ├→ AiClient                         // FastAPI REST 요청·응답 검증
@@ -198,14 +198,15 @@ audio:ack payload
 NestJS QuestionAnswerQueueService
   → 같은 questionMessageId의 답변을 큐에 추가
   → 방금 들어온 음성의 endType이 auto(묵음 감지로 자동 종료)면:
-      마지막 음성 수신 시점부터 10초 대기
-      → 10초 안에 추가 음성이 들어오면 같은 답변 묶음에 추가
-      → 10초 동안 추가 음성이 없으면 질문별 답변 묶음 확정
+      마지막 음성 수신 시점부터 3초 대기
+      → 3초 안에 추가 음성이 들어오면 같은 답변 묶음에 추가
+      → 3초 동안 추가 음성이 없으면 질문별 답변 묶음 확정
   → 방금 들어온 음성의 endType이 manual("지금 답변 마치기" 직접 클릭)이면:
-      10초를 기다리지 않고 그 자리에서 즉시 질문별 답변 묶음 확정
+      기다리지 않고 그 자리에서 즉시 질문별 답변 묶음 확정
       ([2026-08-19] 실측 결과 이 무조건 10초 대기가 턴당 지연의 대부분을
       차지하고 있었다 — manual은 사용자가 이미 "다 말했다"고 명시했으므로
-      기다릴 이유가 없다)
+      기다릴 이유가 없다. auto도 프론트가 이미 3초 무음을 확인한 뒤에만
+      발생하므로 10초는 과도한 중복 대기여서 3초로 줄였다)
 
 
 [5. FastAPI 분석 요청]
@@ -275,7 +276,7 @@ Frontend ←─ chat:ended ─ NestJS
 AI 질문 후 30초 무응답
 Frontend ←─ chat:idle-warning ─ NestJS
 
-AI 질문 후 총 2분 무응답
+AI 질문 후 총 10분 무응답
 Frontend ←─ chat:ended(reason=INACTIVITY_TIMEOUT) ─ NestJS
 ```
 
@@ -440,7 +441,7 @@ NestJS → Frontend:
   "event": "chat:idle-warning",
   "payload": {
     "message": "천천히 생각하시고 편하게 말씀해 주세요.",
-    "remainingSeconds": 90
+    "remainingSeconds": 570
   },
   "ts": "2026-08-12T06:00:31.200Z"
 }
@@ -480,7 +481,7 @@ NestJS → Frontend:
 }
 ```
 
-- 수동 종료는 `USER_REQUESTED`, 총 2분 무응답 종료는 `INACTIVITY_TIMEOUT`이다.
+- 수동 종료는 `USER_REQUESTED`, 총 10분 무응답 종료는 `INACTIVITY_TIMEOUT`이다.
 - 남은 큐는 분석하지만 종료 후 다음 질문은 저장·전송하지 않는다.
 - 별도 대화 세션·종료 레코드는 저장하지 않는다.
 
@@ -512,17 +513,18 @@ NestJS → Frontend:
 AI 질문 messageId=101
   ├→ 답변 messageId=102, 관계 ANSWER
   └→ 추가 답변 messageId=103, 관계 ADDITIONAL_ANSWER
-       → 마지막 음성부터 10초 대기
+       → 마지막 음성부터 3초 대기
        → 질문별 답변 묶음 확정
        → FastAPI에 음성 2개와 messageId 2개 전달
 ```
 
 - 답변마다 별도 DB 메시지와 별도 프론트 말풍선을 사용한다.
 - 같은 질문인지 여부는 감정이 아니라 `questionMessageId`로 판단한다.
-- 추가 답변이 `auto`(묵음 자동 종료)로 올 때마다 10초 타이머를 다시 시작한다.
+- 추가 답변이 `auto`(묵음 자동 종료)로 올 때마다 3초 타이머를 다시 시작한다.
   **[2026-08-19] `manual`("지금 답변 마치기" 직접 클릭)로 오면 타이머를 기다리지
   않고 그 즉시 확정한다** — 무조건 10초를 기다리던 이전 동작이 턴당 지연의
-  대부분을 차지하는 걸 실측으로 확인해 고쳤다.
+  대부분을 차지하는 걸 실측으로 확인해 고쳤다. `auto`도 프론트가 이미 3초
+  무음을 확인한 뒤에만 발생하므로 10초는 중복 대기여서 3초로 줄였다.
 - 질문 하나당 최대 5개, 음성 한 건 최대 10MB, 전체 최대 30MB이다.
 - FastAPI는 메시지별 STT·감성·척도 결과를 반환한다.
 - 감성이 서로 달라도 복합 감정 또는 감정 변화로 보고 오류로 처리하지 않는다.
@@ -535,10 +537,10 @@ AI 질문 messageId=101
 | 기준                                       | 의미                                 | 담당     |
 | ------------------------------------------ | ------------------------------------ | -------- |
 | 질문 후 30초                               | 첫 발화 전 안내                      | NestJS   |
-| 말하는 중 10초 동안 묵음                   | 현재 음성 녹음 종료                  | Frontend |
-| 음성 답변(`endType: auto`) 수신 후 10초 동안 추가 전송 없음 | 답변 수집을 끝내고 FastAPI 분석 시작 | NestJS   |
+| 말하는 중 3초 동안 묵음                    | 현재 음성 녹음 종료                  | Frontend |
+| 음성 답변(`endType: auto`) 수신 후 3초 동안 추가 전송 없음 | 답변 수집을 끝내고 FastAPI 분석 시작 | NestJS   |
 | 음성 답변이 `endType: manual`로 도착 | 대기 없이 즉시 답변 수집을 끝내고 FastAPI 분석 시작 | NestJS |
-| 질문 후 총 2분 무응답                      | 대화 자동 종료                       | NestJS   |
+| 질문 후 총 10분 무응답                     | 대화 자동 종료                       | NestJS   |
 
 ## 6. NestJS ↔ FastAPI REST 계약
 
@@ -700,7 +702,7 @@ NestJS → Frontend:
 - JWT WS 인증과 이벤트 분배
 - 대화 시작·수동 종료·무응답 자동 종료
 - metadata와 binary 결합, 질문별 큐 등록과 `audio:ack`
-- 질문별 추가 답변 큐(auto는 10초 대기, manual은 즉시 확정 — 2026-08-19 수정)
+- 질문별 추가 답변 큐(auto는 3초 대기, manual은 즉시 확정 — 2026-08-19 수정)
 - FastAPI multipart Client와 응답 계약 검증
 - **[결정사항] 답변 메시지는 분석 성공 시점에야 처음 DB에 저장된다** — 분석 실패 시 아무것도 저장하지 않고 `error`(`AUDIO_ANALYSIS_FAILED`)만 보낸다(§4.3, §6.3)
 - 메시지별 분석 결과 저장과 다음 질문 WS 전송
@@ -716,7 +718,7 @@ NestJS → Frontend:
 - metadata와 binary 전송 순서
 - ACK 전 Blob 보관과 재전송
 - 메시지별 말풍선 표시
-- 30초 안내·2분 종료 UI
+- 30초 안내·10분 종료 UI
 
 ### FastAPI와 맞춰야 할 부분
 

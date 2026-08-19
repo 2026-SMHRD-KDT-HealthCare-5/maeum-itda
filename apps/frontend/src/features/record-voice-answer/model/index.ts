@@ -48,7 +48,7 @@ export interface UseRecordVoiceAnswerResult {
   ttsAutoplayBlocked: boolean
 }
 
-const AUTO_SILENCE_MS = 10_000
+const AUTO_SILENCE_MS = 3_000
 
 // UC-02: 대화가 시작되면 마이크 권한을 한 번만 받아 대화가 끝날 때까지 유지한다
 // (질문마다 다시 열지 않음 — 그래야 다슬이가 다음 질문을 말하는 도중이나 다음
@@ -59,7 +59,7 @@ const AUTO_SILENCE_MS = 10_000
 //   발화가 끝날 때까지는 "직전 질문"에 대한 추가 답변으로 녹음한 뒤, 곧바로
 //   이어서 지금(끼어든) 질문에 대한 실제 답변 녹음으로 넘어간다(질문을 다시
 //   말하지 않는다 — 이미 끼어들어 응답 중이므로).
-// 사용자가 직접 끝내거나(manual) 묵음이 10초 이어지면(auto) 한 녹음 구간을
+// 사용자가 직접 끝내거나(manual) 묵음이 3초 이어지면(auto) 한 녹음 구간을
 // 마쳐 서버로 보낸다. 실제 WebSocket 연동(effect)까지 포함하므로 단위 테스트는
 // 이 훅이 호출하는 lib 함수 단위로 한다.
 export function useRecordVoiceAnswer({
