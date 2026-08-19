@@ -49,7 +49,7 @@ maeum-itda/
 └── docs/                 # 기획서, 요구사항정의서, 화면설계서 등 프로젝트 문서
 ```
 
-> `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS 파이프라인이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 동작합니다. 다만 AI 서버가 만들어내는 TTS 오디오와 척도 문항 커버리지/이전 세션 요약 연동은 아직 백엔드에 반영되지 않았고, 감정 분류 모델 체크포인트도 아직 없습니다 — 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
+> `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS·KLUE 텍스트/Kresnik 음성 5감정 분류·확률 보정·클래스별 가중합이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 동작합니다. 다만 AI 서버가 만들어내는 TTS 오디오와 척도 문항 커버리지/이전 세션 요약 연동은 아직 백엔드에 반영되지 않았습니다. 감정 모델 파라미터는 잠가둔 최종 테스트 세트 평가 전의 현재 후보값입니다 — 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
 >
 > ⚠️ **`apps/ai-server`는 아직 pnpm이 인식하는 패키지가 아닙니다.** `package.json`이 없어 `pnpm --filter ai-server ...`가 동작하지 않으며, Python(FastAPI) 프로젝트이므로 의존성은 pnpm이 아닌 별도 가상환경(`venv`)과 `requirements.txt`로 관리할 예정입니다.
 

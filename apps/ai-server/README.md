@@ -75,6 +75,29 @@ uvicorn app.main:app --reload --port 8000
 
 환경변수는 `.env.example`을 참고해 설정합니다.
 
+## 5감정 모델
+
+`EMOTION_MODE=model`에서는 다음 순서로 감정을 추론합니다.
+
+1. KLUE 텍스트 모델에 검증 때와 같은 빈 문맥·단문 쌍을 입력합니다.
+2. Kresnik 기반 음성 모델에 16kHz 음성을 입력합니다.
+3. 두 모델의 클래스 확률을 각각 온도 보정합니다.
+4. `happy`, `angry`, `sad`, `anxious`, `neutral` 순서로 클래스별 가중합하고 합이 1이 되도록 정규화합니다.
+
+필요한 로컬 체크포인트 위치는 다음과 같습니다.
+
+```text
+models/text_emotion/config.json
+models/text_emotion/model.safetensors
+models/text_emotion/tokenizer.json
+models/text_emotion/tokenizer_config.json
+models/voice_emotion/kresnik_baseline_best.pt
+```
+
+현재 보정값과 가중치는 잠가둔 최종 테스트 세트 평가 전 후보값입니다. 음성 체크포인트 외의 Kresnik 기반 모델과 Feature Extractor는 현재 Hugging Face 캐시 또는 네트워크에서 로드하므로, 완전한 오프라인 배포 전에는 관련 자산을 로컬화해야 합니다.
+
+체크포인트는 `.gitignore`에서 제외되어 Git 추적 대상이지만 `model.safetensors`와 `kresnik_baseline_best.pt`는 GitHub 일반 단일 파일 제한을 초과합니다. 커밋·푸시 전 Git LFS 또는 별도 모델 저장소 방식을 확정해야 합니다.
+
 ## REST 연결 확인
 
 서버를 실행한 상태에서 별도 터미널을 엽니다.
