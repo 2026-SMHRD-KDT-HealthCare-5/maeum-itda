@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('ko-KR')
+  return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
 }
 
 // 로딩 스피너 깜빡임 방지: isPending이 delay(ms) 안에 끝나면 스피너를 아예 띄우지
