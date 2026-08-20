@@ -48,18 +48,16 @@ export function SeniorDailyRecordPage() {
   // 쓴다 — resolvedDateKey가 dateKey와 달라졌을 때만 갱신해 무한 렌더를 막는다.
   const [resolvedDateKey, setResolvedDateKey] = useState<string | null>(null)
   const [resolvedMessages, setResolvedMessages] = useState<ChatMessage[] | null>(null)
-  // 이미 보여줄 이전 날짜 결과가 있으면(resolvedDateKey !== null) 그걸 그대로
-  // 둔 채 조용히 갱신한다 — 스피너는 앱 진입 후 첫 조회처럼 보여줄 것 자체가
-  // 없을 때만 띄운다. isFetching만 보면 이미 캐시된 날짜를 다시 눌러도, 백그라운드
-  // 재검증(staleTime 기본값 0)마다 매번 로딩 화면이 떠 실제보다 훨씬 느리게 느껴졌다.
-  const showSpinner = useDelayedPending(messagesQuery.isFetching && resolvedDateKey === null)
+  // 선택한 날짜의 확정 결과가 없을 때만 로딩을 표시한다. 캐시된 날짜의
+  // 백그라운드 재검증은 기존 화면을 유지하되, 새 날짜에 이전 기록을 노출하지 않는다.
+  const showSpinner = useDelayedPending(messagesQuery.isFetching && resolvedDateKey !== dateKey)
 
   if (resolvedDateKey !== dateKey && messagesQuery.isSuccess) {
     setResolvedDateKey(dateKey)
     setResolvedMessages(messagesQuery.data)
   }
 
-  const messages = resolvedMessages
+  const messages = resolvedDateKey === dateKey ? resolvedMessages : null
 
   function selectDate(date: Date) {
     setSelectedDate(date)
