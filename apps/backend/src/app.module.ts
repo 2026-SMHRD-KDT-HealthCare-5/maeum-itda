@@ -14,6 +14,7 @@ import { ChatsModule } from './chats/chats.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { GuardianDashboardModule } from './guardian-dashboard/guardian-dashboard.module';
 import databaseConfig from './config/database.config';
+import { createUtcDataSource } from './config/database-timezone';
 import webPushConfig from './config/web-push.config';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProfileSettingsModule } from './profile-settings/profile-settings.module';
@@ -36,6 +37,7 @@ import { UsersModule } from './users/users.module';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
         configService.getOrThrow<TypeOrmModuleOptions>('database'),
+      dataSourceFactory: createUtcDataSource,
     }),
     // @Cron 리포트 작업을 모든 기능 모듈이 초기화된 뒤 등록한다.
     ScheduleModule.forRoot(),

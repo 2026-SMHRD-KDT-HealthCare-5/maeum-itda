@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react'
+import { formatDate } from '../../../shared/lib'
 import type { PendingSentRequest } from '../model'
 import styles from './SendConnectionRequestAction.module.css'
 
@@ -75,9 +76,7 @@ export function SendConnectionRequestAction({
                 <p className={styles.sentUsername}>{pendingRequest.seniorName}</p>
                 <span className={styles.pendingBadge}>수락 대기</span>
               </div>
-              <p className={styles.sentDate}>
-                {new Date(pendingRequest.requestedAt).toLocaleDateString('ko-KR')} 요청
-              </p>
+              <p className={styles.sentDate}>{formatDate(pendingRequest.requestedAt)} 요청</p>
             </div>
             <button
               type="button"
