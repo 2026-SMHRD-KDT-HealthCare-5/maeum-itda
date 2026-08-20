@@ -1,7 +1,7 @@
 /*
-역할: FastAPI 질문 생성에 필요한 오늘의 미채점 문항, 이전 요약, 최근 대화 5개를 조회한다.
+역할: FastAPI 질문 생성에 필요한 오늘의 미채점 문항, 최근 N일 요약, 오늘 대화 전체를 조회한다.
 전체 흐름: AnalysisService → AnalysisContextRepository → MySQL → AiClient
-주의: 별도 대화 세션 ID가 없으므로 최근 대화는 현재 질문과 같은 서울 날짜로 제한한다.
+주의: 별도 대화 세션 ID가 없으므로 대화 히스토리는 현재 질문과 같은 서울 날짜로 제한한다.
 */
 import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
@@ -25,7 +25,8 @@ const SCALE_QUESTION_COUNTS: Record<ScaleType, number> = {
   [ScaleType.GAD_7]: 7,
   [ScaleType.LSNS_6]: 6,
 };
-const RECENT_TURN_LIMIT = 5;
+// 이전 세션 요약은 리포트가 있는 최근 N일치를 이어 붙여 보낸다(직전 하루만 주던 것에서 확장).
+const PREV_SUMMARY_DAYS_LIMIT = 3;
 
 export interface AnalysisRequestContext {
   pendingScaleItems: Record<ScaleType, string[]>;
@@ -50,10 +51,10 @@ export class AnalysisContextRepository {
     const reportDate = formatSeoulDate(question.createdAt);
     const { start, end } = toSeoulBusinessDayUtcRange(reportDate);
 
-    const [scoredItems, previousReport, recentMessages] = await Promise.all([
+    const [scoredItems, previousReports, todayMessages] = await Promise.all([
       this.findScoredItems(batch.seniorId, start, end),
-      this.findPreviousSummary(batch.seniorId, reportDate),
-      this.findRecentMessages(
+      this.findPreviousSummaries(batch.seniorId, reportDate),
+      this.findTodayMessages(
         batch.seniorId,
         batch.questionMessageId,
         start,
@@ -63,8 +64,8 @@ export class AnalysisContextRepository {
 
     return {
       pendingScaleItems: buildPendingScaleItems(scoredItems),
-      prevSessionSummary: previousReport?.oneLineSummary ?? '',
-      conversationTurns: recentMessages.reverse().map((message) => ({
+      prevSessionSummary: buildPrevSessionSummary(previousReports),
+      conversationTurns: todayMessages.reverse().map((message) => ({
         speakerType: message.speakerType,
         content: message.content!,
       })),
@@ -89,7 +90,7 @@ export class AnalysisContextRepository {
       .getRawMany<{ scaleType: ScaleType; questionNumber: number }>();
   }
 
-  private findPreviousSummary(seniorId: number, reportDate: string) {
+  private findPreviousSummaries(seniorId: number, reportDate: string) {
     return this.dataSource
       .getRepository(DailyEmotionReport)
       .createQueryBuilder('report')
@@ -97,10 +98,12 @@ export class AnalysisContextRepository {
       .andWhere('report.reportDate < :reportDate', { reportDate })
       .andWhere('report.oneLineSummary IS NOT NULL')
       .orderBy('report.reportDate', 'DESC')
-      .getOne();
+      .take(PREV_SUMMARY_DAYS_LIMIT)
+      .getMany();
   }
 
-  private findRecentMessages(
+  // 오늘 대화 전체(질문 시점까지)를 히스토리로 넘긴다 — 개수 제한 없음.
+  private findTodayMessages(
     seniorId: number,
     questionMessageId: number,
     start: Date,
@@ -118,9 +121,17 @@ export class AnalysisContextRepository {
       .andWhere('message.content IS NOT NULL')
       .orderBy('message.createdAt', 'DESC')
       .addOrderBy('message.messageId', 'DESC')
-      .take(RECENT_TURN_LIMIT)
       .getMany();
   }
+}
+
+// 리포트가 있는 최근 N일 요약을 오래된 날짜부터 이어 붙인다(리포트가 없는 날은 자연히 빈다).
+export function buildPrevSessionSummary(reports: DailyEmotionReport[]): string {
+  return reports
+    .slice()
+    .reverse()
+    .map((report) => `[${report.reportDate}] ${report.oneLineSummary}`)
+    .join('\n');
 }
 
 export function buildPendingScaleItems(
