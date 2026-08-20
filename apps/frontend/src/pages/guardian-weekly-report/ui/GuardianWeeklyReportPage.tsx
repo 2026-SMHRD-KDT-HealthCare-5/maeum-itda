@@ -49,11 +49,11 @@ export function GuardianWeeklyReportPage() {
   // 보여준다. useEffect 대신 렌더 중 state 조정 패턴(react.dev 권장)을 쓴다 —
   // resolvedWeekStart가 selectedWeekStart와 달라졌을 때만 갱신해 무한 렌더를 막는다.
   const [resolvedWeekStart, setResolvedWeekStart] = useState<string | null>(null)
-  // 이미 보여줄 이전 주 결과가 있으면 그걸 그대로 둔 채 조용히 갱신한다 —
-  // 스피너는 보여줄 게 아예 없는 첫 조회에만 띄운다. isFetching만 보면 이미
-  // 확인한 주라도 백그라운드 재검증(staleTime 기본값 0)마다 매번 로딩 화면이
-  // 떠 실제보다 훨씬 느리게 느껴졌다.
-  const showSpinner = useDelayedPending(weeklyReportQuery.isFetching && resolvedWeekStart === null)
+  // 선택한 주의 성공/빈 결과가 아직 확정되지 않았을 때만 로딩을 표시한다.
+  // 이미 캐시된 현재 주를 재검증할 때는 기존 리포트를 그대로 유지한다.
+  const showSpinner = useDelayedPending(
+    weeklyReportQuery.isFetching && resolvedWeekStart !== selectedWeekStart,
+  )
   const [resolvedView, setResolvedView] = useState<
     { kind: 'found'; report: WeeklyReport } | { kind: 'missing' } | null
   >(null)
@@ -67,8 +67,11 @@ export function GuardianWeeklyReportPage() {
     setResolvedView({ kind: 'missing' })
   }
 
-  const report = resolvedView?.kind === 'found' ? resolvedView.report : null
-  const reportMissing = resolvedView?.kind === 'missing'
+  const report =
+    resolvedWeekStart === selectedWeekStart && resolvedView?.kind === 'found'
+      ? resolvedView.report
+      : null
+  const reportMissing = resolvedWeekStart === selectedWeekStart && resolvedView?.kind === 'missing'
 
   return (
     <>
