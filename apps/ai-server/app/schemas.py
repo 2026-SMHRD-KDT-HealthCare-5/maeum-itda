@@ -60,25 +60,3 @@ class DailySummaryRequest(BaseModel):
 class DailySummaryResponse(BaseModel):
     conversationSummary: str | None
     recommendedAction: str | None
-
-
-# 재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난 경우(주로 chat:end 중
-# 처리 중이던 답변만 저장되고 다음 질문은 저장되지 않은 경우), 새 음성 답변 없이
-# 기존 문맥만으로 이어갈 질문을 생성할 때 쓴다. speakerType/content만 필요하고
-# sentimentLabel은 쓰지 않아 DailyConversationTurn과는 별도 모델로 둔다.
-class ResumeConversationTurn(BaseModel):
-    speakerType: Literal["SENIOR", "AI"]
-    content: str
-
-
-class NextQuestionRequest(BaseModel):
-    seniorId: int
-    prevSessionSummary: str = ""
-    pendingScaleItems: dict[str, list[str]] = Field(default_factory=dict)
-    conversationTurns: list[ResumeConversationTurn] = Field(default_factory=list)
-
-
-class NextQuestionResponse(BaseModel):
-    question: str
-    ttsAudioBase64: str | None
-    ttsMimeType: str | None

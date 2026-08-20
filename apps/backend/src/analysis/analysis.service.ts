@@ -9,7 +9,6 @@ import { randomUUID } from 'node:crypto';
 import { AiClient } from './ai.client';
 import {
   CompletedAudioAnalysis,
-  ContinuationQuestionResult,
   QuestionAnswerBatch,
 } from './dto/audio-analysis.contract';
 import { AnalysisResultRepository } from './repositories/analysis-result.repository';
@@ -66,18 +65,5 @@ export class AnalysisService {
 
   getStatus(messageId: number) {
     return this.analysisResultRepository.findStatus(messageId);
-  }
-
-  // 역할: 재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난 경우, 새 음성
-  // 답변 없이 기존 문맥만으로 이어갈 다음 질문을 FastAPI에 요청한다.
-  async generateContinuationQuestion(
-    seniorId: number,
-    reportDate: string,
-  ): Promise<ContinuationQuestionResult> {
-    const context = await this.analysisContextRepository.findForResume(
-      seniorId,
-      reportDate,
-    );
-    return this.aiClient.generateContinuationQuestion(context);
   }
 }

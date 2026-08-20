@@ -1,6 +1,5 @@
 /*
-역할: 인증 후 chat:start 이벤트 검증과 AI 질문 전송 — 새 질문 고정 생성 여부는
-ChatsService가 오늘 DB 마지막 메시지 기준으로 판단한다(재진입 시 이어가기 포함).
+역할: 인증 후 chat:start 이벤트 검증과 최초 AI 질문 전송
 연결 객체: ChatsService, WebSocket 연결 객체, 인증된 사용자 정보
 전체 흐름: ChatsGateway → ChatStartHandler → ChatsService → ConversationMessageRepository → chat:started → ai:question
 */

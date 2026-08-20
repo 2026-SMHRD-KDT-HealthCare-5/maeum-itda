@@ -121,42 +121,6 @@ export class AnalysisContextRepository {
       .take(RECENT_TURN_LIMIT)
       .getMany();
   }
-
-  // 역할: 재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝났을 때, 새 음성
-  // 답변 없이 기존 문맥만으로 이어갈 질문을 생성하는 데 쓸 컨텍스트를 조회한다.
-  // findForBatch와 달리 기준이 될 AI 질문 메시지가 없으므로 reportDate를
-  // 직접 받고, messageId 상한 없이 오늘 범위의 최신 메시지를 그대로 가져온다.
-  async findForResume(
-    seniorId: number,
-    reportDate: string,
-  ): Promise<AnalysisRequestContext> {
-    const { start, end } = toSeoulBusinessDayUtcRange(reportDate);
-
-    const [scoredItems, previousReport, recentMessages] = await Promise.all([
-      this.findScoredItems(seniorId, start, end),
-      this.findPreviousSummary(seniorId, reportDate),
-      this.dataSource
-        .getRepository(ConversationMessage)
-        .createQueryBuilder('message')
-        .where('message.seniorId = :seniorId', { seniorId })
-        .andWhere('message.createdAt >= :start', { start })
-        .andWhere('message.createdAt < :end', { end })
-        .andWhere('message.content IS NOT NULL')
-        .orderBy('message.createdAt', 'DESC')
-        .addOrderBy('message.messageId', 'DESC')
-        .take(RECENT_TURN_LIMIT)
-        .getMany(),
-    ]);
-
-    return {
-      pendingScaleItems: buildPendingScaleItems(scoredItems),
-      prevSessionSummary: previousReport?.oneLineSummary ?? '',
-      conversationTurns: recentMessages.reverse().map((message) => ({
-        speakerType: message.speakerType,
-        content: message.content!,
-      })),
-    };
-  }
 }
 
 export function buildPendingScaleItems(

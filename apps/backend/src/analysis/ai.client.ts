@@ -7,13 +7,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  ContinuationQuestionResult,
   QuestionAnswerAnalysisResult,
   QuestionAnswerBatch,
 } from './dto/audio-analysis.contract';
-import { AnalysisRequestContext } from './repositories/analysis-context.repository';
 import { validateQuestionAnswerAnalysisResponse } from './validators/audio-analysis-response.validator';
-import { validateContinuationQuestionResponse } from './validators/continuation-question-response.validator';
 
 const FAST_API_RETRY_DELAY_MS = 500;
 const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504]);
@@ -68,45 +65,6 @@ export class AiClient {
       }
     }
     throw new Error('FastAPI 음성 분석 요청에 실패했습니다.');
-  }
-
-  // 역할: 새 음성 답변 없이(재진입 시 오늘 마지막 메시지가 시니어 답변으로 끝난
-  // 경우) 기존 문맥만으로 이어갈 다음 질문을 요청한다.
-  async generateContinuationQuestion(
-    context: AnalysisRequestContext,
-  ): Promise<ContinuationQuestionResult> {
-    if (!this.isConfigured()) {
-      throw new Error('FastAPI 음성 분석 서버 주소가 설정되지 않았습니다.');
-    }
-
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      try {
-        const response = await fetch(
-          `${this.baseUrl}/analysis/text/next-question`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              pendingScaleItems: context.pendingScaleItems,
-              prevSessionSummary: context.prevSessionSummary,
-              conversationTurns: context.conversationTurns,
-            }),
-            signal: AbortSignal.timeout(30_000),
-          },
-        );
-        if (!response.ok) throw new FastApiHttpError(response.status);
-        return validateContinuationQuestionResponse(await response.json());
-      } catch (error: unknown) {
-        if (attempt === 0 && this.isRetryable(error)) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, FAST_API_RETRY_DELAY_MS),
-          );
-          continue;
-        }
-        throw error;
-      }
-    }
-    throw new Error('FastAPI 이어가기 질문 생성 요청에 실패했습니다.');
   }
 
   // 재시도마다 새로운 FormData를 생성해 동일한 음성 묶음을 안전하게 다시 전송한다.
