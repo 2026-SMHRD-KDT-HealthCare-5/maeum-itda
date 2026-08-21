@@ -24,9 +24,13 @@ const SILENCE_RMS_THRESHOLD = 0.02
 const SPEECH_BAND_MIN_HZ = 300
 const SPEECH_BAND_MAX_HZ = 3400
 const SPEECH_BAND_ENERGY_RATIO_THRESHOLD = 0.35
-// 프레임 하나가 우연히 조건을 만족해도 바로 "발화"로 확정하지 않고 몇 프레임
-// 연속돼야 확정한다 — 순간적인 잡음 튐으로 오탐지하는 걸 줄인다.
-const VOICE_CONFIRM_FRAMES = 3
+// 프레임 하나가 우연히 조건을 만족해도 바로 "발화"로 확정하지 않고 이 시간(ms)만큼
+// 연속돼야 확정한다 — 순간적인 잡음 튐(클릭·기침·의자 소리 등)으로 오탐지하는 걸
+// 줄인다. 프레임 "개수"가 아니라 시간으로 재는 이유: requestAnimationFrame 간격은
+// 화면 주사율에 따라 달라져서(60Hz면 프레임 3개가 ~50ms지만 144Hz면 ~21ms), 프레임
+// 개수 기준은 기기마다 실제 확정 시간이 달라진다. 150ms면 흔한 순간 잡음은 걸러내면서
+// 실제 발화(음절 하나도 대개 150ms를 넘는다)는 놓치지 않는다.
+const VOICE_CONFIRM_MS = 150
 
 // 한 프레임이 "사람 말소리에 가까운지" 판단한다: 먼저 RMS로 최소 음량을
 // 넘는지 보고(완전한 무음 배제), 넘으면 주파수 분포가 사람 목소리 대역에
@@ -102,7 +106,7 @@ export function createSilenceWatcher(
   const frequencyBuffer = new Uint8Array(analyser.frequencyBinCount)
   let lastLoudAt: number | null = null
   let detectedVoice = false
-  let consecutiveSpeechFrames = 0
+  let speechLikeSince: number | null = null
   let stopped = false
 
   function tick() {
@@ -110,8 +114,8 @@ export function createSilenceWatcher(
     const now = performance.now()
 
     if (isSpeechLikeFrame(analyser, audioContext.sampleRate, timeDomainBuffer, frequencyBuffer)) {
-      consecutiveSpeechFrames += 1
-      if (consecutiveSpeechFrames >= VOICE_CONFIRM_FRAMES) {
+      if (speechLikeSince === null) speechLikeSince = now
+      if (now - speechLikeSince >= VOICE_CONFIRM_MS) {
         lastLoudAt = now
         if (!detectedVoice) {
           detectedVoice = true
@@ -119,7 +123,7 @@ export function createSilenceWatcher(
         }
       }
     } else {
-      consecutiveSpeechFrames = 0
+      speechLikeSince = null
       if (lastLoudAt !== null && now - lastLoudAt >= silenceMs) {
         stopped = true
         onSilence()
@@ -165,7 +169,7 @@ export function createVoiceActivityWatcher(
 
   const timeDomainBuffer = new Uint8Array(analyser.fftSize)
   const frequencyBuffer = new Uint8Array(analyser.frequencyBinCount)
-  let consecutiveSpeechFrames = 0
+  let speechLikeSince: number | null = null
   let stopped = false
 
   function finish() {
@@ -178,14 +182,15 @@ export function createVoiceActivityWatcher(
     if (stopped) return
 
     if (isSpeechLikeFrame(analyser, audioContext.sampleRate, timeDomainBuffer, frequencyBuffer)) {
-      consecutiveSpeechFrames += 1
-      if (consecutiveSpeechFrames >= VOICE_CONFIRM_FRAMES) {
+      const now = performance.now()
+      if (speechLikeSince === null) speechLikeSince = now
+      if (now - speechLikeSince >= VOICE_CONFIRM_MS) {
         finish()
         onVoiceDetected()
         return
       }
     } else {
-      consecutiveSpeechFrames = 0
+      speechLikeSince = null
     }
     requestAnimationFrame(tick)
   }

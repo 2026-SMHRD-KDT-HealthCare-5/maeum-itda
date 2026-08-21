@@ -40,6 +40,7 @@
   - ai-server: `sentiment_label`이 LLM 응답에서 소문자·다른 케이싱("Positive")이거나 `scale_analyses`가 명시적 `null`이면 배치 전체가 안전 폴백(NEUTRAL+빈 채점)으로 튕겨나가던 문제 — `llm.py`에서 케이싱 정규화·null→빈배열 처리 추가.
   - 백엔드: 답변 분석 중(FastAPI 왕복, 수 초) 시니어가 `chat:end`로 대화를 종료해도 `continueConversation` 판단이 요청 전 스냅샷 값 그대로 남아, 답변되지 않은 "유령" 다음 질문이 DB에 저장되던 문제 — 그 유령 질문이 같은 날 다음 `chat:start`의 DB 기준 재개 로직(위 6번)에 의해 되살아날 수 있었다. `AnalysisService.processPendingAnswerBatch`가 DB 저장 직전에 `isStillCurrent()`를 다시 평가하도록 수정.
   - 프론트: 마이크 권한 회수·장치 분리 등으로 `MediaRecorder`가 스스로 멈추면(`onstop`이 `finish()` 안에서만 걸려 있어 그 시점엔 이미 놓친 이벤트) 대화가 새로고침 전까지 영원히 멈추던 문제 — `onstop`/`onerror`를 recorder 생성 시점에 미리 걸어 어느 경로로 멈추든 항상 처리하도록 `useRecordVoiceAnswer` 수정.
+- **음성 활동 감지(VAD) 오탐 수정(2026-08-21)**: 시니어가 전혀 말하지 않았는데도 `characterState`가 계속 바뀌고 "한 질문에는 음성 답변을 최대 5개까지 추가할 수 있습니다" 에러가 뜨는 버그 재현·수정. 원인 두 가지가 겹쳤음 — (1) `record-voice-answer/lib`의 `isSpeechLikeFrame` 연속 확정 기준이 `requestAnimationFrame` 3프레임(60Hz 기준 ~50ms)이라 클릭·기침·의자 소리 같은 순간 잡음도 "발화"로 오인하기 쉬웠고, (2) 같은 날 `question-answer-queue.service.ts`의 "추가 답변 대기" 제거(위 perf 항목)로 답변 묶음별 대기 없이 건마다 즉시·개별 분석하게 되면서, 오탐지로 생긴 무음/잡음 세그먼트 하나하나가 그대로 같은 질문의 답변 개수 카운터(`MAX_ANSWER_SEGMENTS_PER_QUESTION=5`)를 소모해 금방 한도에 닿았음. `VOICE_CONFIRM_FRAMES`(프레임 개수, 화면 주사율마다 실제 시간이 다름)를 `VOICE_CONFIRM_MS=150`(경과 시간 기준)으로 바꿔 순간 잡음을 걸러내도록 수정 — `createSilenceWatcher`/`createVoiceActivityWatcher` 둘 다 적용.
 
 ## 의도적으로 미룸 (데모 전 손대지 않음)
 
@@ -47,6 +48,7 @@
 
 - 다중 기기(탭) 동시 접속 시 질문/답변 상태 충돌 — 데모는 단일 기기 진행이라 위험 낮음. (음성 대화 상태 관리와 직접 관련은 있으나, 데모 시나리오상 우선순위 낮음.) **2026-08-21 감사로 정확한 메커니즘 확인**: `ChatConnectionStateService`의 `isStarting`/`markStarting` 중복 시작 방지가 WebSocket 클라이언트 객체 단위(`WeakSet<WebSocket>`)라 같은 시니어의 서로 다른 연결(듀얼탭 등)까지는 못 막는다 — 두 연결이 거의 동시에 `chat:start`를 보내면 `ChatsService.startChat()`의 DB 조회가 둘 다 "오늘 대화 없음"으로 보고 AI 질문을 두 개 만들 수 있다. 고치려면 시니어 ID 단위 잠금이 추가로 필요하나, 단일 기기 데모 시나리오상 우선순위 낮아 이번엔 손대지 않음.
 - `question-answer-queue.service.ts`의 질문별 답변 개수/바이트 카운터(`answerCountByQuestionMessageId` 등)가 처리 완료 후에도 정리되지 않아 프로세스 수명 내내 계속 누적됨(2026-08-21 감사로 확인) — 짧은 데모 세션에는 영향 없는 완만한 메모리 누수라 이번엔 손대지 않음.
+- VAD 오탐 수정(위 완료 항목) 이후에도, 답변 세그먼트별 즉시·개별 분석(추가 답변 대기 제거, perf 커밋)과 5개 상한(`MAX_ANSWER_SEGMENTS_PER_QUESTION`)의 조합 자체는 남아있음 — 시니어가 자연스럽게 여러 번 끊어서(3초 이상 쉬며) 길게 대답하면 진짜 발화만으로도 세그먼트 5개를 채울 여지가 있다. `AUDIO_ANALYSIS_FAILED` 발생 시 프론트가 마이크를 자동으로 재개방하는 경로(`forceRecordResolverRef`)도 재시도 횟수 제한·backoff가 없다. 지금 데모 시나리오(짧은 응답)에서는 안 걸릴 가능성이 높아 이번엔 손대지 않음 — 실제로 다시 걸리면 상한값 상향 또는 재시도 backoff 추가를 검토.
 - UC-06-3 "acoustic feature(톤/피치) 추출" 문구를 실제 구현(`audio_features.py`의 numpy 기반 지표)에 맞게 문서화. **UC-04 감성분석 아키텍처 재설계(질문생성 LLM과 같은 구조화 출력에 감성분석 통합)는 2026-08-21에 완료됨 — 결정사항 로그 §8 참고, 더 이상 미룸 목록이 아님.**
 - UC-02 무응답 재촉진 타이밍 스펙 일치화 — 스펙은 "10초 무응답 시 AI가 동적 재촉진 질문 생성"이지만 실제는 30초 고정 안내 후 10분 무응답 시 종료. "AI 동적 재질문 생성" 부분만 스펙과 다르게 남음.
 - STT 외부 API 재시도 로직 추가 — 이미 OpenAI 실패 시 로컬 whisper 폴백 있음. (일간 요약 API의 재시도는 2026-08-21에 `AiClient`와 동일하게 추가 완료.)
