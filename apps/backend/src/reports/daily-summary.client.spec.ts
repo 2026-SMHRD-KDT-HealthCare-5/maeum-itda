@@ -53,4 +53,40 @@ describe('DailySummaryClient', () => {
     await expect(client.generate(request)).rejects.toThrow('AI_BASE_URL');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('503 일시 오류는 1회 재시도하고 성공 응답을 반환한다', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 503 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            conversationSummary: '편안하게 대화를 이어가셨어요.',
+            recommendedAction: '가볍게 안부를 확인해 주세요.',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ),
+      );
+    const client = new DailySummaryClient({
+      get: jest.fn().mockReturnValue('http://localhost:8000'),
+    } as never);
+
+    await expect(client.generate(request)).resolves.toEqual({
+      conversationSummary: '편안하게 대화를 이어가셨어요.',
+      recommendedAction: '가볍게 안부를 확인해 주세요.',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('422 계약 오류는 재시도하지 않는다', async () => {
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(null, { status: 422 }));
+    const client = new DailySummaryClient({
+      get: jest.fn().mockReturnValue('http://localhost:8000'),
+    } as never);
+
+    await expect(client.generate(request)).rejects.toThrow('HTTP 422');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
