@@ -8,8 +8,7 @@ import type { QuestionAnswerQueueService } from '../question-answer-queue.servic
 import type { AudioTransferStateService } from '../audio-transfer-state.service';
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatInactivityService } from '../chat-inactivity.service';
-import { QuestionDeliveryService } from '../question-delivery.service';
-import type { TtsClient } from '../../analysis/tts.client';
+import type { QuestionDeliveryService } from '../question-delivery.service';
 
 describe('AudioBinaryHandler', () => {
   const metadata = {
@@ -53,10 +52,9 @@ describe('AudioBinaryHandler', () => {
     };
     const lastTurnRecalcTimerService = { arm: jest.fn() };
     const chatInactivityService = { startWaitingForAnswer: jest.fn() };
-    // 기본값은 실패로 둔다 — 대부분 테스트는 TTS 내용과 무관하고, 실패해도
-    // deliverTtsWhenReady가 조용히 무시하도록 만들어져 있다(실제 구현과 동일한 경로).
-    const ttsClient = {
-      synthesize: jest.fn().mockRejectedValue(new Error('tts unavailable')),
+    const questionDeliveryService = {
+      deliverQuestion: jest.fn(),
+      deliverTtsToken: jest.fn().mockResolvedValue(undefined),
     };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
@@ -66,8 +64,7 @@ describe('AudioBinaryHandler', () => {
       transferStateService as unknown as AudioTransferStateService,
       chatInactivityService as unknown as ChatInactivityService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
-      ttsClient as unknown as TtsClient,
+      questionDeliveryService as unknown as QuestionDeliveryService,
     );
 
     return {
@@ -80,7 +77,7 @@ describe('AudioBinaryHandler', () => {
       connectionStateService,
       transferStateService,
       lastTurnRecalcTimerService,
-      ttsClient,
+      questionDeliveryService,
     };
   }
 
@@ -194,7 +191,7 @@ describe('AudioBinaryHandler', () => {
     expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(7);
   });
 
-  it('질문 텍스트는 TTS 합성을 기다리지 않고 먼저 전송하고, 음성은 합성이 끝난 뒤 뒤이어 전송한다', async () => {
+  it('질문 텍스트를 먼저 전달하고, 그 뒤에 TTS 스트리밍 토큰을 별도로 발급한다', async () => {
     const context = createContext();
     context.analysisService.isFastApiConfigured.mockReturnValue(true);
     context.analysisService.processPendingAnswerBatch.mockResolvedValue({
@@ -213,80 +210,19 @@ describe('AudioBinaryHandler', () => {
         continueConversation: true,
       }),
     });
-    let resolveSynthesize!: (value: {
-      base64: string;
-      mimeType: string;
-    }) => void;
-    context.ttsClient.synthesize.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolveSynthesize = resolve;
-      }),
-    );
 
     context.handler.handleAudioBinary(context.client, Buffer.from([1]));
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    // TTS가 아직 합성 중인 시점에도 질문 텍스트는 이미 전송돼 있어야 한다.
-    let events = context.send.mock.calls.map(
-      (call) => JSON.parse(call[0]) as { event?: string; payload?: unknown },
+    expect(
+      context.questionDeliveryService.deliverQuestion,
+    ).toHaveBeenCalledWith(
+      context.client,
+      expect.objectContaining({ messageId: 103 }),
     );
-    expect(events.some((event) => event.event === 'ai:question')).toBe(true);
-    expect(events.some((event) => event.event === 'tts:audio')).toBe(false);
-
-    resolveSynthesize({ base64: 'bW9jaw==', mimeType: 'audio/mpeg' });
-    await new Promise<void>((resolve) => setImmediate(resolve));
-
-    events = context.send.mock.calls.map(
-      (call) => JSON.parse(call[0]) as { event?: string; payload?: unknown },
-    );
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        event: 'tts:audio',
-        payload: expect.objectContaining({
-          messageId: 103,
-          base64: 'bW9jaw==',
-          mimeType: 'audio/mpeg',
-        }),
-      }),
-    );
-  });
-
-  it('TTS 합성이 끝나기 전에 다른 질문으로 넘어갔으면 뒤늦은 음성은 버린다', async () => {
-    const context = createContext();
-    context.analysisService.isFastApiConfigured.mockReturnValue(true);
-    context.analysisService.processPendingAnswerBatch.mockResolvedValue({
-      answerTranscripts: [],
-      nextQuestion: {
-        messageId: 103,
-        generationId: 'generation-002',
-        content: '산책하면서 무엇이 좋으셨어요?',
-      },
-    });
-    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
-      isBatchOwner: true,
-      ready: Promise.resolve({
-        questionMessageId: 101,
-        seniorId: 7,
-        continueConversation: true,
-      }),
-    });
-    context.ttsClient.synthesize.mockResolvedValueOnce({
-      base64: 'bW9jaw==',
-      mimeType: 'audio/mpeg',
-    });
-    // 합성이 끝나기 전에 이미 다른 질문으로 넘어갔다고 가정한다.
-    context.connectionStateService.matchesCurrentQuestion.mockReturnValue(
-      false,
-    );
-
-    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    await new Promise<void>((resolve) => setImmediate(resolve));
-
-    const events = context.send.mock.calls.map(
-      (call) => JSON.parse(call[0]) as { event?: string; payload?: unknown },
-    );
-    expect(events.some((event) => event.event === 'tts:audio')).toBe(false);
+    expect(
+      context.questionDeliveryService.deliverTtsToken,
+    ).toHaveBeenCalledWith(context.client, 103, 7);
   });
 
   it('다음 질문이 없는 늦은 답변이어도 STT 결과는 audio:transcript로 전송한다', async () => {
@@ -319,6 +255,9 @@ describe('AudioBinaryHandler', () => {
       }),
     );
     expect(events.some((event) => event.event === 'ai:question')).toBe(false);
+    expect(
+      context.questionDeliveryService.deliverTtsToken,
+    ).not.toHaveBeenCalled();
   });
 
   it('FastAPI 분석 자체가 실패하면 저장 없이 AUDIO_ANALYSIS_FAILED만 전송한다', async () => {

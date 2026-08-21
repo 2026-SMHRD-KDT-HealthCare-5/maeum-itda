@@ -437,6 +437,70 @@ class TtsSynthesizeApiTests(unittest.TestCase):
         self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")
 
 
+class TtsSynthesizeStreamApiTests(unittest.TestCase):
+    def setUp(self):
+        self.client = TestClient(app)
+
+    @staticmethod
+    async def _chunks(*parts: bytes):
+        for part in parts:
+            yield part
+
+    def test_streams_audio_chunks_as_they_are_generated(self):
+        with patch(
+            "app.main.tts_service.synthesize_stream",
+            return_value=self._chunks(b"chunk-1", b"chunk-2"),
+        ) as synthesize:
+            response = self.client.post(
+                "/tts/synthesize/stream",
+                json={"text": "산책은 어떠셨어요?"},
+            )
+
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.content, b"chunk-1chunk-2")
+        self.assertEqual(
+            response.headers["content-type"],
+            _tts_mime_type(get_settings().typecast_audio_format.lower()),
+        )
+        synthesize.assert_called_once_with("산책은 어떠셨어요?")
+
+    def test_rejects_blank_text(self):
+        response = self.client.post(
+            "/tts/synthesize/stream", json={"text": "   "}
+        )
+
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "TTS 변환 문장이 비어 있습니다.")
+
+    def test_empty_stream_returns_502(self):
+        with patch(
+            "app.main.tts_service.synthesize_stream",
+            return_value=self._chunks(),
+        ):
+            response = self.client.post(
+                "/tts/synthesize/stream", json={"text": "첫 질문"}
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 결과가 비어 있습니다.")
+
+    def test_failure_before_first_chunk_returns_502(self):
+        async def _failing():
+            raise RuntimeError("Typecast unavailable")
+            yield b""  # pragma: no cover - 도달하지 않음, 제너레이터 형태를 위해 필요
+
+        with patch(
+            "app.main.tts_service.synthesize_stream",
+            return_value=_failing(),
+        ):
+            response = self.client.post(
+                "/tts/synthesize/stream", json={"text": "첫 질문"}
+            )
+
+        self.assertEqual(response.status_code, 502)
+        self.assertEqual(response.json()["detail"], "TTS 음성 생성에 실패했습니다.")
+
+
 class DailySummaryApiTests(unittest.TestCase):
     def setUp(self):
         self.client = TestClient(app)

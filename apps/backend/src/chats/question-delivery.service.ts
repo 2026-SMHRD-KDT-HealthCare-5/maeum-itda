@@ -1,46 +1,47 @@
 /*
-역할: AI 질문 텍스트와 TTS 음성을 WebSocket으로 전달한다.
-전체 흐름: ChatStartHandler → QuestionDeliveryService.deliver() → tts:audio → ai:question(최초 질문, 순서 고정)
-          AudioBinaryHandler → deliverQuestion() → (비동기 TTS 합성 완료 시) deliverTts()(후속 질문, 텍스트 먼저)
-[2026-08-20 변경] 후속 질문은 텍스트가 TTS 합성 시간만큼 화면 표시가 늦어지지 않도록 텍스트를
-먼저 보내고, 음성은 별도로 합성이 끝나는 대로 뒤이어 보낸다(§4.2 참고, 최초 질문은 기존 순서 유지).
+역할: AI 질문 텍스트 전달과 TTS 스트리밍 경로 발급을 WebSocket으로 전달한다.
+전체 흐름: ChatStartHandler/AudioBinaryHandler → deliverQuestion() → deliverTtsToken()
+[2026-08-21 변경] TTS는 더 이상 오디오 자체를 실어보내지 않는다 — 합성 완료를
+기다리지 않고 질문 텍스트를 먼저 보낸 뒤, AuthService로 단기 전용 토큰을 발급해
+GET /chats/tts-stream 스트리밍 경로만 뒤이어 전달한다(§4.2/§6.3 참고). 최초 질문과
+후속 질문 모두 이 순서(텍스트 먼저, TTS 경로 나중)로 통일한다.
 */
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import type WebSocket from 'ws';
-import type { TtsAudioResult } from '../analysis/dto/audio-analysis.contract';
 import type { AiQuestionPayload } from '@maeum-itda/shared-types';
+import { AuthService } from '../auth/auth.service';
 import { sendWsEvent } from './ws-event';
 
 @Injectable()
 export class QuestionDeliveryService {
-  // 최초 질문(chat:start)에서만 사용 — TTS를 먼저 준비해둔 뒤 함께 전달한다.
-  deliver(
-    client: WebSocket,
-    question: AiQuestionPayload,
-    ttsAudio: TtsAudioResult | null,
-  ): void {
-    // 프론트가 질문 수신 즉시 재생할 음성을 찾을 수 있도록 TTS를 먼저 전송한다.
-    if (ttsAudio !== null) {
-      this.deliverTts(client, question.messageId, ttsAudio);
-    }
-    this.deliverQuestion(client, question);
+  private readonly authService: AuthService;
+
+  constructor(authService: AuthService) {
+    this.authService = authService;
   }
 
   deliverQuestion(client: WebSocket, question: AiQuestionPayload): void {
     sendWsEvent(client, 'ai:question', question);
   }
 
-  deliverTts(
+  // 역할: TTS 스트리밍 경로를 발급해 전달한다. 토큰 발급 자체는 네트워크 호출이
+  // 없어 거의 즉시 끝나지만, 그 사이 연결이 끊겼을 수 있어 보내기 직전 한 번만
+  // 확인한다(늦게 도착해도 해가 없지만, 이미 닫힌 소켓에 보내려는 시도 자체를 줄인다).
+  async deliverTtsToken(
     client: WebSocket,
     messageId: number,
-    ttsAudio: TtsAudioResult,
-  ): void {
+    seniorId: number,
+  ): Promise<void> {
+    const token = await this.authService.signTtsStreamToken(
+      messageId,
+      seniorId,
+    );
+    if (client.readyState !== 1) return;
     sendWsEvent(client, 'tts:audio', {
       ttsTransferId: randomUUID(),
       messageId,
-      base64: ttsAudio.base64,
-      mimeType: ttsAudio.mimeType,
+      streamPath: `/chats/tts-stream?messageId=${messageId}&token=${encodeURIComponent(token)}`,
     });
   }
 }

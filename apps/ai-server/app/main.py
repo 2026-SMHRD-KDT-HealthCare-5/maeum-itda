@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
 from app.schemas import (
@@ -173,6 +174,41 @@ async def synthesize_tts(request: TtsSynthesizeRequest) -> TtsSynthesizeResponse
     return TtsSynthesizeResponse(
         ttsAudioBase64=base64.b64encode(tts_audio).decode("ascii"),
         ttsMimeType=_tts_mime_type(audio_format),
+    )
+
+
+@app.post("/tts/synthesize/stream")
+async def synthesize_tts_stream(request: TtsSynthesizeRequest) -> StreamingResponse:
+    """질문 텍스트를 실제 HTTP chunked transfer로 스트리밍 응답한다(TTFB 약 200ms,
+    FR-01-05). 백엔드의 GET /chats/tts-stream이 이 응답을 그대로 프론트에 중계한다.
+
+    첫 청크가 나올 때까지는 여기서 직접 기다린다 — StreamingResponse를 반환한
+    뒤에는(응답 헤더가 이미 나간 뒤라) 제너레이터 안에서 발생한 예외를 더 이상
+    깨끗한 HTTP 오류로 바꿀 수 없기 때문이다. 그래서 초반 실패(인증/네트워크 등)만
+    502로 응답하고, 이미 시작된 스트리밍 중 실패는(드묾) 응답이 중간에 끊기는
+    형태로 남는다.
+    """
+    text = request.text.strip()
+    if not text:
+        raise HTTPException(status_code=422, detail="TTS 변환 문장이 비어 있습니다.")
+
+    generator = tts_service.synthesize_stream(text)
+    try:
+        first_chunk = await generator.__anext__()
+    except StopAsyncIteration as exc:
+        raise HTTPException(status_code=502, detail="TTS 음성 결과가 비어 있습니다.") from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("TTS 스트리밍 생성 실패: %s", exc)
+        raise HTTPException(status_code=502, detail="TTS 음성 생성에 실패했습니다.") from exc
+
+    async def _stream_from_first_chunk():
+        yield first_chunk
+        async for chunk in generator:
+            yield chunk
+
+    audio_format = get_settings().typecast_audio_format.lower()
+    return StreamingResponse(
+        _stream_from_first_chunk(), media_type=_tts_mime_type(audio_format)
     )
 
 

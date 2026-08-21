@@ -43,4 +43,18 @@ export class ConversationMessageRepository {
     // INSERT 실행 후 MySQL이 발급한 MESSAGE_ID를 포함한 객체 반환
     return this.typeOrmRepository.save(initialQuestion);
   }
+
+  // 역할: GET /chats/tts-stream이 스트리밍할 AI 질문의 텍스트를 조회한다.
+  // 다른 시니어의 질문이거나 AI 질문이 아니면(또는 없으면) null을 반환한다.
+  async findAiQuestionContent(
+    messageId: number,
+    seniorId: number,
+  ): Promise<string | null> {
+    const message = await this.typeOrmRepository.findOneBy({
+      messageId,
+      seniorId,
+      speakerType: SpeakerType.AI,
+    });
+    return message?.content ?? null;
+  }
 }

@@ -61,20 +61,16 @@ export interface AnswerAnalysisResult {
 }
 
 // FastAPI가 질문별 음성 묶음 전체를 분석한 응답이다. TTS는 이 응답에 포함되지 않는다 —
-// 화면에 다음 질문 텍스트가 뜨는 시점이 TTS 합성 시간만큼 지연되지 않도록, 텍스트가
-// 확정·전달된 뒤 AnalysisService가 별도로 TtsClient를 호출해 음성을 뒤이어 보낸다.
+// 화면에 다음 질문 텍스트가 뜨는 시점이 TTS 합성 시간만큼 지연되지 않도록, 텍스트만
+// 먼저 전달하고 TTS는 프론트가 GET /chats/tts-stream을 직접 호출할 때가 돼서야 합성된다
+// (QuestionDeliveryService.deliverTtsToken이 스트리밍 경로만 발급, 오디오 자체는 안 만듦).
 export interface QuestionAnswerAnalysisResult {
   answers: AnswerAnalysisResult[];
   nextQuestion: string;
 }
 
-export interface TtsAudioResult {
-  base64: string;
-  mimeType: string;
-}
-
 // DB 저장 완료 후 WebSocket으로 다음 질문을 보낼 때 사용하는 NestJS 내부 결과다.
-// TTS는 여기 포함되지 않는다 — 텍스트 전달 뒤 별도로 비동기 합성한다(위 QuestionAnswerAnalysisResult 참고).
+// TTS는 여기 포함되지 않는다 — 텍스트 전달 뒤 별도로 스트리밍 경로만 발급한다(위 참고).
 export interface CompletedAudioAnalysis {
   // 다음 질문 유무와 무관하게(늦은 답변 포함) audio:transcript로 그대로 전달한다.
   answerTranscripts: Array<{ messageId: number; content: string }>;

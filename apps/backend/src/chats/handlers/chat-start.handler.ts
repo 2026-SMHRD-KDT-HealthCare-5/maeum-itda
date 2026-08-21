@@ -90,6 +90,11 @@ export class ChatStartHandler {
       // DB 저장이 끝난 경우에만 시작 완료와 AI 질문을 순서대로 전송
       this.handleChatStarted(client);
       this.handleAiQuestion(client, startedChat);
+      void this.questionDeliveryService.deliverTtsToken(
+        client,
+        startedChat.messageId,
+        authenticatedUser.sub,
+      );
       this.chatInactivityService.startWaitingForAnswer(client);
     } catch {
       sendWsError(client, {
@@ -114,7 +119,6 @@ export class ChatStartHandler {
   // 연결 객체: WebSocket 연결 객체, ChatsService 반환 결과
   // 다음 호출: ai:question 전송 → 프론트 질문 출력
   private handleAiQuestion(client: WebSocket, startedChat: StartedChat): void {
-    const { ttsAudio, ...question } = startedChat;
-    this.questionDeliveryService.deliver(client, question, ttsAudio);
+    this.questionDeliveryService.deliverQuestion(client, startedChat);
   }
 }

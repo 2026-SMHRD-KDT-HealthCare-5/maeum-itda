@@ -7,6 +7,7 @@ import {
 } from '../../../features/record-voice-answer'
 import { useSession } from '../../../entities/user'
 import { ChatSocket } from '../../../shared/api'
+import { API_BASE_URL } from '../../../shared/config'
 import { useDelayedPending } from '../../../shared/lib'
 import type { AiQuestionPayload } from '../../../shared/types'
 import { Button, LoadingSpinner } from '../../../shared/ui'
@@ -16,7 +17,6 @@ import thinkingCharacterImage from './character-daseul-thinking.png'
 import styles from './SeniorConversationPage.module.css'
 
 type CharacterState = 'waiting' | 'listening' | 'question' | 'thinking'
-type TtsAudio = { base64: string; mimeType: string }
 
 // 'waiting'은 전용 캐릭터 그림이 아직 없어 'listening'과 같은 그림을 쓰고
 // alt 텍스트와 하단 배지 문구로만 구분한다(RecordVoiceAnswerAction 참고).
@@ -67,16 +67,11 @@ export function SeniorConversationPage() {
   const [answerRetryNotice, setAnswerRetryNotice] = useState<string | null>(null)
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
-  const [currentQuestionTts, setCurrentQuestionTts] = useState<TtsAudio | null>(null)
-  // tts:audio 도착 순서는 질문에 따라 다르다: 최초 질문(chat:start)은 여전히
-  // ai:question보다 먼저 오지만(QuestionDeliveryService.deliver), 대화 중 후속
-  // 질문은 텍스트를 화면에 먼저 띄우기 위해 ai:question이 먼저 오고 TTS는 합성이
-  // 끝나는 대로 뒤이어 온다(2026-08-20 변경, AudioBinaryHandler.deliverTtsWhenReady).
-  // 그래서 두 순서를 모두 다뤄야 한다: 먼저 온 TTS는 messageId별로 잠깐 보관해뒀다가
-  // handleAiQuestion에서 짝짓고, 이미 화면에 뜬 질문과 같은 messageId로 나중에 온
-  // TTS는 handleTtsAudio가 바로 반영한다. 리렌더를 유발할 필요 없는 값이라 둘 다
-  // state가 아니라 ref다.
-  const pendingTtsByMessageIdRef = useRef(new Map<number, TtsAudio>())
+  const [currentQuestionTtsUrl, setCurrentQuestionTtsUrl] = useState<string | null>(null)
+  // 2026-08-21부터 최초 질문·후속 질문 모두 ai:question(텍스트)이 먼저 오고
+  // tts:audio(스트리밍 경로)는 단기 토큰 발급이 끝나는 대로 항상 뒤이어 온다 —
+  // 그래서 tts:audio는 항상 "이미 화면에 뜬 질문과 같은 messageId"로만 도착한다.
+  // 리렌더를 유발할 필요 없는 값이라 state가 아니라 ref다.
   const currentQuestionMessageIdRef = useRef<number | null>(null)
 
   useEffect(() => {
@@ -86,25 +81,18 @@ export function SeniorConversationPage() {
     const accessToken = session.accessToken
 
     const handleAiQuestion: Parameters<typeof socket.on<'ai:question'>>[1] = (payload) => {
-      const ttsAudio = pendingTtsByMessageIdRef.current.get(payload.messageId) ?? null
-      pendingTtsByMessageIdRef.current.delete(payload.messageId)
       currentQuestionMessageIdRef.current = payload.messageId
       setCurrentQuestion(payload)
-      setCurrentQuestionTts(ttsAudio)
+      setCurrentQuestionTtsUrl(null)
       setIdleNotice(null)
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
     }
-    // 이미 화면에 뜬 질문과 같은 messageId면(후속 질문의 일반적인 경우) 곧바로
-    // 반영하고, 아니면(최초 질문처럼 ai:question보다 먼저 온 경우) messageId별로
-    // 보관해뒀다가 handleAiQuestion에서 짝짓는다.
+    // tts:audio는 항상 이미 화면에 뜬 질문과 같은 messageId로 뒤이어 온다 — 다른
+    // 질문으로 넘어간 뒤 늦게 도착한 것이면(messageId 불일치) 조용히 버린다.
     const handleTtsAudio: Parameters<typeof socket.on<'tts:audio'>>[1] = (payload) => {
-      const ttsAudio: TtsAudio = { base64: payload.base64, mimeType: payload.mimeType }
-      if (payload.messageId === currentQuestionMessageIdRef.current) {
-        setCurrentQuestionTts(ttsAudio)
-        return
-      }
-      pendingTtsByMessageIdRef.current.set(payload.messageId, ttsAudio)
+      if (payload.messageId !== currentQuestionMessageIdRef.current) return
+      setCurrentQuestionTtsUrl(`${API_BASE_URL}${payload.streamPath}`)
     }
     // 답변 메시지는 분석이 성공해 실제로 저장된 시점에야 처음 이 이벤트로
     // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
@@ -205,7 +193,7 @@ export function SeniorConversationPage() {
   const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
-    ttsAudio: currentQuestionTts,
+    ttsStreamUrl: currentQuestionTtsUrl,
     // 무음인 채로 "지금 답변 마치기"를 누르면 서버로 보내지 않고 안내만 띄운다
     // (Whisper 계열이 무음에도 엉뚱한 문장을 환각하는 걸 막기 위한 클라이언트
     // 사전 필터 — app/services/stt.py 자체에는 무음 판별이 없다).

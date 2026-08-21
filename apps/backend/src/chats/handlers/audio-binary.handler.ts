@@ -12,7 +12,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import type WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { AnalysisService } from '../../analysis/analysis.service';
-import { TtsClient } from '../../analysis/tts.client';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 import {
   QuestionAnswerQueueLimitError,
@@ -45,7 +44,6 @@ export class AudioBinaryHandler {
   private readonly chatInactivityService: ChatInactivityService;
   private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
   private readonly questionDeliveryService: QuestionDeliveryService;
-  private readonly ttsClient: TtsClient;
 
   constructor(
     audioMetadataHandler: AudioMetadataHandler,
@@ -56,7 +54,6 @@ export class AudioBinaryHandler {
     chatInactivityService: ChatInactivityService,
     lastTurnRecalcTimerService: LastTurnRecalcTimerService,
     questionDeliveryService: QuestionDeliveryService,
-    ttsClient: TtsClient,
   ) {
     this.audioMetadataHandler = audioMetadataHandler;
     this.questionAnswerQueueService = questionAnswerQueueService;
@@ -66,7 +63,6 @@ export class AudioBinaryHandler {
     this.chatInactivityService = chatInactivityService;
     this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
     this.questionDeliveryService = questionDeliveryService;
-    this.ttsClient = ttsClient;
   }
 
   // 역할: 음성 한 건은 즉시 큐에 등록·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
@@ -238,7 +234,11 @@ export class AudioBinaryHandler {
       this.chatInactivityService.startWaitingForAnswer(client);
       // [완료] 다음 질문을 전달한 시점부터 10분 재계산 타이머를 다시 시작한다.
       this.lastTurnRecalcTimerService.arm(batch.seniorId);
-      void this.deliverTtsWhenReady(client, completed.nextQuestion);
+      void this.questionDeliveryService.deliverTtsToken(
+        client,
+        completed.nextQuestion.messageId,
+        batch.seniorId,
+      );
     } catch {
       // AnalysisService.processPendingAnswerBatch는 실패 시 아무것도 저장하지
       // 않는다 — 이 답변들은 애초에 메시지로 존재한 적이 없으므로 프론트에
@@ -254,33 +254,6 @@ export class AudioBinaryHandler {
         );
       }
     }
-  }
-
-  // 역할: 이미 전달된 질문 텍스트에 대한 TTS 음성을 별도로 합성해 뒤이어 보낸다.
-  // 합성이 끝나기 전에 대화가 끝나거나 다음 질문으로 넘어갔으면 조용히 버린다 —
-  // 이미 화면에서 지나간 질문의 음성을 뒤늦게 재생시키지 않기 위함이다.
-  private async deliverTtsWhenReady(
-    client: WebSocket,
-    question: { messageId: number; generationId: string; content: string },
-  ): Promise<void> {
-    const ttsAudio = await this.ttsClient
-      .synthesize(question.content)
-      .catch(() => null);
-    if (ttsAudio === null || !this.isClientOpen(client)) return;
-    if (
-      !this.chatConnectionStateService.matchesCurrentQuestion(
-        client,
-        question.messageId,
-        question.generationId,
-      )
-    ) {
-      return;
-    }
-    this.questionDeliveryService.deliverTts(
-      client,
-      question.messageId,
-      ttsAudio,
-    );
   }
 
   clearClient(client: WebSocket): void {
