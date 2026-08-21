@@ -228,6 +228,11 @@ export class AudioBinaryHandler {
         });
       }
       if (completed.nextQuestion === null) return;
+      // 새 질문이 만들어졌다는 건 이 질문(batch.questionMessageId)이 완전히
+      // 닫혔다는 뜻이다 — 앞으로 클라이언트가 보낼 답변은 전부 새 질문 ID로
+      // 붙으므로, 이 ID의 개수·용량 카운터는 더 늘어나지 않는다. 여기서 지워
+      // 프로세스 수명 내내 쌓이는 걸 막는다(위 클래스 주석 [제약] 참고).
+      this.questionAnswerQueueService.clearCounters(batch.questionMessageId);
       this.chatConnectionStateService.setCurrentQuestion(
         client,
         completed.nextQuestion,

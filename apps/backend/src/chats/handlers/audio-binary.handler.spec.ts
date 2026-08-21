@@ -39,6 +39,7 @@ describe('AudioBinaryHandler', () => {
         isBatchOwner: false,
         ready: new Promise(() => undefined),
       }),
+      clearCounters: jest.fn(),
     };
     const connectionStateService = {
       setCurrentQuestion: jest.fn(),

@@ -50,6 +50,12 @@ export interface UseRecordVoiceAnswerResult {
 }
 
 const AUTO_SILENCE_MS = 3_000
+// AUDIO_ANALYSIS_FAILED 수신 시 발화 없이도 마이크를 강제로 재개방하는 재시도
+// 횟수 상한(질문마다 초기화). 상한이 없으면 ai-server가 계속 실패할 때 발화
+// 없는 세그먼트가 계속 제출되며 같은 질문의 답변 개수 상한(MAX_ANSWER_SEGMENTS_
+// PER_QUESTION, 백엔드)까지 소모해버릴 수 있다 — 상한을 넘으면 강제 재개방은
+// 멈추지만, 진짜 발화(VAD 감지)로 이어서 답변하는 경로는 그대로 살아있다.
+const MAX_AUTO_ANALYSIS_RETRIES = 2
 // 후속 질문은 텍스트(currentQuestion)가 먼저 도착하고 TTS 스트리밍 경로는 단기
 // 토큰 발급이 끝나는 대로 별도로 뒤이어 온다(백엔드 QuestionDeliveryService.
 // deliverTtsToken) — 그래서 이 훅이 실행되는 시점엔 ttsStreamUrl이 아직 null인
@@ -90,6 +96,9 @@ export function useRecordVoiceAnswer({
   // 실패)를 기다리는 resolver. 분석 실패 시 이걸 대신 호출해 VAD 감지를
   // 기다리지 않고 곧바로 같은 질문에 대한 녹음을 다시 연다(무한 대기 방지).
   const forceRecordResolverRef = useRef<(() => void) | null>(null)
+  // 이번 질문에서 AUDIO_ANALYSIS_FAILED로 강제 재개방한 횟수 — runTurn() 시작 시
+  // (새 질문마다) 0으로 되돌린다.
+  const autoAnalysisRetriesRef = useRef(0)
 
   const currentQuestionRef = useRef(currentQuestion)
   // finish()가 recorder.stop()을 부를 때 함께 넘길 endType — recorder.onstop
@@ -214,6 +223,7 @@ export function useRecordVoiceAnswer({
       const stream = await ensureStream()
       if (cancelled || !stream) return
 
+      autoAnalysisRetriesRef.current = 0
       setPhase('question')
       setTtsAutoplayBlocked(false)
       if (!ttsStreamUrlRef.current) {
@@ -294,6 +304,10 @@ export function useRecordVoiceAnswer({
   useEffect(() => {
     function handleError(payload: WsErrorPayload) {
       if (payload.code !== 'AUDIO_ANALYSIS_FAILED') return
+      // 상한에 닿으면 강제 재개방을 멈춘다 — 발화 감지(VAD)로 이어서 답변하는
+      // 경로는 이 훅과 무관하게 계속 살아있으니 무한 대기로 막히지는 않는다.
+      if (autoAnalysisRetriesRef.current >= MAX_AUTO_ANALYSIS_RETRIES) return
+      autoAnalysisRetriesRef.current += 1
       forceRecordResolverRef.current?.()
     }
     socket.on('error', handleError)

@@ -73,7 +73,7 @@ describe('QuestionAnswerQueueService', () => {
     );
   });
 
-  it('한 질문에는 최대 5개 답변만 등록한다(대기 없이도 누적 개수로 제한)', () => {
+  it('한 질문에는 MAX_ANSWER_SEGMENTS_PER_QUESTION개까지만 답변을 등록한다(대기 없이도 누적 개수로 제한)', () => {
     for (let index = 0; index < MAX_ANSWER_SEGMENTS_PER_QUESTION; index += 1) {
       service.enqueue(answer(102 + index));
     }

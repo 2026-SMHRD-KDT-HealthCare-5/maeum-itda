@@ -19,7 +19,7 @@ describe('ChatInactivityService', () => {
   function createContext() {
     const send = jest.fn<void, [string]>();
     const client = { send, readyState: 1 } as unknown as WebSocket;
-    const queue = { flush: jest.fn() };
+    const queue = { flush: jest.fn(), clearCounters: jest.fn() };
     const metadata = { clearClient: jest.fn() };
     const transfer = { clearClient: jest.fn() };
     const state = {

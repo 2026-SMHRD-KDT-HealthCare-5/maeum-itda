@@ -18,7 +18,12 @@ import {
   QueuedAnswerSegment,
 } from '../analysis/dto/audio-analysis.contract';
 
-export const MAX_ANSWER_SEGMENTS_PER_QUESTION = 5;
+// [2026-08-21 상향] 답변 세그먼트별 즉시·개별 분석(위 "추가 답변 대기" 제거)으로
+// 바뀐 뒤로는, 시니어가 자연스럽게 여러 번 끊어 말해도(3초 이상 침묵마다 세그먼트가
+// 하나씩 늘어난다) 그 자체로 이 한도에 닿을 수 있다 — 원래 5는 세그먼트 여러 개가
+// 배치로 병합되던 시절 기준이라 지금은 너무 빡빡하다. 진짜 발화가 여러 번 끊겨도
+// 여유를 두도록 10으로 올린다.
+export const MAX_ANSWER_SEGMENTS_PER_QUESTION = 10;
 export const MAX_ANSWER_AUDIO_BYTES_PER_QUESTION = 30 * 1024 * 1024;
 
 export class QuestionAnswerQueueLimitError extends Error {
@@ -51,7 +56,10 @@ export class QuestionAnswerQueueService {
   >();
   // enqueue()가 매번 즉시 flush하므로 pendingByQuestionMessageId에는 개수·용량이
   // 누적되지 않는다 — 그래서 질문별 총 답변 개수·용량 제한은 별도로 계속 누적해서
-  // 추적한다(질문마다 한 번 생기는 questionMessageId 기준이라 무한정 쌓이지는 않음).
+  // 추적한다. [2026-08-21 수정] 이 두 Map은 questionMessageId가 끝났다고 확신되는
+  // 시점(다음 질문이 생성될 때, 대화가 끝날 때)에 호출부가 clearCounters()로 명시적으로
+  // 지워야 한다 — 안 그러면 질문마다 계속 새 key가 쌓여 프로세스 수명 내내 늘어난다
+  // (예전엔 이걸 안 지워서 완만한 메모리 누수였음, 아래 clearCounters 참고).
   private readonly answerCountByQuestionMessageId = new Map<number, number>();
   private readonly answerBytesByQuestionMessageId = new Map<number, number>();
 
@@ -109,7 +117,7 @@ export class QuestionAnswerQueueService {
     if (count >= MAX_ANSWER_SEGMENTS_PER_QUESTION) {
       throw new QuestionAnswerQueueLimitError(
         'ANSWER_SEGMENT_LIMIT_EXCEEDED',
-        '한 질문에는 음성 답변을 최대 5개까지 추가할 수 있습니다.',
+        `한 질문에는 음성 답변을 최대 ${MAX_ANSWER_SEGMENTS_PER_QUESTION}개까지 추가할 수 있습니다.`,
       );
     }
 
@@ -131,6 +139,17 @@ export class QuestionAnswerQueueService {
     pending.batch.continueConversation = continueConversation;
     this.pendingByQuestionMessageId.delete(questionMessageId);
     pending.resolve(pending.batch);
+  }
+
+  // 역할: 더 이상 답변이 늘어날 일이 없는 질문의 개수·용량 카운터를 지운다 —
+  // 이 카운터는 flush()와 달리 처리 완료 후에도 남아 프로세스 수명 내내 계속
+  // 누적되므로(2026-08-21 감사로 확인된 완만한 메모리 누수) 호출부가 "이 질문은
+  // 끝났다"고 확신하는 시점에 명시적으로 지워줘야 한다 — 다음 질문이 만들어져
+  // 이전 질문이 닫힐 때(AudioBinaryHandler), 대화가 끝날 때(ChatEndHandler,
+  // ChatInactivityService)가 그 시점이다.
+  clearCounters(questionMessageId: number): void {
+    this.answerCountByQuestionMessageId.delete(questionMessageId);
+    this.answerBytesByQuestionMessageId.delete(questionMessageId);
   }
 
   private assertSameQuestionContext(
