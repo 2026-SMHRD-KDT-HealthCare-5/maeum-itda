@@ -20,7 +20,7 @@ export function toSeoulBusinessDayUtcRange(reportDate: string): UtcDateRange {
   return { start, end: new Date(start.getTime() + 24 * 60 * 60 * 1000) };
 }
 
-function formatSeoulDate(value: Date): string {
+export function formatSeoulDate(value: Date): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
     year: 'numeric',

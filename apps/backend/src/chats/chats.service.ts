@@ -6,6 +6,11 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ConversationMessageRepository } from './repositories/conversation-message.repository';
+import { SpeakerType } from './entities/conversation-message.entity';
+import {
+  formatSeoulDate,
+  toSeoulBusinessDayUtcRange,
+} from '../reports/lib/seoul-business-date';
 
 const INITIAL_AI_QUESTION = '오늘 하루는 어땠나요?'; // 대화 시작 시 사용하는 최초 고정 질문
 
@@ -27,10 +32,33 @@ export class ChatsService {
     this.conversationMessageRepository = conversationMessageRepository;
   }
 
-  // 역할: generationId 발급과 최초 고정 질문 저장 순서 관리
+  // 역할: 오늘 마지막 메시지가 아직 답변되지 않은 AI 질문이면 그대로 재사용하고,
+  // 아니면(오늘 대화가 없거나 마지막이 시니어 답변이면) 새 질문을 발급한다.
+  // 서버 재시작으로 ChatConnectionStateService의 메모리 상태가 사라진 뒤 같은 날
+  // 재접속해도 DB로 직접 확인하므로 대화가 처음부터 다시 시작되지 않는다.
   // 연결 객체: ConversationMessageRepository
-  // 다음 호출: saveInitialAiQuestion() → ChatStartHandler.handleChatStart()
+  // 다음 호출: ChatStartHandler.handleChatStart()
   async startChat(seniorId: number): Promise<StartedChat> {
+    const { start, end } = toSeoulBusinessDayUtcRange(
+      formatSeoulDate(new Date()),
+    );
+    const latestToday =
+      await this.conversationMessageRepository.findLatestMessageToday(
+        seniorId,
+        start,
+        end,
+      );
+
+    if (latestToday !== null && latestToday.speakerType === SpeakerType.AI) {
+      // generationId는 DB에 저장되지 않는 휘발성 값이라 재접속마다 새로 발급한다 —
+      // 새 WebSocket 연결이라 이전 값과 충돌할 대상 자체가 없다.
+      return {
+        messageId: latestToday.messageId,
+        generationId: randomUUID(),
+        content: latestToday.content ?? INITIAL_AI_QUESTION,
+      };
+    }
+
     // 현재 AI 질문 단위를 구분하며 DB 메시지 ID와는 별도로 사용
     const generationId = randomUUID();
 

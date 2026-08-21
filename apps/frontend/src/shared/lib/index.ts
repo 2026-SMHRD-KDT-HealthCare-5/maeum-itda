@@ -4,6 +4,18 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
 }
 
+const seoulDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+// 서비스 기준 날짜(서울)를 GET /chats/messages?date= 등의 YYYY-MM-DD 형식으로 반환한다.
+export function getSeoulDateKey(date: Date = new Date()): string {
+  return seoulDateKeyFormatter.format(date)
+}
+
 // 로딩 스피너 깜빡임 방지: isPending이 delay(ms) 안에 끝나면 스피너를 아예 띄우지
 // 않고(빠른 화면은 스피너 없이 넘어감), 한 번 뜬 뒤엔 minDuration(ms)만큼은
 // 유지해서 순간적으로 나타났다 사라지는 걸 막는다.

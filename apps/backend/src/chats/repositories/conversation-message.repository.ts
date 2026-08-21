@@ -5,7 +5,7 @@
 */
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Between, Repository } from 'typeorm';
 import {
   ConversationMessage,
   SpeakerType,
@@ -56,5 +56,19 @@ export class ConversationMessageRepository {
       speakerType: SpeakerType.AI,
     });
     return message?.content ?? null;
+  }
+
+  // 역할: 서버 재시작 등으로 메모리 상의 진행 상태(ChatConnectionStateService)가
+  // 사라진 뒤 같은 날 재접속했을 때, 오늘 마지막 메시지가 아직 답변되지 않은
+  // AI 질문인지 DB로 직접 판단하기 위해 오늘의 가장 최근 메시지 한 건을 조회한다.
+  async findLatestMessageToday(
+    seniorId: number,
+    start: Date,
+    end: Date,
+  ): Promise<ConversationMessage | null> {
+    return this.typeOrmRepository.findOne({
+      where: { seniorId, createdAt: Between(start, end) },
+      order: { messageId: 'DESC' },
+    });
   }
 }

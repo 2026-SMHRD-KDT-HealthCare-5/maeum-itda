@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ConversationHistoryList, type ChatMessage } from '../../../entities/conversation'
+import {
+  ConversationHistoryList,
+  fetchConversationHistoryByDate,
+  type ChatMessage,
+} from '../../../entities/conversation'
 import {
   RecordVoiceAnswerAction,
   useRecordVoiceAnswer,
@@ -8,7 +12,7 @@ import {
 import { useSession } from '../../../entities/user'
 import { ChatSocket } from '../../../shared/api'
 import { API_BASE_URL } from '../../../shared/config'
-import { useDelayedPending } from '../../../shared/lib'
+import { getSeoulDateKey, useDelayedPending } from '../../../shared/lib'
 import type { AiQuestionPayload } from '../../../shared/types'
 import { Button, LoadingSpinner } from '../../../shared/ui'
 import listeningCharacterImage from './character-daseul-listening.png'
@@ -50,8 +54,10 @@ function questionToMessage(question: AiQuestionPayload): ChatMessage {
 }
 
 // SENIOR_CONVERSATION_01 (UC-01, UC-02, UC-03) — /ws/chats 실연동.
-// 이전 대화 이력 무한 스크롤은 결정사항 로그 §5 참고(아직 REST 조회는
-// 화면 진입 시 연결하지 않고, 이번 대화에서 오간 메시지만 보여준다).
+// 오늘 이전 대화 이력은 화면 진입 시 GET /chats/messages?date=오늘로 불러와
+// 채운다(2026-08-21, 서버 재시작으로 재진입이 새 대화처럼 보이던 문제 수정).
+// 오늘보다 이전 날짜의 무한 스크롤 조회 자체는 아직 결정사항 로그 §5 미확정
+// 상태다.
 export function SeniorConversationPage() {
   const { session } = useSession()
   const navigate = useNavigate()
@@ -74,6 +80,36 @@ export function SeniorConversationPage() {
   // 리렌더를 유발할 필요 없는 값이라 state가 아니라 ref다.
   const currentQuestionMessageIdRef = useRef<number | null>(null)
 
+  // 서버가 재시작돼 ChatConnectionStateService의 메모리 상태가 사라진 뒤 같은 날
+  // 재진입해도(2026-08-21 이전엔 대화가 처음부터 다시 시작돼 보였다), 오늘 오간
+  // 메시지를 REST로 미리 채워둔다 — 실시간 소켓 이벤트와는 별개 경로라 messageId로
+  // 중복만 걸러내고 병합한다(마지막이 아직 답변되지 않은 AI 질문이면 소켓이 곧
+  // ai:question으로 그 질문을 다시 보내오는데, 그건 아래 handleAiQuestion에서
+  // 걸러진다 — 여기서 currentQuestion/TTS까지 미리 설정하지 않는 이유는
+  // generationId가 DB에 없어 REST 응답만으론 알 수 없기 때문이다).
+  useEffect(() => {
+    if (!session?.accessToken) return
+    let cancelled = false
+
+    fetchConversationHistoryByDate(getSeoulDateKey())
+      .then((history) => {
+        if (cancelled || history.length === 0) return
+        setMessages((prev) => {
+          const existingIds = new Set(prev.map((message) => message.messageId))
+          const missing = history.filter((message) => !existingIds.has(message.messageId))
+          if (missing.length === 0) return prev
+          return [...missing, ...prev].sort((a, b) => a.messageId - b.messageId)
+        })
+      })
+      .catch((error: unknown) => {
+        console.error('오늘의 이전 대화 이력을 불러오지 못했습니다.', error)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [session?.accessToken])
+
   useEffect(() => {
     // 로그인 정보가 없으면 연결을 시도하지 않는다 — 아래 렌더링이 이 경우를
     // session?.accessToken 값으로 직접 판단해 보여준다(별도 상태 없이).
@@ -86,7 +122,14 @@ export function SeniorConversationPage() {
       setCurrentQuestionTtsUrl(null)
       setIdleNotice(null)
       setConnectionError(null)
-      setMessages((prev) => [...prev, questionToMessage(payload)])
+      // 서버 재시작 후 재진입 시 위 이력 조회 effect가 같은 질문을 이미 넣어뒀을
+      // 수 있어(오늘 마지막 메시지가 아직 답변되지 않은 AI 질문인 경우), 같은
+      // messageId면 중복으로 추가하지 않는다.
+      setMessages((prev) =>
+        prev.some((message) => message.messageId === payload.messageId)
+          ? prev
+          : [...prev, questionToMessage(payload)],
+      )
     }
     // tts:audio는 항상 이미 화면에 뜬 질문과 같은 messageId로 뒤이어 온다 — 다른
     // 질문으로 넘어간 뒤 늦게 도착한 것이면(messageId 불일치) 조용히 버린다.
