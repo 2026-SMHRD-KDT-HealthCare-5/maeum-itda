@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.main import _tts_mime_type, app
-from app.services.emotion import EmotionInferenceError
+from app.services.audio_features import AudioFeatureExtractionError
 from app.services.stt import SttResult
 from app.session_manager import SessionState
 
@@ -51,28 +51,33 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
-    def test_audio_batch_runs_stt_emotion_and_llm(self):
+    def test_audio_batch_runs_stt_audio_features_and_llm(self):
         # 다음 질문 텍스트는 TTS를 기다리지 않고 즉시 반환한다(main.py 참고) — 이 배치
         # 엔드포인트는 더 이상 TTS를 합성하지 않는다. 음성은 백엔드가 별도로
         # POST /tts/synthesize를 호출해 받는다.
+        voice_features = {
+            "duration_sec": 3.5,
+            "rms_energy": 0.04,
+            "silence_ratio": 0.1,
+            "pitch_variation_hz": 8.0,
+        }
         with (
             patch(
                 "app.main.stt_service.transcribe",
                 return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
             ) as transcribe,
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={
-                    "happy": 0.8,
-                    "sad": 0.05,
-                    "angry": 0.05,
-                    "anxious": 0.05,
-                    "neutral": 0.05,
-                },
-            ) as classify,
+                "app.main.audio_features.extract_features",
+                return_value=voice_features,
+            ) as extract,
             patch(
                 "app.main.llm_service.generate_next_question",
-                return_value={"ai_question": "산책하면서 무엇이 좋으셨어요?"},
+                return_value={
+                    "ai_question": "산책하면서 무엇이 좋으셨어요?",
+                    "answer_analyses": [
+                        {"message_id": 102, "sentiment_label": "POSITIVE", "scale_analyses": []}
+                    ],
+                },
             ) as generate,
         ):
             response = self.client.post(
@@ -96,7 +101,7 @@ class AudioBatchApiTests(unittest.TestCase):
             },
         )
         transcribe.assert_called_once()
-        classify.assert_called_once()
+        extract.assert_called_once()
         generate.assert_called_once()
         called_answers = generate.call_args[0][0]
         self.assertEqual(
@@ -105,13 +110,7 @@ class AudioBatchApiTests(unittest.TestCase):
                 {
                     "message_id": 102,
                     "text": "오늘 산책했어요.",
-                    "emotion": {
-                        "happy": 0.8,
-                        "sad": 0.05,
-                        "angry": 0.05,
-                        "anxious": 0.05,
-                        "neutral": 0.05,
-                    },
+                    "voice_features": voice_features,
                 }
             ],
         )
@@ -126,10 +125,10 @@ class AudioBatchApiTests(unittest.TestCase):
                 ],
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
+                "app.main.audio_features.extract_features",
                 side_effect=[
-                    {"happy": 0.8, "sad": 0.05, "angry": 0.05, "anxious": 0.05, "neutral": 0.05},
-                    {"happy": 0.05, "sad": 0.7, "angry": 0.05, "anxious": 0.15, "neutral": 0.05},
+                    {"duration_sec": 3.0, "rms_energy": 0.03, "silence_ratio": 0.1, "pitch_variation_hz": 5.0},
+                    {"duration_sec": 2.0, "rms_energy": 0.02, "silence_ratio": 0.3, "pitch_variation_hz": 15.0},
                 ],
             ),
             patch(
@@ -137,9 +136,10 @@ class AudioBatchApiTests(unittest.TestCase):
                 return_value={
                     "ai_question": "다음엔 뭐 하고 싶으세요?",
                     "answer_analyses": [
-                        {"message_id": 102, "scale_analyses": []},
+                        {"message_id": 102, "sentiment_label": "POSITIVE", "scale_analyses": []},
                         {
                             "message_id": 103,
+                            "sentiment_label": "NEGATIVE",
                             "scale_analyses": [
                                 {
                                     "scale_type": "GAD_7",
@@ -185,8 +185,13 @@ class AudioBatchApiTests(unittest.TestCase):
                 return_value=SttResult(ok=True, text="오늘 산책핬어요", engine="mock"),
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
+                "app.main.audio_features.extract_features",
+                return_value={
+                    "duration_sec": 2.0,
+                    "rms_energy": 0.02,
+                    "silence_ratio": 0.2,
+                    "pitch_variation_hz": 4.0,
+                },
             ),
             patch(
                 "app.main.llm_service.generate_next_question",
@@ -218,8 +223,13 @@ class AudioBatchApiTests(unittest.TestCase):
                 return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
+                "app.main.audio_features.extract_features",
+                return_value={
+                    "duration_sec": 2.0,
+                    "rms_energy": 0.02,
+                    "silence_ratio": 0.2,
+                    "pitch_variation_hz": 4.0,
+                },
             ),
             patch(
                 "app.main.llm_service.generate_next_question",
@@ -245,8 +255,13 @@ class AudioBatchApiTests(unittest.TestCase):
                 return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
+                "app.main.audio_features.extract_features",
+                return_value={
+                    "duration_sec": 2.0,
+                    "rms_energy": 0.02,
+                    "silence_ratio": 0.2,
+                    "pitch_variation_hz": 4.0,
+                },
             ),
             patch(
                 "app.main.llm_service.generate_next_question",
@@ -312,7 +327,7 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.stt_service.transcribe",
                 return_value=SttResult(ok=False, reason="음성을 인식하지 못했습니다."),
             ),
-            patch("app.main.emotion_service.classify_and_fuse") as classify,
+            patch("app.main.audio_features.extract_features") as extract,
             patch("app.main.llm_service.generate_next_question") as generate,
         ):
             response = self.client.post(
@@ -322,20 +337,20 @@ class AudioBatchApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 422)
         self.assertIn("messageId=102 STT 실패", response.json()["detail"])
-        classify.assert_not_called()
+        extract.assert_not_called()
         generate.assert_not_called()
 
-    def test_emotion_inference_failure_falls_back_to_neutral_instead_of_500(self):
-        """텍스트/음성 감정모델이 둘 다 실패해도(EmotionInferenceError) STT가 이미
-        성공한 턴은 500으로 죽지 않고 중립 감정으로 대체되어 계속 진행해야 한다."""
+    def test_audio_feature_extraction_failure_falls_back_to_empty_instead_of_500(self):
+        """오디오 디코딩이 실패해도(AudioFeatureExtractionError) STT가 이미 성공한
+        턴은 500으로 죽지 않고 빈 음성 지표로 대체되어 계속 진행해야 한다."""
         with (
             patch(
                 "app.main.stt_service.transcribe",
                 return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                side_effect=EmotionInferenceError("Both emotion models failed"),
+                "app.main.audio_features.extract_features",
+                side_effect=AudioFeatureExtractionError("Audio decoding failed"),
             ),
             patch(
                 "app.main.llm_service.generate_next_question",
@@ -348,11 +363,12 @@ class AudioBatchApiTests(unittest.TestCase):
             )
 
         self.assertEqual(response.status_code, 200, response.text)
+        # generate_next_question이 answer_analyses를 안 돌려줬으니 main.py의 기본값으로 떨어진다.
         self.assertEqual(response.json()["answers"][0]["sentimentLabel"], "NEUTRAL")
         called_answers = generate.call_args[0][0]
         self.assertEqual(
-            called_answers[0]["emotion"],
-            {"happy": 0.0, "angry": 0.0, "sad": 0.0, "anxious": 0.0, "neutral": 1.0},
+            called_answers[0]["voice_features"],
+            {"duration_sec": 0.0, "rms_energy": 0.0, "silence_ratio": 1.0, "pitch_variation_hz": 0.0},
         )
 
     def test_empty_llm_question_returns_502(self):
@@ -362,8 +378,13 @@ class AudioBatchApiTests(unittest.TestCase):
                 return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
             ),
             patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
+                "app.main.audio_features.extract_features",
+                return_value={
+                    "duration_sec": 2.0,
+                    "rms_energy": 0.02,
+                    "silence_ratio": 0.2,
+                    "pitch_variation_hz": 4.0,
+                },
             ),
             patch(
                 "app.main.llm_service.generate_next_question",

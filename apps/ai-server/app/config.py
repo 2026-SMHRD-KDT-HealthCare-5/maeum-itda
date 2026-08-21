@@ -50,12 +50,6 @@ class Settings(BaseSettings):
     typecast_audio_pitch: int = 0              # -12~+12 반음
     typecast_target_lufs: float = -14.0        # 볼륨 정규화. volume 필드와 동시 사용 불가(Typecast 스펙)
 
-    # 감정 분류 모델
-    emotion_mode: str = "test"               # test/model
-    text_emotion_model_path: str = "./models/text_emotion"
-    voice_emotion_model_path: str = "./models/voice_emotion/kresnik_baseline_best.pt"
-    emotion_device: str = "auto"              # auto/cuda/cpu
-
     # 척도 채점
     scale_analysis_mode: str = "test"          # test: 고정 목업 채점 / empty: 항상 빈 배열 / model: SYSTEM_PROMPT 기반 실채점 사용
 

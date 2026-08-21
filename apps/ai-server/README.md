@@ -2,8 +2,8 @@
 
 백엔드가 전달한 시니어 발화 음성을 분석하는 AI 서버입니다.
 
-기존 STT → 텍스트·음성 감정분류 → LLM 꼬리질문 생성 → TTS 로직은 유지하고,
-백엔드와의 통신 방식만 WebSocket에서 REST로 변경했습니다.
+기존 STT → LLM 감정 판단·꼬리질문 생성 → TTS 로직은 유지하고, 백엔드와의
+통신 방식만 WebSocket에서 REST로 변경했습니다.
 
 ## API
 
@@ -75,28 +75,15 @@ uvicorn app.main:app --reload --port 8000
 
 환경변수는 `.env.example`을 참고해 설정합니다.
 
-## 5감정 모델
+## 감정 판단
 
-`EMOTION_MODE=model`에서는 다음 순서로 감정을 추론합니다.
-
-1. KLUE 텍스트 모델에 검증 때와 같은 빈 문맥·단문 쌍을 입력합니다.
-2. Kresnik 기반 음성 모델에 16kHz 음성을 입력합니다.
-3. 두 모델의 클래스 확률을 각각 온도 보정합니다.
-4. `happy`, `angry`, `sad`, `anxious`, `neutral` 순서로 클래스별 가중합하고 합이 1이 되도록 정규화합니다.
-
-필요한 로컬 체크포인트 위치는 다음과 같습니다.
-
-```text
-models/text_emotion/config.json
-models/text_emotion/model.safetensors
-models/text_emotion/tokenizer.json
-models/text_emotion/tokenizer_config.json
-models/voice_emotion/kresnik_baseline_best.pt
-```
-
-현재 보정값과 가중치는 잠가둔 최종 테스트 세트 평가 전 후보값입니다. 음성 체크포인트 외의 Kresnik 기반 모델과 Feature Extractor는 현재 Hugging Face 캐시 또는 네트워크에서 로드하므로, 완전한 오프라인 배포 전에는 관련 자산을 로컬화해야 합니다.
-
-체크포인트는 `.gitignore`에서 제외되어 Git 추적 대상이지만 `model.safetensors`와 `kresnik_baseline_best.pt`는 GitHub 일반 단일 파일 제한을 초과합니다. 커밋·푸시 전 Git LFS 또는 별도 모델 저장소 방식을 확정해야 합니다.
+2026-08-21부터 별도 감정 분류 모델(KLUE 텍스트·Kresnik 음성)을 쓰지 않습니다.
+`app/services/audio_features.py`가 numpy만으로 답변 음성에서 가벼운 지표
+(발화길이/평균음량/무음비율/피치변동폭)를 뽑고, STT 텍스트와 함께 `llm.py`의
+같은 LLM 호출(꼬리질문 생성)에 넘겨 감정(`sentiment_label`: POSITIVE/NEUTRAL/
+NEGATIVE)까지 그 호출 결과로 받습니다. 별도 체크포인트나 네트워크 의존성이
+없습니다 — `models/` 아래 옛 체크포인트(`text_emotion/`, `voice_emotion/`)는
+더 이상 로딩되지 않는 과거 산출물입니다.
 
 ## REST 연결 확인
 
@@ -129,10 +116,9 @@ python scripts/mock_backend_client.py `
 
 ```powershell
 python scripts/test_stt.py --audio input_sound/sample.webm
-python scripts/test_emotion.py --text "오늘 기분이 좋아요" --audio input_sound/sample.webm
 python scripts/test_llm.py `
   --text "요즘 밤에 잠을 잘 못 자요" `
-  --emotion "sad:0.6,anxious:0.25,neutral:0.15" `
+  --voice-features "duration_sec:4.2,rms_energy:0.03,silence_ratio:0.18,pitch_variation_hz:12.4" `
   --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
 python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?"
 python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?" --stream
@@ -147,13 +133,12 @@ app/
   session_manager.py   LLM 전달용 대화 문맥 자료구조
   services/
     stt.py             OpenAI STT와 로컬 Whisper 폴백
-    emotion.py         텍스트·음성 감정 분류 및 융합
-    llm.py             다음 꼬리질문 생성
+    audio_features.py  답변 음성에서 가벼운 수치 지표 추출
+    llm.py             다음 꼬리질문 생성 및 감정 판단
     tts.py             다음 질문 TTS 생성
 scripts/
   mock_backend_client.py  REST API 확인용 목 클라이언트
   test_stt.py
-  test_emotion.py
   test_llm.py
   test_tts.py
 ```

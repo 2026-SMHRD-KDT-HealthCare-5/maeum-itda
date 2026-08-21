@@ -18,7 +18,7 @@ from app.schemas import (
     TtsSynthesizeRequest,
     TtsSynthesizeResponse,
 )
-from app.services import emotion as emotion_service
+from app.services import audio_features
 from app.services import llm as llm_service
 from app.services import stt as stt_service
 from app.services import tts as tts_service
@@ -86,24 +86,27 @@ async def analyze_audio_batch(
             )
 
         try:
-            emotion = await asyncio.to_thread(
-                emotion_service.classify_and_fuse,
-                stt_result.text,
+            voice_features = await asyncio.to_thread(
+                audio_features.extract_features,
                 audio_bytes,
                 16000,
             )
-        except emotion_service.EmotionInferenceError:
-            # 텍스트/음성 감정모델이 둘 다 실패한 경우에만 발생한다(한쪽만 실패하면
-            # classify_and_fuse가 이미 나머지 하나로 폴백함). STT는 이미 성공했으니
-            # 이 턴 전체를 500으로 죽이는 대신 중립 감정으로 대체하고 계속 진행한다.
+        except audio_features.AudioFeatureExtractionError:
+            # 오디오 디코딩이 실패한 경우(손상된 파일 등)만 발생한다. STT는 이미
+            # 성공했으니 이 턴 전체를 500으로 죽이는 대신 빈 음성 지표로 대체하고
+            # 계속 진행한다 — 감정 판단은 LLM이 STT 텍스트만으로도 이어서 할 수 있다.
             logger.warning(
-                "messageId=%s 감정분석이 두 모달리티 모두 실패해 중립값으로 대체합니다.",
+                "messageId=%s 음성 지표 추출이 실패해 빈 값으로 대체합니다.",
                 message_id,
             )
-            emotion = dict(emotion_service.NEUTRAL_EMOTION)
+            voice_features = dict(audio_features.EMPTY_FEATURES)
 
         processed_answers.append(
-            {"message_id": message_id, "text": stt_result.text, "emotion": emotion}
+            {
+                "message_id": message_id,
+                "text": stt_result.text,
+                "voice_features": voice_features,
+            }
         )
 
     session = SessionState(
@@ -131,7 +134,9 @@ async def analyze_audio_batch(
             transcript=answer_analyses_by_message_id.get(answer["message_id"], {}).get(
                 "corrected_transcript", answer["text"]
             ),
-            sentimentLabel=_to_sentiment_label(answer["emotion"]),
+            sentimentLabel=answer_analyses_by_message_id.get(answer["message_id"], {}).get(
+                "sentiment_label", "NEUTRAL"
+            ),
             scaleAnalyses=_to_scale_analyses(
                 answer_analyses_by_message_id.get(answer["message_id"], {}).get(
                     "scale_analyses", []
@@ -234,19 +239,6 @@ async def generate_daily_summary(request: DailySummaryRequest) -> DailySummaryRe
     return DailySummaryResponse(
         conversationSummary=result["conversation_summary"],
         recommendedAction=result["recommended_action"],
-    )
-
-
-def _to_sentiment_label(emotion: dict[str, float]) -> str:
-    positive = sum(emotion.get(key, 0.0) for key in ("happy", "joy", "positive"))
-    neutral = emotion.get("neutral", 0.0)
-    negative = sum(
-        emotion.get(key, 0.0)
-        for key in ("sad", "angry", "anxious", "fear", "disgust", "negative")
-    )
-    return max(
-        {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative},
-        key=lambda label: {"POSITIVE": positive, "NEUTRAL": neutral, "NEGATIVE": negative}[label],
     )
 
 

@@ -10,8 +10,6 @@ openai==1.51.0
 # 로컬 STT 폴백용 (선택 설치 - CPU에서도 동작)
 faster-whisper==1.0.3
 
-# 감정 분류 모델 추론용 (실제 체크포인트 로딩 방식에 맞춰 조정 필요)
+# 음성 특징 추출용 (audio_features.py) — 별도 감정 분류 모델 없이 numpy만으로 계산
 numpy==1.26.4
-torch==2.13.0
-transformers==5.13.1
-av==12.3.0  # emotion.py _decode_audio()의 WAV/WebM 디코딩에 필수
+av==12.3.0  # audio_features.py _decode_audio()의 WAV/WebM 디코딩에 필수
