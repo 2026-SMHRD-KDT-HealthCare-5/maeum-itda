@@ -74,6 +74,11 @@ export class AnalysisController {
     type: ApiErrorResponseDto,
   })
   retry(@Param('questionMessageId', ParseIntPipe) questionMessageId: number) {
-    return this.analysisService.processPendingAnswerBatch(questionMessageId);
+    // REST 수동 재시도라 실시간 WS 연결이 없어 "여전히 현재 질문인지"를 새로
+    // 확인할 방법이 없다 — 큐에 남은 배치의 continueConversation 값을 그대로 믿는다.
+    return this.analysisService.processPendingAnswerBatch(
+      questionMessageId,
+      () => true,
+    );
   }
 }

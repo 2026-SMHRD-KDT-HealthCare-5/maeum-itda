@@ -38,8 +38,14 @@ export class AnalysisService {
   // 역할: 질문별 음성 전체를 FastAPI에 한 번 요청하고 답변별 결과와 다음 질문을 저장한다.
   // 실패하면(FastAPI 오류·검증 실패 등) 아무것도 저장하지 않고 그대로 throw하며,
   // temporaryAudioRepository에서도 지우지 않아 REST 재시도(POST .../retry) 대상으로 남는다.
+  // [주의] isStillCurrent는 FastAPI 왕복(수 초)이 끝난 뒤 DB 저장 직전에 다시 평가한다 —
+  // enqueue 시점의 continueConversation만 믿으면, 그 사이에 시니어가 대화를 종료했거나
+  // 더 빠른 다른 배치가 이미 다음 질문을 만든 경우에도 답변되지 않은 "유령" 다음 질문이
+  // 그대로 저장돼버린다(다음 chat:start의 DB 기준 재개 로직이 그걸 실제 진행 중인
+  // 질문으로 오인해 되살릴 수 있다).
   async processPendingAnswerBatch(
     questionMessageId: number,
+    isStillCurrent: () => boolean,
   ): Promise<CompletedAudioAnalysis | null> {
     if (!this.aiClient.isConfigured()) return null;
 
@@ -55,7 +61,11 @@ export class AnalysisService {
     const requestBatch = { ...batch, ...context };
     const result = await this.aiClient.analyzeAnswerBatch(requestBatch);
     const completed = await this.analysisResultRepository.saveCompleted(
-      requestBatch,
+      {
+        ...requestBatch,
+        continueConversation:
+          requestBatch.continueConversation && isStillCurrent(),
+      },
       randomUUID(),
       result,
     );

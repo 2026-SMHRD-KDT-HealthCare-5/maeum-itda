@@ -168,18 +168,30 @@ def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
     ]
 
 
+def _normalize_sentiment_label(value: object) -> object:
+    """LLM이 대소문자를 다르게 반환해도(예: "Positive") 받아들인다.
+
+    `response_format={"type": "json_object"}`는 JSON 문법만 보장할 뿐 enum 값
+    자체는 강제하지 않으므로, 이후 _validate_answer_analyses의 엄격한 검증
+    전에 흔한 케이싱 편차만 정규화한다. 문자열이 아니거나 정규화 후에도
+    유효한 라벨이 아니면 그대로 돌려줘서 검증이 실패·폴백하게 한다.
+    """
+    return value.strip().upper() if isinstance(value, str) else value
+
+
 def _extract_answer_analyses(data: dict) -> list[dict]:
     """SCALE_ANALYSIS_MODE=model일 때 LLM 응답에서 answer_analyses를 그대로 꺼낸다.
 
-    구조만 정규화하고(dict가 아닌 항목은 버림) messageId 누락/초과나 잘못된
-    채점값은 여기서 미리 걸러내지 않는다 — _validate_answer_analyses에 그대로
-    넘겨서 환각을 잡아내고 generate_next_question의 폴백으로 이어지게 한다.
+    구조만 정규화하고(dict가 아닌 항목은 버림, sentiment_label 케이싱과
+    scale_analyses의 명시적 null을 흔한 LLM 편차로 보정) messageId 누락/초과나
+    진짜 잘못된 채점값은 여기서 미리 걸러내지 않는다 — _validate_answer_analyses에
+    그대로 넘겨서 환각을 잡아내고 generate_next_question의 폴백으로 이어지게 한다.
     """
     return [
         {
             "message_id": item.get("message_id"),
-            "sentiment_label": item.get("sentiment_label"),
-            "scale_analyses": item.get("scale_analyses", []),
+            "sentiment_label": _normalize_sentiment_label(item.get("sentiment_label")),
+            "scale_analyses": item.get("scale_analyses") or [],
         }
         for item in data.get("answer_analyses", [])
         if isinstance(item, dict)

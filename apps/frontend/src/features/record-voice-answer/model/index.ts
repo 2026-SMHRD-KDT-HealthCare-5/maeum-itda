@@ -86,7 +86,10 @@ export function useRecordVoiceAnswer({
   const forceRecordResolverRef = useRef<(() => void) | null>(null)
 
   const currentQuestionRef = useRef(currentQuestion)
-  const resolveSegmentRef = useRef<(() => void) | null>(null)
+  // finish()가 recorder.stop()을 부를 때 함께 넘길 endType — recorder.onstop
+  // 핸들러가 recordSegment() 시점에 미리 걸리기 때문에(아래 참고) finish()가
+  // 직접 endType을 알려줄 방법이 필요하다.
+  const pendingEndTypeRef = useRef<AudioEndType>('auto')
 
   // 최신 finish를 effect 의존성 없이 부르기 위한 latest-ref. 렌더 중이 아니라
   // 커밋 이후(effect)에 갱신해야 한다(react-hooks/refs).
@@ -137,7 +140,6 @@ export function useRecordVoiceAnswer({
     // 녹음 한 구간을 열고 finish()가 호출될 때까지 기다린다(제출까지 완료된 뒤 resolve).
     function recordSegment(stream: MediaStream): Promise<void> {
       return new Promise((resolve) => {
-        resolveSegmentRef.current = resolve
         setPhase('waiting')
         setHasDetectedVoice(false)
 
@@ -148,6 +150,46 @@ export function useRecordVoiceAnswer({
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) chunksRef.current.push(event.data)
         }
+
+        // finish()가 recorder.stop()을 불러 정상 종료되는 경우가 보통이지만,
+        // 마이크 권한 회수·장치 분리 등으로 트랙이 죽으면 브라우저가 recorder를
+        // 스스로 멈춘다(onerror, 뒤이어 onstop) — finish() 호출 전에 이미
+        // state가 'inactive'가 되어버려서, onstop을 finish() 안에서 그때서야
+        // 걸면 이미 놓친 이벤트라 아무 반응도 못 하고 대화가 영원히 멈춘다.
+        // 그래서 여기서 미리 걸어두고, 멈추는 경로가 뭐든 한 번만 처리한다.
+        let settled = false
+        const settle = (submit: boolean) => {
+          if (settled) return
+          settled = true
+          const question = currentQuestionRef.current
+          // effect가 이미 정리된(새 질문 도착·언마운트) 뒤라면 제출하지 않는다 —
+          // onstop/onerror는 비동기로 나중에 도착하므로, 그 사이 currentQuestionRef가
+          // 다음 질문으로 바뀌어 있을 수 있어 지금 청산되는 답변을 잘못된 질문에
+          // 붙여 제출하면 안 된다(effect cleanup의 mediaRecorderRef.stop() 호출 참고).
+          if (submit && !cancelled && question && chunksRef.current.length > 0) {
+            void sendVoiceAnswer(
+              socket,
+              {
+                audioTransferId: crypto.randomUUID(),
+                questionMessageId: question.messageId,
+                generationId: question.generationId,
+                mimeType: mimeTypeRef.current,
+                capturedAt: new Date().toISOString(),
+                endType: pendingEndTypeRef.current,
+              },
+              new Blob(chunksRef.current, { type: mimeTypeRef.current }),
+            )
+          }
+          resolve()
+        }
+        recorder.onstop = () => settle(true)
+        // 트랙이 죽어 recorder가 스스로 끝난 경우: 그때까지 모인 조각이 있으면
+        // 그대로 제출을 시도해 백엔드의 기존 분석-실패 복구 경로(재녹음 재개)를
+        // 타게 하고, 아무것도 못 모았으면 제출 없이 다음 시도로 넘어간다 —
+        // 어느 쪽이든 대기 중인 Promise는 반드시 resolve해서 runTurn()이
+        // 영원히 멈추지 않게 한다.
+        recorder.onerror = () => settle(chunksRef.current.length > 0)
+
         mediaRecorderRef.current = recorder
         recorder.start()
         silenceWatcherRef.current = createSilenceWatcher(stream, {
@@ -231,7 +273,6 @@ export function useRecordVoiceAnswer({
       silenceWatcherRef.current?.stop()
       silenceWatcherRef.current = null
       if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
-      resolveSegmentRef.current = null
     }
     // currentQuestion 전체가 아니라 generationId로만 키를 잡는다 — chat:restored로
     // 같은 질문이 새 객체(참조만 다름)로 다시 오는 경우까지 이 effect를 다시
@@ -267,23 +308,7 @@ export function useRecordVoiceAnswer({
 
     silenceWatcherRef.current?.stop()
     silenceWatcherRef.current = null
-    const resolveSegment = resolveSegmentRef.current
-    recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: mimeTypeRef.current })
-      void sendVoiceAnswer(
-        socket,
-        {
-          audioTransferId: crypto.randomUUID(),
-          questionMessageId: question.messageId,
-          generationId: question.generationId,
-          mimeType: mimeTypeRef.current,
-          capturedAt: new Date().toISOString(),
-          endType,
-        },
-        blob,
-      )
-      resolveSegment?.()
-    }
+    pendingEndTypeRef.current = endType
     recorder.stop()
   }
 

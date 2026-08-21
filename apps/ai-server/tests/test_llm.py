@@ -279,6 +279,31 @@ class ExtractAnswerAnalysesTests(unittest.TestCase):
         result = llm._extract_answer_analyses(data)
         self.assertIsNone(result[0]["sentiment_label"])
 
+    def test_normalizes_sentiment_label_casing(self):
+        # response_format={"type": "json_object"}는 JSON 문법만 보장할 뿐 enum 값 자체는
+        # 강제하지 않으므로, LLM이 "Positive"/"negative"처럼 다르게 케이싱해도 받아준다.
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "sentiment_label": "Positive", "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "negative", "scale_analyses": []},
+            ]
+        }
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(result[0]["sentiment_label"], "POSITIVE")
+        self.assertEqual(result[1]["sentiment_label"], "NEGATIVE")
+
+    def test_explicit_null_scale_analyses_becomes_empty_list(self):
+        # LLM이 scale_analyses 자체를 생략하지 않고 명시적으로 null을 반환해도
+        # (키 자체는 있으니 .get(key, [])의 기본값이 적용되지 않는다) 빈 배열로 취급한다 —
+        # 그대로 두면 _validate_answer_analyses의 for문에서 TypeError가 난다.
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": None}
+            ]
+        }
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(result[0]["scale_analyses"], [])
+
 
 class ExtractCorrectedTranscriptsTests(unittest.TestCase):
     def test_collects_valid_corrections_by_message_id(self):
@@ -416,6 +441,37 @@ class GenerateNextQuestionTests(unittest.TestCase):
         }
         self.assertEqual(sentiment_by_id[102], "NEGATIVE")
         self.assertEqual(sentiment_by_id[103], "POSITIVE")
+
+    def test_model_mode_tolerates_lowercased_sentiment_and_null_scale_analyses(self):
+        # gpt-4o-mini의 response_format={"type":"json_object"}는 JSON 문법만 보장할 뿐
+        # enum 값 자체를 강제하지 않는다 — 실제로 케이싱이 다르거나 scale_analyses를
+        # 명시적 null로 반환해도 전체 배치가 fallback으로 폴백해선 안 된다(회귀 방지).
+        answers = [_answer(102), _answer(103)]
+        content = json.dumps(
+            {
+                "ai_question": "요즘 잠은 잘 주무세요?",
+                "answer_analyses": [
+                    {"message_id": 102, "sentiment_label": "negative", "scale_analyses": None},
+                    {"message_id": 103, "sentiment_label": "Positive", "scale_analyses": []},
+                ],
+            }
+        )
+
+        with patch.object(llm.settings, "scale_analysis_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_next_question(answers, _session())
+
+        self.assertNotEqual(result.get("empathy_note"), "fallback")
+        by_id = {
+            item["message_id"]: item["sentiment_label"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(by_id[102], "NEGATIVE")
+        self.assertEqual(by_id[103], "POSITIVE")
+        scale_by_id = {
+            item["message_id"]: item["scale_analyses"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(scale_by_id[102], [])
 
     def test_model_mode_falls_back_to_neutral_when_sentiment_label_missing(self):
         answers = [_answer(102)]

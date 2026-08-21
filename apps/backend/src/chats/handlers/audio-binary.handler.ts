@@ -205,6 +205,12 @@ export class AudioBinaryHandler {
 
       const completed = await this.analysisService.processPendingAnswerBatch(
         batch.questionMessageId,
+        () =>
+          this.chatConnectionStateService.matchesCurrentQuestion(
+            client,
+            batch.questionMessageId,
+            batch.generationId,
+          ),
       );
       if (
         completed === null ||
