@@ -8,6 +8,7 @@ import {
 import {
   RecordVoiceAnswerAction,
   useRecordVoiceAnswer,
+  type RecordingPhase,
 } from '../../../features/record-voice-answer'
 import { useSession } from '../../../entities/user'
 import { ChatSocket } from '../../../shared/api'
@@ -18,16 +19,13 @@ import { Button, LoadingSpinner } from '../../../shared/ui'
 import listeningCharacterImage from './character-daseul-listening.png'
 import questionCharacterImage from './character-daseul-question.png'
 import thinkingCharacterImage from './character-daseul-thinking.png'
+import waitingCharacterImage from './character-daseul-waiting.png'
 import styles from './SeniorConversationPage.module.css'
 
-type CharacterState = 'waiting' | 'listening' | 'question' | 'thinking'
-
-// 'waiting'은 전용 캐릭터 그림이 아직 없어 'listening'과 같은 그림을 쓰고
-// alt 텍스트와 하단 배지 문구로만 구분한다(RecordVoiceAnswerAction 참고).
-const characterByState: Record<CharacterState, { alt: string; src: string }> = {
+const characterByPhase: Record<RecordingPhase, { alt: string; src: string }> = {
   waiting: {
     alt: '어르신의 말씀을 기다리는 다슬',
-    src: listeningCharacterImage,
+    src: waitingCharacterImage,
   },
   listening: {
     alt: '어르신의 말씀을 듣고 있는 다슬',
@@ -233,7 +231,7 @@ export function SeniorConversationPage() {
     }
   }, [session?.accessToken, socket, navigate])
 
-  const { phase, finishAnswer, ttsAutoplayBlocked } = useRecordVoiceAnswer({
+  const { phase, finishAnswer, skipQuestion, ttsAutoplayBlocked } = useRecordVoiceAnswer({
     socket,
     currentQuestion,
     ttsStreamUrl: currentQuestionTtsUrl,
@@ -245,7 +243,7 @@ export function SeniorConversationPage() {
     onVoiceDetected: () => setAnswerRetryNotice(null),
   })
 
-  const character = characterByState[phase]
+  const character = characterByPhase[phase]
   const showConnectingSpinner = useDelayedPending(connectionState === 'connecting')
 
   function confirmEndChat() {
@@ -300,8 +298,9 @@ export function SeniorConversationPage() {
             <RecordVoiceAnswerAction
               characterImageAlt={character.alt}
               characterImageSrc={character.src}
-              characterState={phase}
+              phase={phase}
               onFinishAnswer={finishAnswer}
+              onSkipQuestion={skipQuestion}
               ttsAutoplayBlocked={ttsAutoplayBlocked}
             />
           </>

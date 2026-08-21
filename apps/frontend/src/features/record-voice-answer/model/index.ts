@@ -39,6 +39,12 @@ export interface UseRecordVoiceAnswerResult {
   phase: RecordingPhase
   // "지금 답변 마치기" 버튼에 그대로 연결한다.
   finishAnswer: () => void
+  // "지금 답변할게요" 버튼(질문 재생 중에만 노출)에 그대로 연결한다 — 다슬이의
+  // TTS를 끝까지 듣지 않고 곧바로 마이크를 연다. VAD로 끼어들기를 감지하는
+  // 방식은 스피커 소리가 마이크로 새어 들어와 오작동했던 문제로 이미 제거됐지만
+  // (2026-08-19), 이건 음성 감지가 아니라 사용자가 직접 누르는 버튼이라 그
+  // 에코 문제와 무관하다.
+  skipQuestion: () => void
   // 이번 질문의 TTS 자동재생이 막혀(iOS 등) 소리 없이 텍스트로만 전달됐는지.
   ttsAutoplayBlocked: boolean
 }
@@ -312,5 +318,19 @@ export function useRecordVoiceAnswer({
     recorder.stop()
   }
 
-  return { phase, finishAnswer: () => finish('manual'), ttsAutoplayBlocked }
+  // 질문 재생 중(TTS 도착 대기 포함)에만 의미가 있다 — 그 외 상태에서 호출되면
+  // 아무 것도 하지 않는다.
+  function skipQuestion(): void {
+    if (phase !== 'question') return
+    if (ttsWaitTimeoutRef.current) clearTimeout(ttsWaitTimeoutRef.current)
+    ttsWaitTimeoutRef.current = null
+    // TTS URL을 아직 기다리는 중이면(도착 전) 그 대기부터 곧바로 끝낸다.
+    ttsArrivedResolverRef.current?.()
+    ttsArrivedResolverRef.current = null
+    // 이미 재생 중이면 멈추고 재생 완료 Promise를 즉시 resolve한다 — runTurn()이
+    // await 중인 ttsPlayback.finished가 곧바로 풀려 recordSegment()로 넘어간다.
+    ttsPlaybackRef.current?.stop()
+  }
+
+  return { phase, finishAnswer: () => finish('manual'), skipQuestion, ttsAutoplayBlocked }
 }
