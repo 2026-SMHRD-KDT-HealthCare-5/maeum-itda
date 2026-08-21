@@ -10,39 +10,31 @@ from typing import Optional
 
 
 @dataclass
-class Turn:
-    utterance_id: str
-    user_text: str
-    emotion: dict[str, float]
-    ai_question: str
-
-
-@dataclass
 class SessionState:
     session_id: str
     user_id: str
     prev_session_summary: str = ""
     pending_scale_items: dict[str, list[str]] = field(default_factory=dict)
     conversation_turns: list[dict[str, str]] = field(default_factory=list)
-    turns: list[Turn] = field(default_factory=list)
 
-    def add_turn(self, turn: Turn) -> None:
-        self.turns.append(turn)
+    def history_as_text(self) -> str:
+        """LLM 프롬프트에 넣을 대화 히스토리 텍스트.
 
-    def history_as_text(self, max_turns: int = 8) -> str:
-        """LLM 프롬프트에 넣을 최근 대화 히스토리 텍스트."""
-        if self.conversation_turns:
-            labels = {"SENIOR": "시니어", "AI": "AI"}
-            return "\n".join(
-                f"{labels[turn['speakerType']]}: {turn['content']}"
-                for turn in self.conversation_turns[-max_turns:]
-            )
-        recent = self.turns[-max_turns:]
-        lines = []
-        for t in recent:
-            lines.append(f"시니어: {t.user_text}")
-            lines.append(f"AI: {t.ai_question}")
-        return "\n".join(lines)
+        [2026-08-21 수정] 이전에는 최근 8개로 잘라 넘겼으나, 백엔드
+        (AnalysisContextRepository)가 이미 "오늘 대화 전체"를 보내는 것으로
+        바뀐 지 오래라(주석 참고) 여기서 다시 자르면 그 확장이 무의미해진다 —
+        오늘 대화가 길어질수록 LLM이 앞서 나온 화제·이미 물어본 질문을 잊고
+        똑같은 질문을 반복하는 문제가 실제로 관찰됐다. 비정상적으로 큰
+        페이로드에 대한 안전장치는 main.py의 MAX_CONVERSATION_TURNS가 담당하므로
+        여기서 추가로 자르지 않는다.
+        """
+        if not self.conversation_turns:
+            return ""
+        labels = {"SENIOR": "시니어", "AI": "AI"}
+        return "\n".join(
+            f"{labels[turn['speakerType']]}: {turn['content']}"
+            for turn in self.conversation_turns
+        )
 
 
 class SessionManager:

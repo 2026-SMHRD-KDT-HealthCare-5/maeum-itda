@@ -273,9 +273,10 @@ def _parse_conversation_turns(raw: str) -> list[dict[str, str]]:
 
     2026-08-20부터 백엔드(AnalysisContextRepository)가 최근 5개 제한 없이 오늘
     대화 전체를 보낸다 — 여기 상한(MAX_CONVERSATION_TURNS)은 실제 사용량 제한이
-    아니라 비정상적으로 큰 페이로드를 막는 안전장치일 뿐이다. 프롬프트에 실리는
-    양은 어차피 session_manager.history_as_text()의 max_turns가 최근 몇 개로
-    다시 자른다."""
+    아니라 비정상적으로 큰 페이로드를 막는 안전장치일 뿐이다. [2026-08-21] 예전엔
+    session_manager.history_as_text()가 이 중 최근 8개로 다시 잘랐으나, 그 축소가
+    같은 날 앞서 나온 질문을 잊고 반복하는 원인이었음이 실제 대화 기록에서
+    확인돼 제거했다 — 이제 여기서 통과된 전체가 그대로 프롬프트에 실린다."""
     try:
         parsed = json.loads(raw) if raw else []
     except json.JSONDecodeError as exc:
