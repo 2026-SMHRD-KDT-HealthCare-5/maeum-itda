@@ -10,25 +10,43 @@ def _session() -> SessionState:
     return SessionState(session_id="session-1", user_id="user-1")
 
 
-def _answer(message_id: int, text: str = "발화", emotion: dict | None = None) -> dict:
-    return {"message_id": message_id, "text": text, "emotion": emotion or {"neutral": 1.0}}
+def _answer(message_id: int, text: str = "발화", voice_features: dict | None = None) -> dict:
+    return {
+        "message_id": message_id,
+        "text": text,
+        "voice_features": voice_features
+        or {
+            "duration_sec": 1.0,
+            "rms_energy": 0.02,
+            "silence_ratio": 0.1,
+            "pitch_variation_hz": 0.0,
+        },
+    }
 
 
 class BuildUserPromptTests(unittest.TestCase):
-    def test_includes_each_answer_with_id_text_and_emotion(self):
+    def test_includes_each_answer_with_id_text_and_voice_features(self):
         answers = [
-            _answer(102, "요즘 걱정이 많아요.", {"sad": 0.6, "neutral": 0.4}),
-            _answer(103, "그래도 산책은 좋았어요.", {"happy": 0.7, "neutral": 0.3}),
+            _answer(
+                102,
+                "요즘 걱정이 많아요.",
+                {"duration_sec": 3.5, "rms_energy": 0.01, "silence_ratio": 0.4, "pitch_variation_hz": 2.0},
+            ),
+            _answer(
+                103,
+                "그래도 산책은 좋았어요.",
+                {"duration_sec": 2.1, "rms_energy": 0.05, "silence_ratio": 0.05, "pitch_variation_hz": 20.0},
+            ),
         ]
 
         prompt = llm.build_user_prompt(answers, _session())
 
         self.assertIn("messageId=102", prompt)
         self.assertIn("요즘 걱정이 많아요.", prompt)
-        self.assertIn("sad:0.60", prompt)
+        self.assertIn("발화길이 3.5초", prompt)
         self.assertIn("messageId=103", prompt)
         self.assertIn("그래도 산책은 좋았어요.", prompt)
-        self.assertIn("happy:0.70", prompt)
+        self.assertIn("피치변동폭 20.0Hz", prompt)
 
 
 class ValidateAnswerAnalysesTests(unittest.TestCase):
@@ -36,8 +54,8 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
         result = llm._validate_answer_analyses(
             [102, 103],
             [
-                {"message_id": 103, "scale_analyses": []},
-                {"message_id": 102, "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "NEUTRAL", "scale_analyses": []},
+                {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []},
             ],
         )
         self.assertEqual(len(result), 2)
@@ -46,7 +64,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "messageId가 요청과 다릅니다"):
             llm._validate_answer_analyses(
                 [102, 103],
-                [{"message_id": 102, "scale_analyses": []}],
+                [{"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []}],
             )
 
     def test_raises_when_unrequested_id_present(self):
@@ -54,8 +72,8 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
             llm._validate_answer_analyses(
                 [102],
                 [
-                    {"message_id": 102, "scale_analyses": []},
-                    {"message_id": 999, "scale_analyses": []},
+                    {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []},
+                    {"message_id": 999, "sentiment_label": "NEUTRAL", "scale_analyses": []},
                 ],
             )
 
@@ -65,6 +83,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
             [
                 {
                     "message_id": 102,
+                    "sentiment_label": "NEGATIVE",
                     "scale_analyses": [
                         {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
                     ],
@@ -80,6 +99,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEUTRAL",
                         "scale_analyses": [
                             {"scale_type": "SGDS-K", "question_number": 1, "analysis_score": 0}
                         ],
@@ -94,6 +114,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEUTRAL",
                         "scale_analyses": [
                             {"scale_type": "GAD_7", "question_number": 10, "analysis_score": 0}
                         ],
@@ -108,6 +129,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEUTRAL",
                         "scale_analyses": [
                             {"scale_type": "GAD_7", "question_number": "4", "analysis_score": 0}
                         ],
@@ -122,6 +144,7 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEUTRAL",
                         "scale_analyses": [
                             {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 2}
                         ],
@@ -136,11 +159,26 @@ class ValidateAnswerAnalysesTests(unittest.TestCase):
                 [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEUTRAL",
                         "scale_analyses": [
                             {"scale_type": "GAD_7", "question_number": 4, "analysis_score": True}
                         ],
                     }
                 ],
+            )
+
+    def test_raises_when_sentiment_label_missing(self):
+        with self.assertRaisesRegex(ValueError, "sentiment_label이 올바르지 않음"):
+            llm._validate_answer_analyses(
+                [102],
+                [{"message_id": 102, "scale_analyses": []}],
+            )
+
+    def test_raises_when_sentiment_label_invalid(self):
+        with self.assertRaisesRegex(ValueError, "sentiment_label이 올바르지 않음"):
+            llm._validate_answer_analyses(
+                [102],
+                [{"message_id": 102, "sentiment_label": "happy", "scale_analyses": []}],
             )
 
 
@@ -152,8 +190,16 @@ class StubAnswerAnalysesTests(unittest.TestCase):
         self.assertEqual(
             result,
             [
-                {"message_id": 102, "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM]},
-                {"message_id": 103, "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM]},
+                {
+                    "message_id": 102,
+                    "sentiment_label": "NEUTRAL",
+                    "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM],
+                },
+                {
+                    "message_id": 103,
+                    "sentiment_label": "NEUTRAL",
+                    "scale_analyses": [llm.TEST_SCALE_ANALYSIS_ITEM],
+                },
             ],
         )
 
@@ -164,8 +210,8 @@ class StubAnswerAnalysesTests(unittest.TestCase):
         self.assertEqual(
             result,
             [
-                {"message_id": 102, "scale_analyses": []},
-                {"message_id": 103, "scale_analyses": []},
+                {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "NEUTRAL", "scale_analyses": []},
             ],
         )
 
@@ -189,11 +235,12 @@ class ExtractAnswerAnalysesTests(unittest.TestCase):
             "answer_analyses": [
                 {
                     "message_id": 102,
+                    "sentiment_label": "NEGATIVE",
                     "scale_analyses": [
                         {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
                     ],
                 },
-                {"message_id": 103, "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "POSITIVE", "scale_analyses": []},
             ]
         }
         result = llm._extract_answer_analyses(data)
@@ -202,11 +249,12 @@ class ExtractAnswerAnalysesTests(unittest.TestCase):
             [
                 {
                     "message_id": 102,
+                    "sentiment_label": "NEGATIVE",
                     "scale_analyses": [
                         {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
                     ],
                 },
-                {"message_id": 103, "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "POSITIVE", "scale_analyses": []},
             ],
         )
 
@@ -214,9 +262,47 @@ class ExtractAnswerAnalysesTests(unittest.TestCase):
         self.assertEqual(llm._extract_answer_analyses({}), [])
 
     def test_drops_non_dict_items(self):
-        data = {"answer_analyses": [{"message_id": 102, "scale_analyses": []}, "garbage", None]}
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []},
+                "garbage",
+                None,
+            ]
+        }
         result = llm._extract_answer_analyses(data)
-        self.assertEqual(result, [{"message_id": 102, "scale_analyses": []}])
+        self.assertEqual(
+            result, [{"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": []}]
+        )
+
+    def test_missing_sentiment_label_becomes_none(self):
+        data = {"answer_analyses": [{"message_id": 102, "scale_analyses": []}]}
+        result = llm._extract_answer_analyses(data)
+        self.assertIsNone(result[0]["sentiment_label"])
+
+    def test_normalizes_sentiment_label_casing(self):
+        # response_format={"type": "json_object"}는 JSON 문법만 보장할 뿐 enum 값 자체는
+        # 강제하지 않으므로, LLM이 "Positive"/"negative"처럼 다르게 케이싱해도 받아준다.
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "sentiment_label": "Positive", "scale_analyses": []},
+                {"message_id": 103, "sentiment_label": "negative", "scale_analyses": []},
+            ]
+        }
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(result[0]["sentiment_label"], "POSITIVE")
+        self.assertEqual(result[1]["sentiment_label"], "NEGATIVE")
+
+    def test_explicit_null_scale_analyses_becomes_empty_list(self):
+        # LLM이 scale_analyses 자체를 생략하지 않고 명시적으로 null을 반환해도
+        # (키 자체는 있으니 .get(key, [])의 기본값이 적용되지 않는다) 빈 배열로 취급한다 —
+        # 그대로 두면 _validate_answer_analyses의 for문에서 TypeError가 난다.
+        data = {
+            "answer_analyses": [
+                {"message_id": 102, "sentiment_label": "NEUTRAL", "scale_analyses": None}
+            ]
+        }
+        result = llm._extract_answer_analyses(data)
+        self.assertEqual(result[0]["scale_analyses"], [])
 
 
 class ExtractCorrectedTranscriptsTests(unittest.TestCase):
@@ -330,11 +416,12 @@ class GenerateNextQuestionTests(unittest.TestCase):
                 "answer_analyses": [
                     {
                         "message_id": 102,
+                        "sentiment_label": "NEGATIVE",
                         "scale_analyses": [
                             {"scale_type": "SGDS_K", "question_number": 3, "analysis_score": 1}
                         ],
                     },
-                    {"message_id": 103, "scale_analyses": []},
+                    {"message_id": 103, "sentiment_label": "POSITIVE", "scale_analyses": []},
                 ],
             }
         )
@@ -349,6 +436,61 @@ class GenerateNextQuestionTests(unittest.TestCase):
             by_id[102], [{"scale_type": "SGDS_K", "question_number": 3, "analysis_score": 1}]
         )
         self.assertEqual(by_id[103], [])
+        sentiment_by_id = {
+            item["message_id"]: item["sentiment_label"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(sentiment_by_id[102], "NEGATIVE")
+        self.assertEqual(sentiment_by_id[103], "POSITIVE")
+
+    def test_model_mode_tolerates_lowercased_sentiment_and_null_scale_analyses(self):
+        # gpt-4o-mini의 response_format={"type":"json_object"}는 JSON 문법만 보장할 뿐
+        # enum 값 자체를 강제하지 않는다 — 실제로 케이싱이 다르거나 scale_analyses를
+        # 명시적 null로 반환해도 전체 배치가 fallback으로 폴백해선 안 된다(회귀 방지).
+        answers = [_answer(102), _answer(103)]
+        content = json.dumps(
+            {
+                "ai_question": "요즘 잠은 잘 주무세요?",
+                "answer_analyses": [
+                    {"message_id": 102, "sentiment_label": "negative", "scale_analyses": None},
+                    {"message_id": 103, "sentiment_label": "Positive", "scale_analyses": []},
+                ],
+            }
+        )
+
+        with patch.object(llm.settings, "scale_analysis_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_next_question(answers, _session())
+
+        self.assertNotEqual(result.get("empathy_note"), "fallback")
+        by_id = {
+            item["message_id"]: item["sentiment_label"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(by_id[102], "NEGATIVE")
+        self.assertEqual(by_id[103], "POSITIVE")
+        scale_by_id = {
+            item["message_id"]: item["scale_analyses"] for item in result["answer_analyses"]
+        }
+        self.assertEqual(scale_by_id[102], [])
+
+    def test_model_mode_falls_back_to_neutral_when_sentiment_label_missing(self):
+        answers = [_answer(102)]
+        content = json.dumps(
+            {
+                "ai_question": "요즘 잠은 잘 주무세요?",
+                "answer_analyses": [{"message_id": 102, "scale_analyses": []}],
+            }
+        )
+
+        with patch.object(llm.settings, "scale_analysis_mode", "model"), patch.object(
+            llm, "_get_openai_client", return_value=self._mock_client(content)
+        ):
+            result = llm.generate_next_question(answers, _session())
+
+        # sentiment_label 누락은 LLM 환각과 같은 종류의 신뢰 실패라 안전한 기본
+        # 질문 + NEUTRAL로 전체 폴백한다(부분 수용하지 않음).
+        self.assertEqual(result["empathy_note"], "fallback")
+        self.assertEqual(result["answer_analyses"][0]["sentiment_label"], "NEUTRAL")
 
     def test_model_mode_falls_back_when_llm_omits_a_requested_message_id(self):
         answers = [_answer(102), _answer(103)]

@@ -22,6 +22,18 @@ export interface AccessTokenPayload {
   role: UserRole;
 }
 
+// TTS 스트리밍 REST 엔드포인트(GET /chats/tts-stream) 전용 단기 토큰. <audio src>는
+// Authorization 헤더를 못 붙이므로 쿼리 파라미터로 넘길 수 있는 별도의, 아주 짧게
+// (기본 액세스 토큰 1시간보다 훨씨 짧게) 사는 토큰을 쓴다 — 세션 토큰 자체를 URL에
+// 노출하지 않기 위함. purpose 클레임으로 액세스 토큰과 용도가 섞이지 않게 한다.
+export interface TtsStreamTokenPayload {
+  purpose: 'tts-stream';
+  messageId: number;
+  seniorId: number;
+}
+
+const TTS_STREAM_TOKEN_TTL = '30s';
+
 // NestJS가 이 클래스를 Provider 객체로 생성하고 다른 클래스에 주입할 수 있게 한다.
 @Injectable()
 export class AuthService {
@@ -78,6 +90,40 @@ export class AuthService {
       // 서명이 유효해도 탈퇴했거나 역할이 변경된 계정이면 기존 토큰 사용을 차단한다.
       const user = await this.usersService.findById(payload.sub);
       if (!user || user.withdrawnAt !== null || user.role !== payload.role) {
+        throw new UnauthorizedException('유효하지 않은 인증정보입니다.');
+      }
+      return payload;
+    } catch {
+      throw new UnauthorizedException('유효하지 않거나 만료된 토큰입니다.');
+    }
+  }
+
+  // 역할: TTS 스트리밍 REST 요청용 단기 토큰을 발급한다.
+  // 연결 흐름: AudioBinaryHandler/ChatStartHandler → signTtsStreamToken() → tts:audio payload
+  async signTtsStreamToken(
+    messageId: number,
+    seniorId: number,
+  ): Promise<string> {
+    return this.jwtService.signAsync(
+      {
+        purpose: 'tts-stream',
+        messageId,
+        seniorId,
+      } satisfies TtsStreamTokenPayload,
+      { expiresIn: TTS_STREAM_TOKEN_TTL },
+    );
+  }
+
+  // 역할: GET /chats/tts-stream이 받은 토큰을 검증하고 payload를 반환한다.
+  async verifyTtsStreamToken(token: string): Promise<TtsStreamTokenPayload> {
+    try {
+      const payload =
+        await this.jwtService.verifyAsync<TtsStreamTokenPayload>(token);
+      if (
+        payload.purpose !== 'tts-stream' ||
+        typeof payload.messageId !== 'number' ||
+        typeof payload.seniorId !== 'number'
+      ) {
         throw new UnauthorizedException('유효하지 않은 인증정보입니다.');
       }
       return payload;

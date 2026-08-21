@@ -1,7 +1,7 @@
 /*
-역할: 음성 Binary frame을 metadata와 결합해 질문별 추가 답변 큐에 등록한다.
+역할: 음성 Binary frame을 metadata와 결합해 질문별 큐에 등록한다.
 연결 객체: ChatsGateway → AudioBinaryHandler → QuestionAnswerQueueService → AnalysisService
-전체 흐름: 바이너리 검증 → audio:ack → 10초간 추가 답변 결합 → FastAPI REST 요청 → 성공 시에만 DB 저장 → 다음 ai:question
+전체 흐름: 바이너리 검증 → audio:ack → 즉시 확정(2026-08-21부터 대기 없음) → FastAPI REST 요청 → 성공 시에만 DB 저장 → 다음 ai:question
 [완료] STT·감성·척도·질문 생성은 FastAPI 책임이며 이 Handler는 NestJS 수신·전달 흐름만 담당한다.
 [결정사항] 답변 메시지는 분석이 성공한 시점에야 처음 DB에 저장된다 — 분석 실패 시
 CONVERSATION_MESSAGE에 아무 흔적도 남기지 않는다. 그래서 이 시점의 답변은 아직 실제
@@ -205,6 +205,12 @@ export class AudioBinaryHandler {
 
       const completed = await this.analysisService.processPendingAnswerBatch(
         batch.questionMessageId,
+        () =>
+          this.chatConnectionStateService.matchesCurrentQuestion(
+            client,
+            batch.questionMessageId,
+            batch.generationId,
+          ),
       );
       if (
         completed === null ||
@@ -222,18 +228,28 @@ export class AudioBinaryHandler {
         });
       }
       if (completed.nextQuestion === null) return;
+      // 새 질문이 만들어졌다는 건 이 질문(batch.questionMessageId)이 완전히
+      // 닫혔다는 뜻이다 — 앞으로 클라이언트가 보낼 답변은 전부 새 질문 ID로
+      // 붙으므로, 이 ID의 개수·용량 카운터는 더 늘어나지 않는다. 여기서 지워
+      // 프로세스 수명 내내 쌓이는 걸 막는다(위 클래스 주석 [제약] 참고).
+      this.questionAnswerQueueService.clearCounters(batch.questionMessageId);
       this.chatConnectionStateService.setCurrentQuestion(
         client,
         completed.nextQuestion,
       );
-      this.questionDeliveryService.deliver(
+      // TTS 합성을 기다리지 않고 텍스트부터 보낸다 — 음성은 준비되는 대로 별도로 뒤이어 보낸다.
+      this.questionDeliveryService.deliverQuestion(
         client,
         completed.nextQuestion,
-        completed.ttsAudio,
       );
       this.chatInactivityService.startWaitingForAnswer(client);
       // [완료] 다음 질문을 전달한 시점부터 10분 재계산 타이머를 다시 시작한다.
       this.lastTurnRecalcTimerService.arm(batch.seniorId);
+      void this.questionDeliveryService.deliverTtsToken(
+        client,
+        completed.nextQuestion.messageId,
+        batch.seniorId,
+      );
     } catch {
       // AnalysisService.processPendingAnswerBatch는 실패 시 아무것도 저장하지
       // 않는다 — 이 답변들은 애초에 메시지로 존재한 적이 없으므로 프론트에

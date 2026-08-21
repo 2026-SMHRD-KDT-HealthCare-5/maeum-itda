@@ -1,5 +1,4 @@
 import {
-  ADDITIONAL_ANSWER_WAIT_MS,
   MAX_ANSWER_AUDIO_BYTES_PER_QUESTION,
   MAX_ANSWER_SEGMENTS_PER_QUESTION,
   QuestionAnswerQueueLimitError,
@@ -11,11 +10,8 @@ describe('QuestionAnswerQueueService', () => {
   let service: QuestionAnswerQueueService;
 
   beforeEach(() => {
-    jest.useFakeTimers();
     service = new QuestionAnswerQueueService();
   });
-
-  afterEach(() => jest.useRealTimers());
 
   const answer = (tempAnswerId: number): QueuedAnswerSegment => ({
     tempAnswerId,
@@ -30,50 +26,54 @@ describe('QuestionAnswerQueueService', () => {
     continueConversation: true,
   });
 
-  it('추가 답변이 들어오면 대기 타이머를 갱신하고 순서대로 묶는다', async () => {
-    const first = service.enqueue(answer(102));
-    expect(first.isBatchOwner).toBe(true);
+  it('답변이 도착하면 endType과 무관하게 대기 없이 즉시 확정한다', async () => {
+    const queued = service.enqueue(answer(102));
+    expect(queued.isBatchOwner).toBe(true);
 
-    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1);
-    const second = service.enqueue(answer(103));
-    expect(second.isBatchOwner).toBe(false);
-
-    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1);
-    let resolved = false;
-    void first.ready.then(() => (resolved = true));
-    await Promise.resolve();
-    expect(resolved).toBe(false);
-
-    jest.advanceTimersByTime(1);
-    await expect(first.ready).resolves.toEqual(
+    await expect(queued.ready).resolves.toEqual(
       expect.objectContaining({
         questionMessageId: 101,
-        answers: [answer(102), answer(103)],
+        answers: [answer(102)],
       }),
     );
   });
 
-  it('flush 호출 시 대기 시간 전에 묶음을 확정한다', async () => {
-    const queued = service.enqueue(answer(102));
-    service.flush(101);
+  it('endType이 manual이어도 동일하게 즉시 확정한다', async () => {
+    const queued = service.enqueue({ ...answer(102), endType: 'manual' });
+
     await expect(queued.ready).resolves.toEqual(
+      expect.objectContaining({
+        answers: [{ ...answer(102), endType: 'manual' }],
+      }),
+    );
+  });
+
+  it('연속으로 들어온 답변은 병합되지 않고 각각 별도 묶음으로 즉시 처리된다', async () => {
+    const first = service.enqueue(answer(102));
+    const second = service.enqueue(answer(103));
+
+    // 첫 답변이 도착 즉시 확정돼 큐에서 빠지므로, 뒤이어 온 답변은 병합 대상이
+    // 아니라 새 묶음의 owner가 된다(예전엔 3초 대기 창 안에서 병합됐었다).
+    expect(second.isBatchOwner).toBe(true);
+    await expect(first.ready).resolves.toEqual(
       expect.objectContaining({ answers: [answer(102)] }),
     );
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('기본 추가 답변 대기 시간은 3초다', () => {
-    expect(ADDITIONAL_ANSWER_WAIT_MS).toBe(3_000);
-  });
-  it('대화 종료 flush는 분석 후 다음 질문을 생성하지 않도록 표시한다', async () => {
-    const queued = service.enqueue(answer(102));
-    service.flush(101, false);
-    await expect(queued.ready).resolves.toEqual(
-      expect.objectContaining({ continueConversation: false }),
+    await expect(second.ready).resolves.toEqual(
+      expect.objectContaining({ answers: [answer(103)] }),
     );
   });
 
-  it('한 질문에는 최대 5개 답변만 등록한다', () => {
+  it('flush를 명시적으로 다시 호출해도(이미 확정된 뒤라) 안전하게 무시된다', async () => {
+    const queued = service.enqueue(answer(102));
+    // ChatEndHandler 등이 대화 종료 시 방어적으로 호출하는 경로 — 이미 확정된
+    // 뒤라 아무 효과도 없어야 한다(예외를 던지지 않고 조용히 무시).
+    expect(() => service.flush(101, false)).not.toThrow();
+    await expect(queued.ready).resolves.toEqual(
+      expect.objectContaining({ continueConversation: true }),
+    );
+  });
+
+  it('한 질문에는 MAX_ANSWER_SEGMENTS_PER_QUESTION개까지만 답변을 등록한다(대기 없이도 누적 개수로 제한)', () => {
     for (let index = 0; index < MAX_ANSWER_SEGMENTS_PER_QUESTION; index += 1) {
       service.enqueue(answer(102 + index));
     }
@@ -82,33 +82,7 @@ describe('QuestionAnswerQueueService', () => {
     );
   });
 
-  it('endType이 manual이면 10초를 기다리지 않고 즉시 확정한다', async () => {
-    const queued = service.enqueue({ ...answer(102), endType: 'manual' });
-
-    await expect(queued.ready).resolves.toEqual(
-      expect.objectContaining({
-        answers: [{ ...answer(102), endType: 'manual' }],
-      }),
-    );
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('추가 답변이 manual로 오면 그 시점에 바로 확정한다(대기 시간 안 기다림)', async () => {
-    const first = service.enqueue(answer(102));
-    jest.advanceTimersByTime(ADDITIONAL_ANSWER_WAIT_MS - 1_000);
-
-    const second = service.enqueue({ ...answer(103), endType: 'manual' });
-    expect(second.isBatchOwner).toBe(false);
-
-    await expect(first.ready).resolves.toEqual(
-      expect.objectContaining({
-        answers: [answer(102), { ...answer(103), endType: 'manual' }],
-      }),
-    );
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('한 질문의 전체 음성은 30MB를 초과할 수 없다', () => {
+  it('한 질문의 전체 음성은 30MB를 초과할 수 없다(대기 없이도 누적 용량으로 제한)', () => {
     for (let index = 0; index < 3; index += 1) {
       service.enqueue({
         ...answer(102 + index),

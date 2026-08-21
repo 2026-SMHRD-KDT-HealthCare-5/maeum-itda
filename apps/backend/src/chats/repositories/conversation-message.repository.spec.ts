@@ -1,3 +1,4 @@
+import { Between } from 'typeorm';
 import type { Repository } from 'typeorm';
 import {
   ConversationMessage,
@@ -36,5 +37,69 @@ describe('ConversationMessageRepository', () => {
     });
     expect(typeOrmRepository.save).toHaveBeenCalledWith(createdQuestion);
     expect(result).toBe(savedQuestion);
+  });
+
+  it('AI 질문 텍스트를 messageId·seniorId·speakerType=AI 조건으로 조회한다', async () => {
+    const typeOrmRepository = {
+      findOneBy: jest
+        .fn()
+        .mockResolvedValue({ content: '오늘 하루는 어땠나요?' }),
+    };
+    const repository = new ConversationMessageRepository(
+      typeOrmRepository as unknown as Repository<ConversationMessage>,
+    );
+
+    const content = await repository.findAiQuestionContent(101, 7);
+
+    expect(typeOrmRepository.findOneBy).toHaveBeenCalledWith({
+      messageId: 101,
+      seniorId: 7,
+      speakerType: SpeakerType.AI,
+    });
+    expect(content).toBe('오늘 하루는 어땠나요?');
+  });
+
+  it('해당하는 AI 질문이 없으면 null을 반환한다', async () => {
+    const typeOrmRepository = {
+      findOneBy: jest.fn().mockResolvedValue(null),
+    };
+    const repository = new ConversationMessageRepository(
+      typeOrmRepository as unknown as Repository<ConversationMessage>,
+    );
+
+    await expect(repository.findAiQuestionContent(999, 7)).resolves.toBeNull();
+  });
+
+  it('오늘 구간 안에서 messageId가 가장 큰(가장 최근) 메시지 한 건을 조회한다', async () => {
+    const latestMessage = { messageId: 205 } as ConversationMessage;
+    const typeOrmRepository = {
+      findOne: jest.fn().mockResolvedValue(latestMessage),
+    };
+    const repository = new ConversationMessageRepository(
+      typeOrmRepository as unknown as Repository<ConversationMessage>,
+    );
+    const start = new Date('2026-08-20T15:00:00.000Z');
+    const end = new Date('2026-08-21T15:00:00.000Z');
+
+    const result = await repository.findLatestMessageToday(7, start, end);
+
+    expect(typeOrmRepository.findOne).toHaveBeenCalledWith({
+      where: { seniorId: 7, createdAt: Between(start, end) },
+      order: { messageId: 'DESC' },
+    });
+    expect(result).toBe(latestMessage);
+  });
+
+  it('오늘 대화가 없으면 null을 반환한다', async () => {
+    const typeOrmRepository = {
+      findOne: jest.fn().mockResolvedValue(null),
+    };
+    const repository = new ConversationMessageRepository(
+      typeOrmRepository as unknown as Repository<ConversationMessage>,
+    );
+
+    await expect(
+      repository.findLatestMessageToday(7, new Date(), new Date()),
+    ).resolves.toBeNull();
   });
 });

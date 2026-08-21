@@ -8,6 +8,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AnalysisModule } from '../analysis/analysis.module';
 import { ReportsModule } from '../reports/reports.module';
 import { ChatsController } from './chats.controller';
+import { TtsStreamController } from './tts-stream.controller';
 import { ChatsGateway } from './chats.gateway';
 import { ChatsService } from './chats.service';
 import { ConversationMessage } from './entities/conversation-message.entity';
@@ -37,7 +38,7 @@ import { QuestionDeliveryService } from './question-delivery.service';
     ReportsModule,
     TypeOrmModule.forFeature([ConversationMessage, MessageRelationship]),
   ],
-  controllers: [ChatsController],
+  controllers: [ChatsController, TtsStreamController],
   // DI 컨테이너가 Gateway, Handler, Service 객체를 생성하고 생성자에 주입
   providers: [
     ChatsGateway,

@@ -137,4 +137,48 @@ describe('AuthService', () => {
       ConflictException,
     );
   });
+
+  it('TTS 스트림 토큰은 30초 만료로 purpose·messageId·seniorId를 담아 발급한다', async () => {
+    jwtService.signAsync.mockResolvedValue('tts-stream-token');
+
+    const token = await authService.signTtsStreamToken(101, 7);
+
+    expect(token).toBe('tts-stream-token');
+    expect(jwtService.signAsync).toHaveBeenCalledWith(
+      { purpose: 'tts-stream', messageId: 101, seniorId: 7 },
+      { expiresIn: '30s' },
+    );
+  });
+
+  it('TTS 스트림 토큰 검증은 purpose가 다르면 거절한다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({
+      purpose: 'access',
+      messageId: 101,
+      seniorId: 7,
+    });
+
+    await expect(
+      authService.verifyTtsStreamToken('other-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('TTS 스트림 토큰 검증은 만료·서명 오류를 그대로 UnauthorizedException으로 바꾼다', async () => {
+    jwtService.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+
+    await expect(
+      authService.verifyTtsStreamToken('expired-token'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('유효한 TTS 스트림 토큰은 payload를 그대로 반환한다', async () => {
+    jwtService.verifyAsync.mockResolvedValue({
+      purpose: 'tts-stream',
+      messageId: 101,
+      seniorId: 7,
+    });
+
+    await expect(
+      authService.verifyTtsStreamToken('valid-token'),
+    ).resolves.toEqual({ purpose: 'tts-stream', messageId: 101, seniorId: 7 });
+  });
 });

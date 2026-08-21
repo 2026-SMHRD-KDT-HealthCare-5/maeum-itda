@@ -20,6 +20,7 @@ import { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import { ChatEndHandler } from './handlers/chat-end.handler';
 import { ChatInactivityService } from './chat-inactivity.service';
 import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
+import { QuestionDeliveryService } from './question-delivery.service';
 import {
   ClientWsEventParseError,
   parseAuthenticatedClientEvent,
@@ -55,6 +56,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
   private readonly chatInactivityService: ChatInactivityService; // 무응답 안내·자동 종료 타이머 객체
   private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService; // 마지막 대화 후 정서지수 재계산 타이머 객체
+  private readonly questionDeliveryService: QuestionDeliveryService; // 질문 텍스트·TTS 스트리밍 토큰 전달 객체
   private readonly connectionContexts = new WeakMap<
     WebSocket,
     ClientConnectionContext
@@ -70,6 +72,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     chatConnectionStateService: ChatConnectionStateService,
     chatInactivityService: ChatInactivityService,
     lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+    questionDeliveryService: QuestionDeliveryService,
   ) {
     this.chatAuthHandler = chatAuthHandler;
     this.chatStartHandler = chatStartHandler;
@@ -79,6 +82,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.chatConnectionStateService = chatConnectionStateService;
     this.chatInactivityService = chatInactivityService;
     this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+    this.questionDeliveryService = questionDeliveryService;
   }
 
   // 역할: WebSocket 연결 성립 후 첫 인증 메시지 수신 대기
@@ -184,6 +188,11 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
         generationId: restored.generationId,
         content: restored.content,
       });
+      void this.questionDeliveryService.deliverTtsToken(
+        client,
+        restored.questionMessageId,
+        authenticatedUser.sub,
+      );
       this.chatInactivityService.startWaitingForAnswer(client);
       this.lastTurnRecalcTimerService.arm(authenticatedUser.sub);
     }

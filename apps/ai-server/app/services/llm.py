@@ -1,5 +1,6 @@
 """
-LLM 서비스: (텍스트 + 감정 + 대화 문맥)을 받아 다음 꼬리질문을 생성한다.
+LLM 서비스: (텍스트 + 음성 특징 + 대화 문맥)을 받아 다음 꼬리질문과 감정 판단을
+생성한다.
 
 요구사항정의서 FR-01-04 기준:
 - 오늘 아직 채점되지 않은 SGDS_K / GAD_7 / LSNS_6 문항을 자연스럽게 유도하는
@@ -15,17 +16,23 @@ OpenAI Chat Completions를 JSON 모드로 호출해서 다음 구조로 받는�
 }
 
 구조 변경(2026-08-14, feat/ai-llm-turn-analysis):
-- 같은 질문에 답변이 여러 개(배치) 묶여 올 수 있어, 텍스트·감정을 messageId별로
-  구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, emotion}]`).
+- 같은 질문에 답변이 여러 개(배치) 묶여 올 수 있어, 텍스트·음성 특징을 messageId별로
+  구분해서 프롬프트에 넣는다(`answers: list[{message_id, text, voice_features}]`).
 - 백엔드 응답 계약에 필요한 `answer_analyses`(messageId별 척도 채점)는 같은 LLM
   호출의 SYSTEM_PROMPT(`llm_prompts.py`)에 채점 규칙을 포함시켜 실채점을 받는다.
-  `SCALE_ANALYSIS_MODE`(emotion.py의 `EMOTION_MODE`와 같은 패턴)가 `model`이면
-  이 실채점 결과를 쓰고, `test`/`empty`면 여전히 stub(`_stub_answer_analyses`)로
-  대체한다 — 로컬 개발/테스트에서 OpenAI 호출 없이도 파이프라인을 돌려볼 수 있게.
+  `SCALE_ANALYSIS_MODE`가 `model`이면 이 실채점 결과를 쓰고, `test`/`empty`면
+  여전히 stub(`_stub_answer_analyses`)로 대체한다 — 로컬 개발/테스트에서 OpenAI
+  호출 없이도 파이프라인을 돌려볼 수 있게.
 - `_validate_answer_analyses`는 돌려받은 messageId 집합이 요청과 정확히 일치하는지,
-  각 scale_analyses 항목 값이 유효한지 검증한다. `model` 모드에서 LLM이 messageId를
-  잘못 세거나(환각) 범위를 벗어난 값을 주면 이 검증이 ValueError를 던지고, 바깥
-  try/except가 안전한 기본 질문 + stub 채점으로 폴백시킨다.
+  sentiment_label과 각 scale_analyses 항목 값이 유효한지 검증한다. `model` 모드에서
+  LLM이 messageId를 잘못 세거나(환각) 범위를 벗어난 값을 주면 이 검증이 ValueError를
+  던지고, 바깥 try/except가 안전한 기본 질문 + stub 채점으로 폴백시킨다.
+
+구조 변경(2026-08-21): 별도 KLUE/Kresnik 5감정 분류 모델(구 emotion.py)을
+폐기했다 — 감정 판단(sentiment_label: POSITIVE/NEUTRAL/NEGATIVE)을 이 LLM 호출이
+직접 answer_analyses에 채워서 반환한다. 입력으로는 STT 텍스트와
+`audio_features.py`가 뽑은 가벼운 음성 지표(발화길이/음량/무음비율/피치변동폭)를
+그대로 넘긴다.
 """
 import json
 import logging
@@ -34,8 +41,11 @@ from functools import lru_cache
 from openai import OpenAI
 
 from app.config import get_settings
+from app.services.audio_features import format_features_for_prompt
 from app.services.llm_prompts import DAILY_SUMMARY_SYSTEM_PROMPT, SYSTEM_PROMPT
 from app.session_manager import SessionState
+
+SENTIMENT_LABELS = ("POSITIVE", "NEUTRAL", "NEGATIVE")
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -46,10 +56,6 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=settings.openai_api_key, timeout=settings.openai_llm_timeout_sec)
 
 
-def _format_emotion(emotion: dict[str, float]) -> str:
-    return ", ".join(f"{k}:{v:.2f}" for k, v in sorted(emotion.items(), key=lambda kv: -kv[1]))
-
-
 def build_user_prompt(
     answers: list[dict],
     session: SessionState,
@@ -58,7 +64,7 @@ def build_user_prompt(
     answer_blocks = "\n\n".join(
         f"[답변 {index + 1}] (messageId={answer['message_id']})\n"
         f"발화: {answer['text']}\n"
-        f"감정: {_format_emotion(answer['emotion'])}"
+        f"음성 특징: {format_features_for_prompt(answer['voice_features'])}"
         for index, answer in enumerate(answers)
     )
 
@@ -106,14 +112,15 @@ def _validate_scale_analysis_item(item: dict) -> None:
 def _validate_answer_analyses(
     requested_ids: list[int], answer_analyses: list[dict]
 ) -> list[dict]:
-    """돌려받은 answer_analyses의 messageId와 각 scale_analyses 항목 값을 검증한다.
+    """돌려받은 answer_analyses의 messageId, sentiment_label, scale_analyses 값을 검증한다.
 
     SCALE_ANALYSIS_MODE=test/empty의 stub 출력은 항상 통과하고, model 모드의 실제
-    LLM 출력은 여기서 잘못되거나 누락된 messageId(환각), 잘못된
-    scale_type/question_number/analysis_score를 잡아낸다. 답변 하나의 항목이라도
-    잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의 바깥
-    try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses로 폴백시킨다(배치 전체 단위 —
-    일부만 부분 수용하는 정책은 아직 미정, feature/ai-error-handling에서 다룬다).
+    LLM 출력은 여기서 잘못되거나 누락된 messageId(환각), 잘못된 sentiment_label,
+    잘못된 scale_type/question_number/analysis_score를 잡아낸다. 답변 하나의
+    항목이라도 잘못되면 이 함수가 예외를 던지고, 호출부(generate_next_question)의
+    바깥 try/except가 안전한 기본 질문 + 전체 빈 scaleAnalyses/NEUTRAL로
+    폴백시킨다(배치 전체 단위 — 일부만 부분 수용하는 정책은 아직 미정,
+    feature/ai-error-handling에서 다룬다).
     """
     returned_ids = [item["message_id"] for item in answer_analyses]
     if sorted(returned_ids) != sorted(requested_ids):
@@ -122,20 +129,28 @@ def _validate_answer_analyses(
             f"요청={sorted(requested_ids)}, 응답={sorted(returned_ids)}"
         )
     for answer_analysis in answer_analyses:
+        if answer_analysis.get("sentiment_label") not in SENTIMENT_LABELS:
+            raise ValueError(
+                f"sentiment_label이 올바르지 않음: {answer_analysis.get('sentiment_label')!r}"
+            )
         for scale_item in answer_analysis["scale_analyses"]:
             _validate_scale_analysis_item(scale_item)
     return answer_analyses
 
 
-# SCALE_ANALYSIS_MODE=test일 때 답변마다 채우는 고정 목업 채점. emotion.py의
-# TEST_EMOTION과 같은 역할 — 실제 프롬프트 없이도 척도 채점이 있는 상태로
-# 파이프라인 전체(main.py 매핑, 백엔드 응답 검증 등)를 끝까지 돌려볼 수 있게 한다.
+# SCALE_ANALYSIS_MODE=test일 때 답변마다 채우는 고정 목업 채점 — 실제 프롬프트
+# 없이도 척도 채점이 있는 상태로 파이프라인 전체(main.py 매핑, 백엔드 응답 검증
+# 등)를 끝까지 돌려볼 수 있게 한다.
 TEST_SCALE_ANALYSIS_ITEM = {"scale_type": "GAD_7", "question_number": 4, "analysis_score": 1}
 
 
 def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
     """실제 척도 채점 프롬프트가 작성되기 전까지, SCALE_ANALYSIS_MODE에 따라
-    요청받은 messageId마다 고정 목업 채점(test) 또는 빈 scale_analyses(empty)를 채운다."""
+    요청받은 messageId마다 고정 목업 채점(test) 또는 빈 scale_analyses(empty)를
+    채운다. sentiment_label도 척도 채점과 같은 게이트를 타므로(둘 다 같은 LLM
+    JSON에서 나오는 값이라 신뢰 여부를 분리할 이유가 없다) 여기서는 항상
+    NEUTRAL로 고정한다 — SCALE_ANALYSIS_MODE=model일 때만 LLM이 실제로 판단한
+    sentiment_label을 쓴다(_extract_answer_analyses 참고)."""
     mode = settings.scale_analysis_mode.strip().lower()
     if mode == "test":
         scale_analyses = [dict(TEST_SCALE_ANALYSIS_ITEM)]
@@ -144,20 +159,40 @@ def _stub_answer_analyses(answers: list[dict]) -> list[dict]:
     else:
         raise ValueError("SCALE_ANALYSIS_MODE must be one of: test, empty")
     return [
-        {"message_id": answer["message_id"], "scale_analyses": [dict(item) for item in scale_analyses]}
+        {
+            "message_id": answer["message_id"],
+            "sentiment_label": "NEUTRAL",
+            "scale_analyses": [dict(item) for item in scale_analyses],
+        }
         for answer in answers
     ]
+
+
+def _normalize_sentiment_label(value: object) -> object:
+    """LLM이 대소문자를 다르게 반환해도(예: "Positive") 받아들인다.
+
+    `response_format={"type": "json_object"}`는 JSON 문법만 보장할 뿐 enum 값
+    자체는 강제하지 않으므로, 이후 _validate_answer_analyses의 엄격한 검증
+    전에 흔한 케이싱 편차만 정규화한다. 문자열이 아니거나 정규화 후에도
+    유효한 라벨이 아니면 그대로 돌려줘서 검증이 실패·폴백하게 한다.
+    """
+    return value.strip().upper() if isinstance(value, str) else value
 
 
 def _extract_answer_analyses(data: dict) -> list[dict]:
     """SCALE_ANALYSIS_MODE=model일 때 LLM 응답에서 answer_analyses를 그대로 꺼낸다.
 
-    구조만 정규화하고(dict가 아닌 항목은 버림) messageId 누락/초과나 잘못된
-    채점값은 여기서 미리 걸러내지 않는다 — _validate_answer_analyses에 그대로
-    넘겨서 환각을 잡아내고 generate_next_question의 폴백으로 이어지게 한다.
+    구조만 정규화하고(dict가 아닌 항목은 버림, sentiment_label 케이싱과
+    scale_analyses의 명시적 null을 흔한 LLM 편차로 보정) messageId 누락/초과나
+    진짜 잘못된 채점값은 여기서 미리 걸러내지 않는다 — _validate_answer_analyses에
+    그대로 넘겨서 환각을 잡아내고 generate_next_question의 폴백으로 이어지게 한다.
     """
     return [
-        {"message_id": item.get("message_id"), "scale_analyses": item.get("scale_analyses", [])}
+        {
+            "message_id": item.get("message_id"),
+            "sentiment_label": _normalize_sentiment_label(item.get("sentiment_label")),
+            "scale_analyses": item.get("scale_analyses") or [],
+        }
         for item in data.get("answer_analyses", [])
         if isinstance(item, dict)
     ]
@@ -269,6 +304,7 @@ def generate_next_question(
                 {
                     "message_id": answer["message_id"],
                     "corrected_transcript": answer["text"],
+                    "sentiment_label": "NEUTRAL",
                     "scale_analyses": [],
                 }
                 for answer in answers

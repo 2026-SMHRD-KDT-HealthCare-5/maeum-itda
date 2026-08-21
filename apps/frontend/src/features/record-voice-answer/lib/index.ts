@@ -24,9 +24,13 @@ const SILENCE_RMS_THRESHOLD = 0.02
 const SPEECH_BAND_MIN_HZ = 300
 const SPEECH_BAND_MAX_HZ = 3400
 const SPEECH_BAND_ENERGY_RATIO_THRESHOLD = 0.35
-// 프레임 하나가 우연히 조건을 만족해도 바로 "발화"로 확정하지 않고 몇 프레임
-// 연속돼야 확정한다 — 순간적인 잡음 튐으로 오탐지하는 걸 줄인다.
-const VOICE_CONFIRM_FRAMES = 3
+// 프레임 하나가 우연히 조건을 만족해도 바로 "발화"로 확정하지 않고 이 시간(ms)만큼
+// 연속돼야 확정한다 — 순간적인 잡음 튐(클릭·기침·의자 소리 등)으로 오탐지하는 걸
+// 줄인다. 프레임 "개수"가 아니라 시간으로 재는 이유: requestAnimationFrame 간격은
+// 화면 주사율에 따라 달라져서(60Hz면 프레임 3개가 ~50ms지만 144Hz면 ~21ms), 프레임
+// 개수 기준은 기기마다 실제 확정 시간이 달라진다. 150ms면 흔한 순간 잡음은 걸러내면서
+// 실제 발화(음절 하나도 대개 150ms를 넘는다)는 놓치지 않는다.
+const VOICE_CONFIRM_MS = 150
 
 // 한 프레임이 "사람 말소리에 가까운지" 판단한다: 먼저 RMS로 최소 음량을
 // 넘는지 보고(완전한 무음 배제), 넘으면 주파수 분포가 사람 목소리 대역에
@@ -102,7 +106,7 @@ export function createSilenceWatcher(
   const frequencyBuffer = new Uint8Array(analyser.frequencyBinCount)
   let lastLoudAt: number | null = null
   let detectedVoice = false
-  let consecutiveSpeechFrames = 0
+  let speechLikeSince: number | null = null
   let stopped = false
 
   function tick() {
@@ -110,8 +114,8 @@ export function createSilenceWatcher(
     const now = performance.now()
 
     if (isSpeechLikeFrame(analyser, audioContext.sampleRate, timeDomainBuffer, frequencyBuffer)) {
-      consecutiveSpeechFrames += 1
-      if (consecutiveSpeechFrames >= VOICE_CONFIRM_FRAMES) {
+      if (speechLikeSince === null) speechLikeSince = now
+      if (now - speechLikeSince >= VOICE_CONFIRM_MS) {
         lastLoudAt = now
         if (!detectedVoice) {
           detectedVoice = true
@@ -119,7 +123,7 @@ export function createSilenceWatcher(
         }
       }
     } else {
-      consecutiveSpeechFrames = 0
+      speechLikeSince = null
       if (lastLoudAt !== null && now - lastLoudAt >= silenceMs) {
         stopped = true
         onSilence()
@@ -137,63 +141,5 @@ export function createSilenceWatcher(
       void audioContext.close()
     },
     hasDetectedVoice: () => detectedVoice,
-  }
-}
-
-export interface VoiceActivityWatcherHandle {
-  stop: () => void
-}
-
-// 아직 녹음 중이 아닌 구간(다음 질문을 기다리는 '생각 중')에 시니어가 말을
-// 시작하는 첫 순간을 감지한다 — 감지되면 onVoiceDetected를 한 번만 부르고
-// 스스로 멈춘다. TTS 재생 중(다슬이가 말하는 '질문' 구간)에는 스피커 소리가
-// 마이크로 새어 들어와 오탐지되는 문제가 있어 쓰지 않는다(끼어들기 기능 자체를
-// 제거함, 2026-08-19). createSilenceWatcher와 반대 방향 조건(첫 말소리를
-// 기다림)이라 별도 함수로 둔다.
-export function createVoiceActivityWatcher(
-  stream: MediaStream,
-  { onVoiceDetected }: { onVoiceDetected: () => void },
-): VoiceActivityWatcherHandle {
-  const audioContext = new AudioContext()
-  if (audioContext.state === 'suspended') {
-    void audioContext.resume()
-  }
-  const source = audioContext.createMediaStreamSource(stream)
-  const analyser = audioContext.createAnalyser()
-  analyser.fftSize = 2048
-  source.connect(analyser)
-
-  const timeDomainBuffer = new Uint8Array(analyser.fftSize)
-  const frequencyBuffer = new Uint8Array(analyser.frequencyBinCount)
-  let consecutiveSpeechFrames = 0
-  let stopped = false
-
-  function finish() {
-    stopped = true
-    source.disconnect()
-    void audioContext.close()
-  }
-
-  function tick() {
-    if (stopped) return
-
-    if (isSpeechLikeFrame(analyser, audioContext.sampleRate, timeDomainBuffer, frequencyBuffer)) {
-      consecutiveSpeechFrames += 1
-      if (consecutiveSpeechFrames >= VOICE_CONFIRM_FRAMES) {
-        finish()
-        onVoiceDetected()
-        return
-      }
-    } else {
-      consecutiveSpeechFrames = 0
-    }
-    requestAnimationFrame(tick)
-  }
-  requestAnimationFrame(tick)
-
-  return {
-    stop: () => {
-      if (!stopped) finish()
-    },
   }
 }

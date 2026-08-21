@@ -8,7 +8,7 @@ import type { QuestionAnswerQueueService } from '../question-answer-queue.servic
 import type { AudioTransferStateService } from '../audio-transfer-state.service';
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatInactivityService } from '../chat-inactivity.service';
-import { QuestionDeliveryService } from '../question-delivery.service';
+import type { QuestionDeliveryService } from '../question-delivery.service';
 
 describe('AudioBinaryHandler', () => {
   const metadata = {
@@ -39,6 +39,7 @@ describe('AudioBinaryHandler', () => {
         isBatchOwner: false,
         ready: new Promise(() => undefined),
       }),
+      clearCounters: jest.fn(),
     };
     const connectionStateService = {
       setCurrentQuestion: jest.fn(),
@@ -52,6 +53,10 @@ describe('AudioBinaryHandler', () => {
     };
     const lastTurnRecalcTimerService = { arm: jest.fn() };
     const chatInactivityService = { startWaitingForAnswer: jest.fn() };
+    const questionDeliveryService = {
+      deliverQuestion: jest.fn(),
+      deliverTtsToken: jest.fn().mockResolvedValue(undefined),
+    };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
       questionAnswerQueueService as unknown as QuestionAnswerQueueService,
@@ -60,7 +65,7 @@ describe('AudioBinaryHandler', () => {
       transferStateService as unknown as AudioTransferStateService,
       chatInactivityService as unknown as ChatInactivityService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
+      questionDeliveryService as unknown as QuestionDeliveryService,
     );
 
     return {
@@ -73,6 +78,7 @@ describe('AudioBinaryHandler', () => {
       connectionStateService,
       transferStateService,
       lastTurnRecalcTimerService,
+      questionDeliveryService,
     };
   }
 
@@ -170,7 +176,6 @@ describe('AudioBinaryHandler', () => {
         generationId: 'generation-002',
         content: '산책하면서 무엇이 좋으셨어요?',
       },
-      ttsAudio: null,
     });
     context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
       isBatchOwner: true,
@@ -187,13 +192,46 @@ describe('AudioBinaryHandler', () => {
     expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(7);
   });
 
+  it('질문 텍스트를 먼저 전달하고, 그 뒤에 TTS 스트리밍 토큰을 별도로 발급한다', async () => {
+    const context = createContext();
+    context.analysisService.isFastApiConfigured.mockReturnValue(true);
+    context.analysisService.processPendingAnswerBatch.mockResolvedValue({
+      answerTranscripts: [],
+      nextQuestion: {
+        messageId: 103,
+        generationId: 'generation-002',
+        content: '산책하면서 무엇이 좋으셨어요?',
+      },
+    });
+    context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
+      isBatchOwner: true,
+      ready: Promise.resolve({
+        questionMessageId: 101,
+        seniorId: 7,
+        continueConversation: true,
+      }),
+    });
+
+    context.handler.handleAudioBinary(context.client, Buffer.from([1]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(
+      context.questionDeliveryService.deliverQuestion,
+    ).toHaveBeenCalledWith(
+      context.client,
+      expect.objectContaining({ messageId: 103 }),
+    );
+    expect(
+      context.questionDeliveryService.deliverTtsToken,
+    ).toHaveBeenCalledWith(context.client, 103, 7);
+  });
+
   it('다음 질문이 없는 늦은 답변이어도 STT 결과는 audio:transcript로 전송한다', async () => {
     const context = createContext();
     context.analysisService.isFastApiConfigured.mockReturnValue(true);
     context.analysisService.processPendingAnswerBatch.mockResolvedValue({
       answerTranscripts: [{ messageId: 102, content: '오늘 산책했어요.' }],
       nextQuestion: null,
-      ttsAudio: null,
     });
     context.questionAnswerQueueService.enqueue.mockReturnValueOnce({
       isBatchOwner: true,
@@ -218,6 +256,9 @@ describe('AudioBinaryHandler', () => {
       }),
     );
     expect(events.some((event) => event.event === 'ai:question')).toBe(false);
+    expect(
+      context.questionDeliveryService.deliverTtsToken,
+    ).not.toHaveBeenCalled();
   });
 
   it('FastAPI 분석 자체가 실패하면 저장 없이 AUDIO_ANALYSIS_FAILED만 전송한다', async () => {

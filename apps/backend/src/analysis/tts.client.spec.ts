@@ -1,31 +1,30 @@
-/* 역할: 첫 질문 TTS Client가 합의된 FastAPI JSON 계약으로 요청하고 응답을 검증하는지 확인한다. */
+/* 역할: TTS Client가 스트리밍 엔드포인트를 올바른 계약으로 호출하고 응답을 그대로 돌려주는지 확인한다. */
 import type { ConfigService } from '@nestjs/config';
 import { TtsClient } from './tts.client';
 
 describe('TtsClient', () => {
   afterEach(() => jest.restoreAllMocks());
 
-  it('POST /tts/synthesize로 첫 질문을 보내고 TTS를 반환한다', async () => {
-    const base64 = Buffer.from('mock-mp3').toString('base64');
-    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          ttsAudioBase64: base64,
-          ttsMimeType: 'audio/mpeg',
-        }),
-        { status: 200, headers: { 'Content-Type': 'application/json' } },
-      ),
+  it('POST /tts/synthesize/stream으로 텍스트를 보내고 스트리밍 응답을 그대로 돌려준다', async () => {
+    const upstreamResponse = new Response(
+      new Blob([new Uint8Array([1, 2, 3])]),
+      {
+        status: 200,
+        headers: { 'Content-Type': 'audio/mpeg' },
+      },
     );
+    const fetchMock = jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(upstreamResponse);
     const client = new TtsClient({
       get: jest.fn().mockReturnValue('http://fastapi.test'),
     } as unknown as ConfigService);
 
-    await expect(client.synthesize('오늘 하루는 어땠나요?')).resolves.toEqual({
-      base64,
-      mimeType: 'audio/mpeg',
-    });
+    const response = await client.synthesizeStream('오늘 하루는 어땠나요?');
+
+    expect(response).toBe(upstreamResponse);
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://fastapi.test/tts/synthesize',
+      'http://fastapi.test/tts/synthesize/stream',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ text: '오늘 하루는 어땠나요?' }),
@@ -41,6 +40,8 @@ describe('TtsClient', () => {
       get: jest.fn().mockReturnValue('http://fastapi.test'),
     } as unknown as ConfigService);
 
-    await expect(client.synthesize('첫 질문')).rejects.toThrow('HTTP 502');
+    await expect(client.synthesizeStream('첫 질문')).rejects.toThrow(
+      'HTTP 502',
+    );
   });
 });

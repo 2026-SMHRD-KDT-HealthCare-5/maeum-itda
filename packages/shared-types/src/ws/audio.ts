@@ -31,10 +31,14 @@ export interface AudioTranscriptPayload {
   transcripts: Array<{ messageId: number; content: string }>
 }
 
-// 질문별 완성 TTS를 Base64로 전달한다. messageId로 ai:question과 연결한다.
+// 질문별 TTS를 실제로 합성된 오디오가 아니라, 그걸 스트리밍으로 받아올 경로로
+// 전달한다(2026-08-21부터 — 전체 오디오를 base64로 실어보내면 합성이 끝나야만
+// 전송이 시작돼 TTFB가 늦어진다). streamPath는 API_BASE_URL을 붙이면 바로 요청
+// 가능한 상대 경로(쿼리에 단기 전용 토큰 포함, 예: "/chats/tts-stream?messageId=
+// 101&token=...")이며, 프론트는 이 경로를 그대로 <audio src>에 사용한다.
+// messageId로 ai:question과 연결한다.
 export interface TtsTransferPayload {
   ttsTransferId: string
   messageId: number
-  base64: string
-  mimeType: string
+  streamPath: string
 }

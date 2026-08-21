@@ -8,12 +8,22 @@ import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.servi
 import type { ChatStartEvent } from '../client-ws-event';
 import type { ChatInactivityService } from '../chat-inactivity.service';
 import { QuestionDeliveryService } from '../question-delivery.service';
+import type { AuthService } from '../../auth/auth.service';
 
 const chatStartEvent: ChatStartEvent = {
   event: 'chat:start',
   payload: {},
   ts: '2026-08-07T10:00:01.000Z',
 };
+
+// deliverQuestion이 실제로 sendWsEvent를 거쳐 client.send까지 호출하는지 검증하려면
+// QuestionDeliveryService 자체는 실제 인스턴스를 쓰고, 그 밑의 AuthService만 목으로 둔다.
+function createQuestionDeliveryService() {
+  const authService = {
+    signTtsStreamToken: jest.fn().mockResolvedValue('signed-token'),
+  } as unknown as AuthService;
+  return new QuestionDeliveryService(authService);
+}
 
 describe('ChatStartHandler', () => {
   const chatInactivityService = {
@@ -32,7 +42,6 @@ describe('ChatStartHandler', () => {
         messageId: 101,
         generationId: 'generation-001',
         content: '오늘 하루는 어땠나요?',
-        ttsAudio: null,
       }),
     };
     const client = { send: jest.fn<void, [string]>(), readyState: 1 };
@@ -43,13 +52,14 @@ describe('ChatStartHandler', () => {
       markStarting: jest.fn(),
       clearStarting: jest.fn(),
     };
+    const questionDeliveryService = createQuestionDeliveryService();
     const handler = new ChatStartHandler(
       chatsService as unknown as ChatsService,
       chatConnectionStateService as unknown as ChatConnectionStateService,
       chatInactivityService,
       recalcTriggerService,
       lastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
+      questionDeliveryService,
     );
 
     await handler.handleChatStart(
@@ -57,6 +67,9 @@ describe('ChatStartHandler', () => {
       { sub: 1, role: UserRole.SENIOR },
       chatStartEvent,
     );
+    // deliverTtsToken은 fire-and-forget(void)이라 handleChatStart가 끝난 뒤에도
+    // 토큰 서명 Promise가 아직 안 풀렸을 수 있다 — 한 tick 더 흘려보낸다.
+    await new Promise<void>((resolve) => setImmediate(resolve));
 
     expect(chatsService.startChat).toHaveBeenCalledWith(1);
     expect(chatConnectionStateService.setCurrentQuestion).toHaveBeenCalledWith(
@@ -67,17 +80,35 @@ describe('ChatStartHandler', () => {
     expect(chatConnectionStateService.clearStarting).toHaveBeenCalledWith(
       client,
     );
-    expect(
-      client.send.mock.calls.map(([message]) => JSON.parse(message) as unknown),
-    ).toEqual([
-      expect.objectContaining({ event: 'chat:started', payload: {} }),
-      expect.objectContaining({
-        event: 'ai:question',
-        // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        payload: expect.objectContaining({ messageId: 101 }),
-      }),
-    ]);
+    const events = client.send.mock.calls.map(
+      ([message]) => JSON.parse(message) as unknown,
+    );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event: 'chat:started', payload: {} }),
+        expect.objectContaining({
+          event: 'ai:question',
+          // jest의 objectContaining() 반환형이 any라 중첩 시 no-unsafe-assignment가 오탐한다
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          payload: expect.objectContaining({ messageId: 101 }),
+        }),
+        expect.objectContaining({
+          event: 'tts:audio',
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+          payload: expect.objectContaining({
+            messageId: 101,
+            streamPath: '/chats/tts-stream?messageId=101&token=signed-token',
+          }),
+        }),
+      ]),
+    );
+    // chat:started와 ai:question은 순서가 고정돼야 한다(tts:audio는 비동기라 순서 보장 없음).
+    expect(events[0]).toEqual(
+      expect.objectContaining({ event: 'chat:started' }),
+    );
+    expect(events[1]).toEqual(
+      expect.objectContaining({ event: 'ai:question' }),
+    );
   });
 
   it('대화 시작 시 정서지수 즉시 재계산과 마지막 턴 타이머를 트리거한다', async () => {
@@ -86,7 +117,6 @@ describe('ChatStartHandler', () => {
         messageId: 101,
         generationId: 'generation-001',
         content: '오늘 하루는 어땠나요?',
-        ttsAudio: null,
       }),
     };
     const client = { send: jest.fn<void, [string]>(), readyState: 1 };
@@ -105,7 +135,7 @@ describe('ChatStartHandler', () => {
       chatInactivityService,
       recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
+      createQuestionDeliveryService(),
     );
 
     await handler.handleChatStart(
@@ -137,7 +167,7 @@ describe('ChatStartHandler', () => {
       chatInactivityService,
       recalcTriggerService,
       lastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
+      createQuestionDeliveryService(),
     );
 
     await handler.handleChatStart(
@@ -165,7 +195,6 @@ describe('ChatStartHandler', () => {
       messageId: number;
       generationId: string;
       content: string;
-      ttsAudio: null;
     }) => void = () => undefined;
     const chatsService = {
       startChat: jest.fn().mockReturnValue(
@@ -181,7 +210,7 @@ describe('ChatStartHandler', () => {
       chatInactivityService,
       recalcTriggerService,
       lastTurnRecalcTimerService,
-      new QuestionDeliveryService(),
+      createQuestionDeliveryService(),
     );
 
     // 같은 연결(firstClient)에서 아직 startChat()이 끝나기 전에 두 번째
@@ -201,7 +230,6 @@ describe('ChatStartHandler', () => {
       messageId: 101,
       generationId: 'generation-001',
       content: '오늘 하루는 어땠나요?',
-      ttsAudio: null,
     });
     await Promise.all([firstCall, secondCall]);
 

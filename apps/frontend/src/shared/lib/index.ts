@@ -4,6 +4,18 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
 }
 
+const seoulDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+// 서비스 기준 날짜(서울)를 GET /chats/messages?date= 등의 YYYY-MM-DD 형식으로 반환한다.
+export function getSeoulDateKey(date: Date = new Date()): string {
+  return seoulDateKeyFormatter.format(date)
+}
+
 // 로딩 스피너 깜빡임 방지: isPending이 delay(ms) 안에 끝나면 스피너를 아예 띄우지
 // 않고(빠른 화면은 스피너 없이 넘어감), 한 번 뜬 뒤엔 minDuration(ms)만큼은
 // 유지해서 순간적으로 나타났다 사라지는 걸 막는다.
@@ -48,13 +60,16 @@ export interface TtsPlaybackHandle {
   stop: () => void
 }
 
-// base64로 인코딩된 TTS 오디오를 디코드해서 한 번 재생한다. iOS/모바일
-// 브라우저는 사용자 제스처 없는 자동재생을 막을 수 있어(NotAllowedError),
-// play()가 거부되면 autoplayBlocked=true로 즉시 종료 처리한다 — 소리만 못
-// 듣고 넘어갈 뿐 대화 흐름(마이크 열기 등)이 막히면 안 되기 때문이다.
-export function playTtsAudioOnce(ttsAudioBase64: string, ttsMimeType: string): TtsPlaybackHandle {
-  const objectUrl = base64ToObjectUrl(ttsAudioBase64, ttsMimeType)
-  const audio = new Audio(objectUrl)
+// TTS 오디오를 실제 HTTP chunked 스트림 URL로 재생한다(2026-08-21 — base64 전체를
+// 받아서 디코드하던 방식에서 전환, TTFB를 200ms대로 줄이기 위함). 브라우저가 <audio>
+// 엘리먼트에 URL만 넘겨주면 오는 대로 점진 재생한다(라디오 스트리밍과 동일한 방식) —
+// MediaSource Extensions는 안 쓴다(iOS Safari의 MP3+MSE 지원이 불안정해서, 그냥
+// <audio src> 스트리밍이 크로스브라우저로 더 안전하다). iOS/모바일 브라우저는 사용자
+// 제스처 없는 자동재생을 막을 수 있어(NotAllowedError), play()가 거부되면
+// autoplayBlocked=true로 즉시 종료 처리한다 — 소리만 못 듣고 넘어갈 뿐 대화 흐름
+// (마이크 열기 등)이 막히면 안 되기 때문이다.
+export function playTtsAudioStream(streamUrl: string): TtsPlaybackHandle {
+  const audio = new Audio(streamUrl)
   let settled = false
   let resolveFinished!: (result: { autoplayBlocked: boolean }) => void
 
@@ -68,7 +83,6 @@ export function playTtsAudioOnce(ttsAudioBase64: string, ttsMimeType: string): T
     audio.removeEventListener('ended', onEnded)
     audio.removeEventListener('error', onError)
     audio.pause()
-    URL.revokeObjectURL(objectUrl)
     resolveFinished({ autoplayBlocked })
   }
   function onEnded() {
@@ -82,13 +96,4 @@ export function playTtsAudioOnce(ttsAudioBase64: string, ttsMimeType: string): T
   audio.play().catch(() => finish(true))
 
   return { finished, stop: () => finish(true) }
-}
-
-function base64ToObjectUrl(base64: string, mimeType: string): string {
-  const binary = atob(base64)
-  const bytes = new Uint8Array(binary.length)
-  for (let i = 0; i < binary.length; i += 1) {
-    bytes[i] = binary.charCodeAt(i)
-  }
-  return URL.createObjectURL(new Blob([bytes], { type: mimeType }))
 }

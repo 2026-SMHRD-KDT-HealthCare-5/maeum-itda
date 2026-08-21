@@ -86,6 +86,12 @@ export class ChatInactivityService {
         currentQuestion.questionMessageId,
         false,
       );
+      // 무응답으로 대화가 끝났으니 이 질문에 답변이 더 늘어날 일이 없다 —
+      // 개수·용량 카운터를 지운다(프로세스 수명 내내 누적되는 문제, 위 import한
+      // 서비스의 clearCounters 주석 참고).
+      this.questionAnswerQueueService.clearCounters(
+        currentQuestion.questionMessageId,
+      );
     }
     // markChatEnded가 seniorId 매핑을 지우므로 그 전에 읽어야 한다.
     const seniorId = this.chatConnectionStateService.getSeniorId(client);

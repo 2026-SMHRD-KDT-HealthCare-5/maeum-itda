@@ -10,6 +10,7 @@ import type { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import type { ChatEndHandler } from './handlers/chat-end.handler';
 import type { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
 import type { ChatInactivityService } from './chat-inactivity.service';
+import type { QuestionDeliveryService } from './question-delivery.service';
 
 describe('ChatsGateway', () => {
   afterEach(() => {
@@ -69,6 +70,10 @@ describe('ChatsGateway', () => {
       startWaitingForAnswer: jest.fn(),
       markAnswerStarted: jest.fn(),
     };
+    const questionDeliveryService = {
+      deliverQuestion: jest.fn(),
+      deliverTtsToken: jest.fn().mockResolvedValue(undefined),
+    };
     const gateway = new ChatsGateway(
       chatAuthHandler as unknown as ChatAuthHandler,
       chatStartHandler as unknown as ChatStartHandler,
@@ -78,6 +83,7 @@ describe('ChatsGateway', () => {
       chatConnectionStateService as unknown as ChatConnectionStateService,
       chatInactivityService as unknown as ChatInactivityService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
+      questionDeliveryService as unknown as QuestionDeliveryService,
     );
     return {
       gateway,
@@ -88,6 +94,7 @@ describe('ChatsGateway', () => {
       audioBinaryHandler,
       chatConnectionStateService,
       lastTurnRecalcTimerService,
+      questionDeliveryService,
     };
   }
 
@@ -207,5 +214,24 @@ describe('ChatsGateway', () => {
     await Promise.resolve();
 
     expect(context.lastTurnRecalcTimerService.arm).toHaveBeenCalledWith(1);
+  });
+
+  it('단기 재접속으로 질문이 복원되면 해당 질문의 TTS 스트리밍 토큰도 다시 발급한다', async () => {
+    const authenticatedUser = { sub: 1, role: UserRole.SENIOR };
+    const context = createGateway(authenticatedUser);
+    context.chatConnectionStateService.restoreClient.mockReturnValue({
+      questionMessageId: 101,
+      generationId: 'generation-001',
+      content: '오늘 하루는 어땠나요?',
+    });
+    const client = createClient();
+
+    context.gateway.handleConnection(client.client);
+    client.receiveJson(authEvent);
+    await Promise.resolve();
+
+    expect(
+      context.questionDeliveryService.deliverTtsToken,
+    ).toHaveBeenCalledWith(client.client, 101, 1);
   });
 });

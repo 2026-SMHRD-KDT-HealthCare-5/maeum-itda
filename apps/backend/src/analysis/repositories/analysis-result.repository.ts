@@ -132,15 +132,6 @@ export class AnalysisResultRepository {
       return {
         answerTranscripts,
         nextQuestion,
-        ttsAudio:
-          nextQuestion === null ||
-          result.ttsAudioBase64 === null ||
-          result.ttsMimeType === null
-            ? null
-            : {
-                base64: result.ttsAudioBase64,
-                mimeType: result.ttsMimeType,
-              },
       };
     });
   }
