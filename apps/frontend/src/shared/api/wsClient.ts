@@ -112,6 +112,18 @@ export class ChatSocket {
     } catch {
       return
     }
+    // 임시 지연 진단 로그 — 각 이벤트가 서버에서 찍힌 시각(ts)과 브라우저에 도착한
+    // 시각을 같이 남긴다. 원인 파악 끝나면 지울 것.
+    if (import.meta.env.DEV) {
+      console.log(
+        '[ChatSocket]',
+        parsed.event,
+        'server ts=',
+        parsed.ts,
+        'client received=',
+        new Date().toISOString(),
+      )
+    }
     const listeners = this.listeners.get(parsed.event as ServerEventName)
     if (!listeners) return
     for (const listener of listeners) listener(parsed.payload as never)

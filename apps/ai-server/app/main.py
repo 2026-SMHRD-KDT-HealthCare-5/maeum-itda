@@ -28,6 +28,10 @@ logger = logging.getLogger("maum_itda")
 
 app = FastAPI(title="마음잇다 AI 서버")
 
+# conversationTurns 페이로드 크기 안전장치 — 실제 프롬프트 사용량 제한이 아니다(위
+# _parse_conversation_turns 참고).
+MAX_CONVERSATION_TURNS = 200
+
 
 @app.get("/health")
 async def health():
@@ -136,25 +140,12 @@ async def analyze_audio_batch(
         for answer in processed_answers
     ]
 
-    # 분석·질문 생성과 TTS 장애를 분리한다. Typecast가 실패해도 텍스트 대화는 계속된다.
-    tts_audio_base64: str | None = None
-    tts_mime_type: str | None = None
-    try:
-        tts_audio = await tts_service.synthesize_full(next_question)
-        if tts_audio:
-            audio_format = get_settings().typecast_audio_format.lower()
-            tts_audio_base64 = base64.b64encode(tts_audio).decode("ascii")
-            tts_mime_type = _tts_mime_type(audio_format)
-        else:
-            logger.warning("다음 질문 TTS 결과가 비어 있어 텍스트 질문만 반환합니다.")
-    except Exception:  # noqa: BLE001
-        logger.exception("다음 질문 TTS 생성 실패, 텍스트 질문으로 계속 진행합니다.")
-
+    # 다음 질문 텍스트는 TTS 합성을 기다리지 않고 곧바로 반환한다 — 화면 표시가
+    # TTS 생성 시간만큼 불필요하게 지연되지 않게 하기 위함이다. 백엔드가 이 텍스트를
+    # 먼저 전달한 뒤 별도로 POST /tts/synthesize를 호출해 음성을 뒤이어 전달한다.
     return BatchAnalysisResponse(
         answers=answers,
         nextQuestion=next_question,
-        ttsAudioBase64=tts_audio_base64,
-        ttsMimeType=tts_mime_type,
     )
 
 
@@ -250,7 +241,13 @@ def _parse_pending_scale_items(raw: str) -> dict[str, list[str]]:
 
 
 def _parse_conversation_turns(raw: str) -> list[dict[str, str]]:
-    """NestJS가 전달한 최근 대화 최대 5개를 프롬프트용 안전한 형태로 검증한다."""
+    """NestJS가 전달한 오늘 대화 전체를 프롬프트용 안전한 형태로 검증한다.
+
+    2026-08-20부터 백엔드(AnalysisContextRepository)가 최근 5개 제한 없이 오늘
+    대화 전체를 보낸다 — 여기 상한(MAX_CONVERSATION_TURNS)은 실제 사용량 제한이
+    아니라 비정상적으로 큰 페이로드를 막는 안전장치일 뿐이다. 프롬프트에 실리는
+    양은 어차피 session_manager.history_as_text()의 max_turns가 최근 몇 개로
+    다시 자른다."""
     try:
         parsed = json.loads(raw) if raw else []
     except json.JSONDecodeError as exc:
@@ -258,9 +255,10 @@ def _parse_conversation_turns(raw: str) -> list[dict[str, str]]:
             status_code=422, detail="conversationTurns가 올바른 JSON이 아닙니다."
         ) from exc
 
-    if not isinstance(parsed, list) or len(parsed) > 5:
+    if not isinstance(parsed, list) or len(parsed) > MAX_CONVERSATION_TURNS:
         raise HTTPException(
-            status_code=422, detail="conversationTurns는 최대 5개의 JSON 배열이어야 합니다."
+            status_code=422,
+            detail=f"conversationTurns는 최대 {MAX_CONVERSATION_TURNS}개의 JSON 배열이어야 합니다.",
         )
 
     validated: list[dict[str, str]] = []

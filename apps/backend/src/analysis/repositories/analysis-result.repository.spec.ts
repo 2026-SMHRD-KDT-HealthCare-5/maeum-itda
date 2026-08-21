@@ -79,8 +79,6 @@ describe('AnalysisResultRepository', () => {
         },
       ],
       nextQuestion: '다음 질문입니다.',
-      ttsAudioBase64: null,
-      ttsMimeType: null,
     };
     const { repository, mocks } = createRepository(0);
 
@@ -133,8 +131,6 @@ describe('AnalysisResultRepository', () => {
         },
       ],
       nextQuestion: '다음 질문입니다.',
-      ttsAudioBase64: null,
-      ttsMimeType: null,
     };
     const { repository, mocks } = createRepository(1);
 
@@ -154,8 +150,6 @@ describe('AnalysisResultRepository', () => {
     const result: QuestionAnswerAnalysisResult = {
       answers: [],
       nextQuestion: '다음 질문입니다.',
-      ttsAudioBase64: null,
-      ttsMimeType: null,
     };
     const { repository } = createRepository(0);
 

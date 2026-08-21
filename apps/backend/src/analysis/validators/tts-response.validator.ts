@@ -47,14 +47,3 @@ export function validateTtsSynthesizeResponse(value: unknown): TtsAudioResult {
     response.ttsMimeType,
   );
 }
-
-export function validateOptionalTtsAudio(
-  base64: unknown,
-  mimeType: unknown,
-): TtsAudioResult | null {
-  if (base64 === null && mimeType === null) return null;
-  if (base64 === null || mimeType === null) {
-    throw new Error('FastAPI TTS 음성과 MIME 타입은 함께 제공되어야 합니다.');
-  }
-  return validateRequiredTtsAudio(base64, mimeType);
-}

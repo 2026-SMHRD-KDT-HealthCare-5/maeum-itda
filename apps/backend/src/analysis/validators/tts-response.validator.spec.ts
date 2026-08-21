@@ -1,6 +1,5 @@
 /* 역할: FastAPI TTS 응답의 Base64·MIME·nullable 쌍 검증 정책을 확인한다. */
 import {
-  validateOptionalTtsAudio,
   validateRequiredTtsAudio,
   validateTtsSynthesizeResponse,
 } from './tts-response.validator';
@@ -13,11 +12,6 @@ describe('TTS response validator', () => {
       base64,
       mimeType: 'audio/mpeg',
     });
-  });
-
-  it('선택 TTS는 두 필드가 모두 null인 경우만 생성 실패로 허용한다', () => {
-    expect(validateOptionalTtsAudio(null, null)).toBeNull();
-    expect(() => validateOptionalTtsAudio(base64, null)).toThrow('함께 제공');
   });
 
   it('잘못된 Base64와 지원하지 않는 MIME 타입을 거부한다', () => {

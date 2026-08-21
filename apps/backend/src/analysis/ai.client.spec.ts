@@ -43,8 +43,6 @@ describe('AiClient', () => {
       },
     ],
     nextQuestion: '어떤 일이 가장 좋았나요?',
-    ttsAudioBase64: Buffer.from('mock-mp3').toString('base64'),
-    ttsMimeType: 'audio/mpeg',
   };
   // AiClient가 검증기를 거쳐 반환하는 내부 DTO 형식(messageId → tempAnswerId).
   const validResult = {

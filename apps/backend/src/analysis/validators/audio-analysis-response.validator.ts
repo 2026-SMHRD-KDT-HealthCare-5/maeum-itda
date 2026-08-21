@@ -10,7 +10,6 @@ import {
 } from '../dto/audio-analysis.contract';
 import { SentimentLabel } from '../entities/emotion-tag.entity';
 import { ScaleType } from '../entities/scale-question-analysis.entity';
-import { validateOptionalTtsAudio } from './tts-response.validator';
 
 const SCALE_QUESTION_NUMBER_RANGES: Record<
   ScaleType,
@@ -49,16 +48,9 @@ export function validateQuestionAnswerAnalysisResponse(
     throw new Error('FastAPI 응답의 메시지 ID가 요청과 일치하지 않습니다.');
   }
 
-  const ttsAudio = validateOptionalTtsAudio(
-    response.ttsAudioBase64,
-    response.ttsMimeType,
-  );
-
   return {
     answers,
     nextQuestion: response.nextQuestion,
-    ttsAudioBase64: ttsAudio?.base64 ?? null,
-    ttsMimeType: ttsAudio?.mimeType ?? null,
   };
 }
 

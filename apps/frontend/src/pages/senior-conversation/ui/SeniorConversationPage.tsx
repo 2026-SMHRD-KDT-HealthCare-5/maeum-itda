@@ -68,10 +68,16 @@ export function SeniorConversationPage() {
   const [isEndDialogOpen, setIsEndDialogOpen] = useState(false)
   const [hasScrollableHistory, setHasScrollableHistory] = useState(false)
   const [currentQuestionTts, setCurrentQuestionTts] = useState<TtsAudio | null>(null)
-  // tts:audio는 같은 질문의 ai:question보다 먼저 도착한다(QuestionDeliveryService.deliver
-  // 순서) — ai:question이 올 때 messageId로 짝지어 currentQuestionTts에 반영하기 전까지
-  // messageId별로 임시 보관한다. 리렌더를 유발할 필요 없는 값이라 state가 아니라 ref다.
+  // tts:audio 도착 순서는 질문에 따라 다르다: 최초 질문(chat:start)은 여전히
+  // ai:question보다 먼저 오지만(QuestionDeliveryService.deliver), 대화 중 후속
+  // 질문은 텍스트를 화면에 먼저 띄우기 위해 ai:question이 먼저 오고 TTS는 합성이
+  // 끝나는 대로 뒤이어 온다(2026-08-20 변경, AudioBinaryHandler.deliverTtsWhenReady).
+  // 그래서 두 순서를 모두 다뤄야 한다: 먼저 온 TTS는 messageId별로 잠깐 보관해뒀다가
+  // handleAiQuestion에서 짝짓고, 이미 화면에 뜬 질문과 같은 messageId로 나중에 온
+  // TTS는 handleTtsAudio가 바로 반영한다. 리렌더를 유발할 필요 없는 값이라 둘 다
+  // state가 아니라 ref다.
   const pendingTtsByMessageIdRef = useRef(new Map<number, TtsAudio>())
+  const currentQuestionMessageIdRef = useRef<number | null>(null)
 
   useEffect(() => {
     // 로그인 정보가 없으면 연결을 시도하지 않는다 — 아래 렌더링이 이 경우를
@@ -82,19 +88,23 @@ export function SeniorConversationPage() {
     const handleAiQuestion: Parameters<typeof socket.on<'ai:question'>>[1] = (payload) => {
       const ttsAudio = pendingTtsByMessageIdRef.current.get(payload.messageId) ?? null
       pendingTtsByMessageIdRef.current.delete(payload.messageId)
+      currentQuestionMessageIdRef.current = payload.messageId
       setCurrentQuestion(payload)
       setCurrentQuestionTts(ttsAudio)
       setIdleNotice(null)
       setConnectionError(null)
       setMessages((prev) => [...prev, questionToMessage(payload)])
     }
-    // tts:audio는 ai:question 직전에 온다(§4.2) — 아직 currentQuestion이 갱신되기
-    // 전이므로 일단 messageId로만 보관해뒀다가 handleAiQuestion에서 짝짓는다.
+    // 이미 화면에 뜬 질문과 같은 messageId면(후속 질문의 일반적인 경우) 곧바로
+    // 반영하고, 아니면(최초 질문처럼 ai:question보다 먼저 온 경우) messageId별로
+    // 보관해뒀다가 handleAiQuestion에서 짝짓는다.
     const handleTtsAudio: Parameters<typeof socket.on<'tts:audio'>>[1] = (payload) => {
-      pendingTtsByMessageIdRef.current.set(payload.messageId, {
-        base64: payload.base64,
-        mimeType: payload.mimeType,
-      })
+      const ttsAudio: TtsAudio = { base64: payload.base64, mimeType: payload.mimeType }
+      if (payload.messageId === currentQuestionMessageIdRef.current) {
+        setCurrentQuestionTts(ttsAudio)
+        return
+      }
+      pendingTtsByMessageIdRef.current.set(payload.messageId, ttsAudio)
     }
     // 답변 메시지는 분석이 성공해 실제로 저장된 시점에야 처음 이 이벤트로
     // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
@@ -118,6 +128,7 @@ export function SeniorConversationPage() {
     const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
       setIdleNotice(payload.message)
     const handleChatEnded: Parameters<typeof socket.on<'chat:ended'>>[1] = () => {
+      currentQuestionMessageIdRef.current = null
       setCurrentQuestion(null)
       navigate('/senior')
     }

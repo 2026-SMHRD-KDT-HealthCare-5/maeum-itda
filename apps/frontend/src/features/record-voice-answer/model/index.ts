@@ -43,6 +43,12 @@ export interface UseRecordVoiceAnswerResult {
 }
 
 const AUTO_SILENCE_MS = 3_000
+// 후속 질문은 텍스트(currentQuestion)가 먼저 도착하고 TTS는 합성이 끝나는 대로
+// 별도로 뒤이어 온다(2026-08-20, 백엔드 AudioBinaryHandler.deliverTtsWhenReady) —
+// 그래서 이 훅이 실행되는 시점엔 ttsAudio가 아직 null인 경우가 흔하다. 무한정
+// 기다리지 않고 이 시간만큼만 기다렸다가, 그래도 안 오면 텍스트만으로 곧바로
+// 마이크를 연다(TTS 생성 실패와 동일하게 취급).
+const TTS_WAIT_TIMEOUT_MS = 5_000
 
 // UC-02: 대화가 시작되면 마이크 권한을 한 번만 받아 대화가 끝날 때까지 유지한다
 // (질문마다 다시 열지 않는다). 다슬이가 다음 질문을 TTS로 말하는 동안에는 끼어들기를
@@ -88,6 +94,18 @@ export function useRecordVoiceAnswer({
     currentQuestionRef.current = currentQuestion
     finishRef.current = finish
   })
+
+  // ttsAudio를 아래 큰 effect의 의존성에 넣지 않는다 — currentQuestion과 별도로
+  // 나중에 도착하는데, 의존성에 넣으면 그때마다 effect가 재시작되면서 이미 진행
+  // 중이던 녹음까지 멈추고 처음부터 다시 시작하게 된다. 대신 ref로만 최신값을
+  // 들고, runTurn()이 TTS를 기다리는 중이면 resolver를 불러 깨운다.
+  const ttsAudioRef = useRef(ttsAudio)
+  const ttsArrivedResolverRef = useRef<(() => void) | null>(null)
+  const ttsWaitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    ttsAudioRef.current = ttsAudio
+    if (ttsAudio) ttsArrivedResolverRef.current?.()
+  }, [ttsAudio])
 
   // 마이크 스트림은 대화 전체에서 한 번만 열고, 컴포넌트가 사라질 때만 닫는다.
   useEffect(() => {
@@ -149,7 +167,25 @@ export function useRecordVoiceAnswer({
 
       setPhase('question')
       setTtsAutoplayBlocked(false)
-      const ttsPlayback = ttsAudio ? playTtsAudioOnce(ttsAudio.base64, ttsAudio.mimeType) : null
+      if (!ttsAudioRef.current) {
+        // TTS가 아직 합성 중일 수 있다 — 잠깐만 기다렸다가, 그래도 안 오면
+        // 텍스트만으로 넘어간다(TTS 생성 실패와 동일하게 취급).
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, TTS_WAIT_TIMEOUT_MS)
+          ttsWaitTimeoutRef.current = timeout
+          ttsArrivedResolverRef.current = () => {
+            clearTimeout(timeout)
+            resolve()
+          }
+        })
+        ttsWaitTimeoutRef.current = null
+        ttsArrivedResolverRef.current = null
+        if (cancelled) return
+      }
+      const ttsAudioValue = ttsAudioRef.current
+      const ttsPlayback = ttsAudioValue
+        ? playTtsAudioOnce(ttsAudioValue.base64, ttsAudioValue.mimeType)
+        : null
       ttsPlaybackRef.current = ttsPlayback
 
       if (ttsPlayback) {
@@ -186,6 +222,9 @@ export function useRecordVoiceAnswer({
     void runTurn()
     return () => {
       cancelled = true
+      if (ttsWaitTimeoutRef.current) clearTimeout(ttsWaitTimeoutRef.current)
+      ttsWaitTimeoutRef.current = null
+      ttsArrivedResolverRef.current = null
       ttsPlaybackRef.current?.stop()
       ttsPlaybackRef.current = null
       vadWatcherRef.current?.stop()
@@ -197,9 +236,10 @@ export function useRecordVoiceAnswer({
     }
     // currentQuestion 전체가 아니라 generationId로만 키를 잡는다 — chat:restored로
     // 같은 질문이 새 객체(참조만 다름)로 다시 오는 경우까지 이 effect를 다시
-    // 돌리면 진행 중이던 턴을 불필요하게 재시작하게 된다.
+    // 돌리면 진행 중이던 턴을 불필요하게 재시작하게 된다. ttsAudio도 일부러
+    // 빼둔다 — 위 ttsAudioRef 동기화 effect 설명 참고.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestion?.generationId, ttsAudio])
+  }, [currentQuestion?.generationId])
 
   // 방금 보낸 답변의 분석이 실패하면(AUDIO_ANALYSIS_FAILED) '생각 중' 상태로
   // 무한 대기하지 않고 곧바로 같은 질문에 대한 녹음을 다시 연다 — 화면 진입

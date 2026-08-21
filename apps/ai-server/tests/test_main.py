@@ -51,7 +51,10 @@ class AudioBatchApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
-    def test_audio_batch_runs_stt_emotion_llm_and_tts(self):
+    def test_audio_batch_runs_stt_emotion_and_llm(self):
+        # 다음 질문 텍스트는 TTS를 기다리지 않고 즉시 반환한다(main.py 참고) — 이 배치
+        # 엔드포인트는 더 이상 TTS를 합성하지 않는다. 음성은 백엔드가 별도로
+        # POST /tts/synthesize를 호출해 받는다.
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -71,10 +74,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.llm_service.generate_next_question",
                 return_value={"ai_question": "산책하면서 무엇이 좋으셨어요?"},
             ) as generate,
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ) as synthesize,
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -94,10 +93,6 @@ class AudioBatchApiTests(unittest.TestCase):
                     }
                 ],
                 "nextQuestion": "산책하면서 무엇이 좋으셨어요?",
-                "ttsAudioBase64": base64.b64encode(b"mock-mp3").decode("ascii"),
-                "ttsMimeType": _tts_mime_type(
-                    get_settings().typecast_audio_format.lower()
-                ),
             },
         )
         transcribe.assert_called_once()
@@ -120,7 +115,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 }
             ],
         )
-        synthesize.assert_awaited_once_with("산책하면서 무엇이 좋으셨어요?")
 
     def test_audio_batch_handles_multiple_answers_independently(self):
         with (
@@ -157,10 +151,6 @@ class AudioBatchApiTests(unittest.TestCase):
                     ],
                 },
             ) as generate,
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ),
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -211,10 +201,6 @@ class AudioBatchApiTests(unittest.TestCase):
                     ],
                 },
             ),
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ),
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -239,10 +225,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.llm_service.generate_next_question",
                 return_value={"ai_question": "산책은 어떠셨어요?"},
             ) as generate,
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ),
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -270,10 +252,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.llm_service.generate_next_question",
                 return_value={"ai_question": "산책은 어떠셨어요?"},
             ) as generate,
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ),
         ):
             fields = self._multipart() + [
                 ("prevSessionSummary", (None, "어제는 산책을 다녀오셨다고 함")),
@@ -363,10 +341,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.llm_service.generate_next_question",
                 return_value={"ai_question": "산책은 어떠셨어요?"},
             ) as generate,
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b"mock-mp3"),
-            ),
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -381,7 +355,7 @@ class AudioBatchApiTests(unittest.TestCase):
             {"happy": 0.0, "angry": 0.0, "sad": 0.0, "anxious": 0.0, "neutral": 1.0},
         )
 
-    def test_empty_llm_question_returns_502_without_tts(self):
+    def test_empty_llm_question_returns_502(self):
         with (
             patch(
                 "app.main.stt_service.transcribe",
@@ -395,10 +369,6 @@ class AudioBatchApiTests(unittest.TestCase):
                 "app.main.llm_service.generate_next_question",
                 return_value={"ai_question": "   "},
             ),
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(),
-            ) as synthesize,
         ):
             response = self.client.post(
                 "/analysis/audio/batch",
@@ -407,65 +377,6 @@ class AudioBatchApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 502)
         self.assertEqual(response.json()["detail"], "LLM 다음 질문 생성에 실패했습니다.")
-        synthesize.assert_not_awaited()
-
-    def test_tts_exception_returns_text_question_with_null_tts(self):
-        with (
-            patch(
-                "app.main.stt_service.transcribe",
-                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
-            ),
-            patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
-            ),
-            patch(
-                "app.main.llm_service.generate_next_question",
-                return_value={"ai_question": "산책은 어떠셨어요?"},
-            ),
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(side_effect=RuntimeError("Typecast unavailable")),
-            ),
-        ):
-            response = self.client.post(
-                "/analysis/audio/batch",
-                files=self._multipart(),
-            )
-
-        self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
-        self.assertIsNone(response.json()["ttsAudioBase64"])
-        self.assertIsNone(response.json()["ttsMimeType"])
-
-    def test_empty_tts_audio_returns_text_question_with_null_tts(self):
-        with (
-            patch(
-                "app.main.stt_service.transcribe",
-                return_value=SttResult(ok=True, text="오늘 산책했어요.", engine="mock"),
-            ),
-            patch(
-                "app.main.emotion_service.classify_and_fuse",
-                return_value={"neutral": 1.0},
-            ),
-            patch(
-                "app.main.llm_service.generate_next_question",
-                return_value={"ai_question": "산책은 어떠셨어요?"},
-            ),
-            patch(
-                "app.main.tts_service.synthesize_full",
-                new=AsyncMock(return_value=b""),
-            ),
-        ):
-            response = self.client.post(
-                "/analysis/audio/batch",
-                files=self._multipart(),
-            )
-
-        self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(response.json()["nextQuestion"], "산책은 어떠셨어요?")
-        self.assertIsNone(response.json()["ttsAudioBase64"])
-        self.assertIsNone(response.json()["ttsMimeType"])
 
 
 class TtsSynthesizeApiTests(unittest.TestCase):

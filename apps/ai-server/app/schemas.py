@@ -24,9 +24,6 @@ class AnswerAnalysis(BaseModel):
 class BatchAnalysisResponse(BaseModel):
     answers: list[AnswerAnalysis]
     nextQuestion: str
-    # STT·척도·다음 질문은 성공하고 TTS만 실패한 경우 두 필드는 함께 null이다.
-    ttsAudioBase64: str | None
-    ttsMimeType: str | None
 
 
 class TtsSynthesizeRequest(BaseModel):

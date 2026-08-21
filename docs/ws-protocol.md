@@ -23,7 +23,7 @@ AudioBinaryHandler
   ├→ AudioMetadataHandler                  // pending metadata 조회·제거
   ├→ AudioAnswerRepository                 // 답변 메시지와 질문·답변 관계 저장
   ├→ AudioTransferStateService             // 중복 전송 ID와 기존 ACK 임시 보관
-  ├→ QuestionAnswerQueueService            // 질문별 추가 답변 묶음 (auto는 3초 대기, manual은 즉시 확정)
+  ├→ QuestionAnswerQueueService            // 질문별 답변 확정 (endType 무관, 대기 없이 즉시)
   ├→ AnalysisService                       // 분석 요청과 결과 저장 순서 관리
   │    ├→ TemporaryAudioRepository         // 질문별 음성 Buffer 임시 보관
   │    ├→ AiClient                         // FastAPI REST 요청·응답 검증
@@ -194,19 +194,17 @@ audio:ack payload
 실패하면 DB에 흔적을 남기지 않기 위해서다(그래서 messageId도 아직 없다).
 
 
-[4. 추가 답변 대기 및 질문별 답변 확정]
+[4. 질문별 답변 확정]
 NestJS QuestionAnswerQueueService
   → 같은 questionMessageId의 답변을 큐에 추가
-  → 방금 들어온 음성의 endType이 auto(묵음 감지로 자동 종료)면:
-      마지막 음성 수신 시점부터 3초 대기
-      → 3초 안에 추가 음성이 들어오면 같은 답변 묶음에 추가
-      → 3초 동안 추가 음성이 없으면 질문별 답변 묶음 확정
-  → 방금 들어온 음성의 endType이 manual("지금 답변 마치기" 직접 클릭)이면:
-      기다리지 않고 그 자리에서 즉시 질문별 답변 묶음 확정
-      ([2026-08-19] 실측 결과 이 무조건 10초 대기가 턴당 지연의 대부분을
-      차지하고 있었다 — manual은 사용자가 이미 "다 말했다"고 명시했으므로
-      기다릴 이유가 없다. auto도 프론트가 이미 3초 무음을 확인한 뒤에만
-      발생하므로 10초는 과도한 중복 대기여서 3초로 줄였다)
+  → endType(auto/manual) 무관하게 대기 없이 그 자리에서 즉시 질문별 답변 묶음 확정
+      ([2026-08-19] 원래 auto는 추가로 3초를 더 기다렸으나 실측 결과 턴당 지연의
+      대부분을 차지해 이미 3초→즉시로 좁힌 바 있다.
+      [2026-08-21] 그 남은 3초조차 화면 표시 지연에 그대로 얹혀 다시 없앴다 —
+      프론트가 이미 3초 무음을 확인한 뒤에만 auto가 발생하므로, 그 위에 서버가
+      또 기다릴 이유가 없다. 후속 발화가 짧은 간격으로 이어져도 더 이상 같은
+      묶음에 합쳐지지 않고 각각 별도 답변으로 즉시 처리된다 — 대신 그만큼
+      다음 질문이 더 빨리 온다)
 
 
 [5. FastAPI 분석 요청]
@@ -252,8 +250,8 @@ NestJS AnalysisService
   → MySQL에 감정 태그·척도 결과 저장(방금 발급된 messageId 기준)
   → MySQL CONVERSATION_MESSAGE에 다음 AI 질문 저장
   → audio:transcript(방금 저장된 실제 messageId 포함) → Frontend
-  → (Typecast 성공 시) tts:audio → Frontend
-  → ai:question → Frontend
+  → ai:question → Frontend (TTS 합성을 기다리지 않고 텍스트부터 보낸다, 2026-08-20 변경)
+  → (비동기) NestJS AudioBinaryHandler → POST /tts/synthesize → 성공 시 tts:audio → Frontend
 
 [7b. 분석 실패 — 아무것도 저장하지 않음]
 NestJS AnalysisService
@@ -345,7 +343,7 @@ NestJS → Frontend:
 }
 ```
 
-Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio`를 보낸다(`QuestionDeliveryService.deliver()`가 두 이벤트의 순서를 보장한다). `messageId`로 어느 질문의 음성인지 연결한다 — 프론트는 아직 `currentQuestion`이 이 질문으로 갱신되기 전이므로, `ai:question`이 올 때까지 messageId로 잠깐 보관해뒀다가 짝지어야 한다(`pages/senior-conversation`의 구현 참고):
+**이 최초 질문(chat:start)에서만** Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio`를 보낸다(`QuestionDeliveryService.deliver()`가 두 이벤트의 순서를 보장한다). `messageId`로 어느 질문의 음성인지 연결한다 — 프론트는 아직 `currentQuestion`이 이 질문으로 갱신되기 전이므로, `ai:question`이 올 때까지 messageId로 잠깐 보관해뒀다가 짝지어야 한다(`pages/senior-conversation`의 구현 참고). **후속 질문(§6.3)은 순서가 반대다** — 텍스트 표시가 TTS 합성 시간만큼 늦어지지 않도록 `ai:question`을 먼저 보내고, `tts:audio`는 합성이 끝나는 대로 비동기로 뒤이어 보낸다:
 
 ```json
 {
@@ -507,25 +505,28 @@ NestJS → Frontend:
 - 이어서 같은 질문의 `ai:question`을 다시 보낸다.
 - 프론트는 `messageId`를 기준으로 중복 말풍선을 만들지 않는다.
 
-## 5. 질문별 추가 답변 큐
+## 5. 질문별 답변 확정
 
 ```text
 AI 질문 messageId=101
-  ├→ 답변 messageId=102, 관계 ANSWER
-  └→ 추가 답변 messageId=103, 관계 ADDITIONAL_ANSWER
-       → 마지막 음성부터 3초 대기
-       → 질문별 답변 묶음 확정
-       → FastAPI에 음성 2개와 messageId 2개 전달
+  ├→ 답변 messageId=102, 관계 ANSWER → 도착 즉시 답변 묶음 확정, FastAPI 전달
+  └→ 추가 답변 messageId=103, 관계 ADDITIONAL_ANSWER → 별도 묶음으로 도착 즉시 확정,
+       FastAPI 전달(늦은 답변 경로, §6.3 참고 — 101에 대한 다음 질문이 이미 나갔다면
+       새 질문은 만들지 않고 STT 결과만 audio:transcript로 전달)
 ```
 
 - 답변마다 별도 DB 메시지와 별도 프론트 말풍선을 사용한다.
 - 같은 질문인지 여부는 감정이 아니라 `questionMessageId`로 판단한다.
-- 추가 답변이 `auto`(묵음 자동 종료)로 올 때마다 3초 타이머를 다시 시작한다.
-  **[2026-08-19] `manual`("지금 답변 마치기" 직접 클릭)로 오면 타이머를 기다리지
-  않고 그 즉시 확정한다** — 무조건 10초를 기다리던 이전 동작이 턴당 지연의
-  대부분을 차지하는 걸 실측으로 확인해 고쳤다. `auto`도 프론트가 이미 3초
-  무음을 확인한 뒤에만 발생하므로 10초는 중복 대기여서 3초로 줄였다.
-- 질문 하나당 최대 5개, 음성 한 건 최대 10MB, 전체 최대 30MB이다.
+- **[2026-08-21] `endType`(`auto`/`manual`) 무관하게 답변이 도착하는 즉시 확정한다 —
+  더 이상 대기하지 않는다.** 원래 `auto`(묵음 자동 종료)는 추가 발화를 기다리려고
+  3초를 더 대기했었다(`manual`은 2026-08-19부터 이미 즉시 확정). 하지만 `auto`
+  자체가 프론트에서 이미 3초 무음을 확인한 뒤에만 발생하므로, 그 위에 서버가 또
+  기다리는 건 화면 표시 지연에 그대로 얹히는 중복 대기였다 — 실측 결과 이 대기가
+  텍스트·다음 질문이 화면에 뜨기까지의 지연 대부분을 차지해 완전히 없앴다. 부작용:
+  후속 발화가 짧은 간격으로 이어져도 더 이상 같은 답변 묶음으로 합쳐지지 않고
+  각각 독립된 답변(그리고 각각의 FastAPI 호출)으로 처리된다.
+- 질문 하나당 최대 5개, 음성 한 건 최대 10MB, 전체 최대 30MB이다(더 이상 대기 창
+  안에서만 세지 않고, 질문 하나에 대해 지금까지 들어온 답변 전체를 누적해서 센다).
 - FastAPI는 메시지별 STT·감성·척도 결과를 반환한다.
 - 감성이 서로 달라도 복합 감정 또는 감정 변화로 보고 오류로 처리하지 않는다.
 - FastAPI는 모든 답변의 맥락을 참고해 다음 질문 하나를 생성한다.
@@ -562,8 +563,9 @@ Content-Type: multipart/form-data
 | `audioTransferIds`   | 반복 값   | 각 음성 전송 ID                                                        |
 | `capturedAts`        | 반복 값   | 녹음 시각                                                              |
 | `endTypes`           | 반복 값   | `auto` 또는 `manual`                                                   |
-| `prevSessionSummary` | 단일 값, 선택 | 이전 세션 요약 텍스트. AI 서버는 이미 이 필드를 받아 프롬프트에 반영하지만, **백엔드는 아직 값을 채워 보내지 않는다**(기본값 빈 문자열로 처리됨) |
-| `pendingScaleItems`  | 단일 값(JSON 문자열), 선택 | 아직 채점되지 않은 척도 문항 맵, 예: `{"SGDS_K": ["1", "3"], "GAD_7": ["2"]}`. AI 서버는 이미 파싱해 사용하지만, **백엔드는 아직 값을 채워 보내지 않는다**(기본값 `"{}"`로 처리됨) |
+| `prevSessionSummary` | 단일 값, 선택 | 리포트가 있는 최근 3일치 요약을 `[날짜] 요약` 형식으로 오래된 순서로 이어붙인 텍스트(`AnalysisContextRepository.buildPrevSessionSummary`, 2026-08-20부터 직전 1일 → 최근 3일로 확장) |
+| `pendingScaleItems`  | 단일 값(JSON 문자열), 선택 | 오늘 아직 채점되지 않은 척도 문항 맵, 예: `{"SGDS_K": ["1", "3"], "GAD_7": ["2"]}` |
+| `conversationTurns`  | 단일 값(JSON 문자열), 선택 | 오늘 대화 전체(질문 시점까지, 화자·발화 배열) — 2026-08-20부터 최근 5개 제한을 없앰 |
 
 multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON이 아니라 파일을 포함한 multipart다.
 
@@ -576,8 +578,9 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
   "audioTransferIds": ["audio-transfer-001", "audio-transfer-002"],
   "capturedAts": ["2026-08-12T06:00:03.500Z", "2026-08-12T06:00:10.500Z"],
   "endTypes": ["auto", "manual"],
-  "prevSessionSummary": "",
-  "pendingScaleItems": "{}"
+  "prevSessionSummary": "[2026-08-11] 어제는 산책 다녀오신 이야기를 나눴어요.",
+  "pendingScaleItems": "{\"SGDS_K\":[\"1\",\"3\"],\"GAD_7\":[\"2\"],\"LSNS_6\":[]}",
+  "conversationTurns": "[{\"speakerType\":\"AI\",\"content\":\"오늘 하루는 어떠셨어요?\"},{\"speakerType\":\"SENIOR\",\"content\":\"오늘 아들이 집에 왔어요.\"}]"
 }
 ```
 
@@ -605,9 +608,7 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
       ]
     }
   ],
-  "nextQuestion": "아드님이 금방 돌아가셔서 많이 서운하셨군요.",
-  "ttsAudioBase64": "SUQzBAAAAA...",
-  "ttsMimeType": "audio/mpeg"
+  "nextQuestion": "아드님이 금방 돌아가셔서 많이 서운하셨군요."
 }
 ```
 
@@ -615,13 +616,13 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
 - transcript 두 개는 합치지 않고 프론트에서 각각 말풍선으로 표시한다.
 - 요청과 응답의 `messageId` 집합이 정확히 일치해야 한다.
 - `nextQuestion`은 문자열 또는 `null`이다.
-- `ttsAudioBase64`/`ttsMimeType`은 AI 서버가 이미 응답에 채워 보내고 있다(Typecast로 `nextQuestion`을 합성한 음성) — **백엔드는 아직 이 값을 받아서 저장하거나 프론트로 중계하지 않는다.** 프론트의 TTS 재생 기능 자체는 이미 구현되어 있으므로, 백엔드가 이 값을 WS로 중계하는 즉시 연결 가능하다(§8 참고).
+- **[2026-08-20 변경] 이 응답에는 더 이상 TTS가 포함되지 않는다.** 예전에는 AI 서버가 `nextQuestion`의 Typecast 합성 결과를 `ttsAudioBase64`/`ttsMimeType`으로 같은 응답에 채워 보냈지만, 그러면 화면에 다음 질문 텍스트가 뜨는 시점이 TTS 합성 시간만큼 밀렸다. 지금은 이 배치 응답이 텍스트만 담아 즉시 돌아오고, 백엔드가 텍스트 전달 후 별도로 `POST /tts/synthesize`(§7 참고, 최초 질문과 동일한 엔드포인트)를 호출해 음성을 받아 `tts:audio`로 뒤이어 전달한다(§6.3).
 - 네트워크·타임아웃·HTTP 502/503/504는 500ms 후 한 번 재시도한다.
 - HTTP 4xx와 응답 계약 오류는 재시도하지 않는다.
 
 ### 6.3 FastAPI 응답 이후 NestJS → Frontend
 
-FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 기존 `ai:question` WS 형식으로 프론트에 보낸다.
+FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 TTS 합성을 기다리지 않고 곧바로 `ai:question`을 보낸다(`AudioBinaryHandler.processBatchAndSendNextQuestion` → `QuestionDeliveryService.deliverQuestion`). 이후 별도로 `POST /tts/synthesize`를 호출해 음성이 준비되면 같은 `messageId`로 `tts:audio`를 뒤이어 보낸다(`deliverTtsWhenReady`) — 합성이 끝나기 전에 이미 다음 질문으로 넘어갔거나 대화가 끝났으면 늦게 온 음성은 조용히 버린다.
 
 ```json
 {
@@ -702,11 +703,12 @@ NestJS → Frontend:
 - JWT WS 인증과 이벤트 분배
 - 대화 시작·수동 종료·무응답 자동 종료
 - metadata와 binary 결합, 질문별 큐 등록과 `audio:ack`
-- 질문별 추가 답변 큐(auto는 3초 대기, manual은 즉시 확정 — 2026-08-19 수정)
+- 질문별 답변 확정(endType 무관, 대기 없이 즉시 — 2026-08-19에 10초→3초, 2026-08-21에 3초→즉시로 축소)
 - FastAPI multipart Client와 응답 계약 검증
 - **[결정사항] 답변 메시지는 분석 성공 시점에야 처음 DB에 저장된다** — 분석 실패 시 아무것도 저장하지 않고 `error`(`AUDIO_ANALYSIS_FAILED`)만 보낸다(§4.3, §6.3)
 - 메시지별 분석 결과 저장과 다음 질문 WS 전송
-- 질문(최초·후속 공통)마다 Typecast TTS 생성과 `tts:audio` WS 중계, 프론트 재생까지 연결 완료(§4.2)
+- 질문(최초·후속 공통)마다 Typecast TTS 생성과 `tts:audio` WS 중계, 프론트 재생까지 연결 완료 — 최초 질문은 TTS 준비 후 함께 전달(§4.2), 후속 질문은 텍스트를 먼저 보내고 TTS는 합성되는 대로 비동기로 뒤이어 전달한다(§6.3, 2026-08-20 변경)
+- 질문 생성 문맥(오늘 미채점 문항·최근 3일 요약·오늘 대화 전체) DB 조회 후 AI 서버 호출 시 전달 완료(§6.1)
 - 중복 전송 기존 ACK 재전송
 - 과거 메시지 cursor REST API
 - 같은 서버 프로세스의 단기 현재 질문 복원
@@ -726,8 +728,6 @@ NestJS → Frontend:
 - 메시지별 STT·감성·척도 응답 형식
 - 여러 답변을 참고한 `nextQuestion` 생성 방식
 - HTTP 오류와 분석 오류 응답 규격
-- **TTS 오디오 중계**: AI 서버는 `ttsAudioBase64`/`ttsMimeType`을 이미 응답에 채워 보내지만(§6.2), 백엔드가 아직 이를 저장·중계하지 않는다 — 프론트 TTS 재생 기능은 이미 구현되어 있어 이 연동만 남아있다.
-- **문항 커버리지·이전 세션 요약 연동**: `prevSessionSummary`/`pendingScaleItems`를 AI 서버는 이미 받아 프롬프트에 반영하지만(§6.1), 백엔드가 아직 해당 값을 채워 보내지 않는다.
 
 ### MVP 이후
 
