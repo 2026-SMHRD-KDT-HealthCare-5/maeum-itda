@@ -46,6 +46,7 @@
   - `MAX_ANSWER_SEGMENTS_PER_QUESTION`을 5→10으로 상향 — 답변 세그먼트별 즉시·개별 분석 체제에서 진짜 발화가 여러 번 끊겨도(3초 이상 침묵마다 세그먼트 하나) 여유를 두도록.
   - 프론트 `useRecordVoiceAnswer`의 `AUDIO_ANALYSIS_FAILED` 자동 재개방(`forceRecordResolverRef`)에 질문당 최대 2회 상한(`MAX_AUTO_ANALYSIS_RETRIES`) 추가 — ai-server가 계속 실패해도 발화 없는 세그먼트를 무한정 재제출해 답변 상한을 소모하지 않도록. 상한을 넘어도 VAD로 진짜 발화를 감지해 이어서 답변하는 경로는 그대로 살아있어 대화가 막히지는 않음.
   - `question-answer-queue.service.ts`의 `answerCountByQuestionMessageId`/`answerBytesByQuestionMessageId`가 처리 완료 후에도 정리되지 않아 프로세스 수명 내내 누적되던 메모리 누수 — `clearCounters()`를 추가하고, 질문이 "완전히 끝났다"고 확신되는 세 시점(다음 질문 생성 시 `AudioBinaryHandler`, 수동 종료 시 `ChatEndHandler`, 무응답 자동 종료 시 `ChatInactivityService`)에서 호출해 정리.
+- **'생각 중'(분석 중)에는 추가 발화를 듣지 않도록 설계 변경(2026-08-21)**: 예전엔 답변 제출 후 다음 질문을 기다리는 '생각 중' 구간에도 VAD로 시니어의 발화를 감지해 같은 질문의 추가 답변으로 계속 받았다(`useRecordVoiceAnswer`의 내부 while 루프) — 사용자 피드백으로 이 동작 자체가 세그먼트가 계속 쪼개지는 근본 원인이라 판단해 제거함. 이미 3초 묵음으로 이번 답변을 마쳤다고 판단했으므로, 분석 중엔 추가 발화를 받지 않고 다음 질문이 올 때까지 기다린다. `AUDIO_ANALYSIS_FAILED` 발생 시 같은 질문에 대한 녹음을 다시 여는 실패 복구 경로는 별개 목적(오류 복구)이라 그대로 유지. 더 이상 안 쓰는 `createVoiceActivityWatcher`(`record-voice-answer/lib`)도 삭제.
 
 ## 의도적으로 미룸 (데모 전 손대지 않음)
 

@@ -3,20 +3,16 @@ import type { AiQuestionPayload, AudioEndType, WsErrorPayload } from '../../../s
 import type { ChatSocket } from '../../../shared/api'
 import { playTtsAudioStream, type TtsPlaybackHandle } from '../../../shared/lib'
 import { sendVoiceAnswer } from '../api'
-import {
-  createSilenceWatcher,
-  createVoiceActivityWatcher,
-  pickSupportedAudioMimeType,
-  type SilenceWatcherHandle,
-  type VoiceActivityWatcherHandle,
-} from '../lib'
+import { createSilenceWatcher, pickSupportedAudioMimeType, type SilenceWatcherHandle } from '../lib'
 
 // SeniorConversationPage가 캐릭터 이미지를 고르는 데 쓰는 상태.
 // 'question': 새 AI 질문의 TTS가 재생 중(또는 TTS가 없어 곧바로 다음 단계로 넘어가는 중)
 // 'waiting': 마이크는 열려 있지만 이번 녹음 구간에서 아직 말소리가 감지되지 않음
-// 'listening': 말소리가 감지되어 실제로 답변을 받는 중 — 지금 질문에 대한 답변이거나
-//   다음 질문을 기다리며 받은 추가 답변일 수 있다
-// 'thinking': 답변 전송 후 분석 결과와 다음 질문을 기다리는 중(추가 발화 감시는 계속된다)
+// 'listening': 말소리가 감지되어 실제로 답변을 받는 중
+// 'thinking': 답변 전송 후 분석 결과와 다음 질문을 기다리는 중 — 분석이 실패하면
+//   같은 질문에 대한 녹음을 다시 열지만, 그 외에는 추가 발화를 받지 않는다
+//   (2026-08-21 결정: 이미 3초 묵음으로 답변을 마쳤다고 판단했으므로 분석 중엔
+//   더 듣지 않는다 — 아래 runTurn() 참고)
 export type RecordingPhase = 'question' | 'waiting' | 'listening' | 'thinking'
 
 export interface UseRecordVoiceAnswerOptions {
@@ -53,8 +49,9 @@ const AUTO_SILENCE_MS = 3_000
 // AUDIO_ANALYSIS_FAILED 수신 시 발화 없이도 마이크를 강제로 재개방하는 재시도
 // 횟수 상한(질문마다 초기화). 상한이 없으면 ai-server가 계속 실패할 때 발화
 // 없는 세그먼트가 계속 제출되며 같은 질문의 답변 개수 상한(MAX_ANSWER_SEGMENTS_
-// PER_QUESTION, 백엔드)까지 소모해버릴 수 있다 — 상한을 넘으면 강제 재개방은
-// 멈추지만, 진짜 발화(VAD 감지)로 이어서 답변하는 경로는 그대로 살아있다.
+// PER_QUESTION, 백엔드)까지 소모해버릴 수 있다 — 상한을 넘으면 더 이상 자동으로
+// 재개방하지 않는다(분석 중엔 추가 발화도 듣지 않으므로, 그 뒤로는 다음 질문이
+// 올 때까지 '생각 중'에 머문다).
 const MAX_AUTO_ANALYSIS_RETRIES = 2
 // 후속 질문은 텍스트(currentQuestion)가 먼저 도착하고 TTS 스트리밍 경로는 단기
 // 토큰 발급이 끝나는 대로 별도로 뒤이어 온다(백엔드 QuestionDeliveryService.
@@ -68,9 +65,11 @@ const TTS_WAIT_TIMEOUT_MS = 5_000
 // 받지 않는다 — 스피커 소리가 마이크로 새어 들어와(echoCancellation이 재생 시작
 // 직후엔 완전히 걸러주지 못함) 사람 목소리로 오인되면서 TTS가 즉시 끊기고 그 잡음이
 // 답변으로 전송돼 분석에 실패하는 문제가 있었다(2026-08-19, 끼어들기 제거로 해결).
-// TTS가 끝난 뒤에만 마이크를 열어 답변을 받는다. 다음 질문을 기다리는 '생각 중'
-// 구간에는 시니어가 먼저 말을 시작하면 그 발화를 지금 질문에 대한 추가 답변으로
-// 받는다(이 구간엔 TTS가 재생 중이 아니므로 에코 문제가 없다).
+// TTS가 끝난 뒤에만 마이크를 열어 답변을 받는다. 답변을 보내고 나면 '생각 중'으로
+// 넘어가 다음 질문을 기다리며, 이 구간에는 추가 발화를 듣지 않는다(2026-08-21
+// 결정 — 이미 3초 묵음으로 이번 답변을 마쳤다고 판단했으므로, 시니어가 다시 말해도
+// 다음 질문이 올 때까지는 새 녹음을 열지 않는다). 분석이 실패하면(AUDIO_ANALYSIS_
+// FAILED) 예외적으로 같은 질문에 대한 녹음을 다시 연다.
 // 사용자가 직접 끝내거나(manual) 묵음이 3초 이어지면(auto) 한 녹음 구간을
 // 마쳐 서버로 보낸다. 실제 WebSocket 연동(effect)까지 포함하므로 단위 테스트는
 // 이 훅이 호출하는 lib 함수 단위로 한다.
@@ -90,11 +89,10 @@ export function useRecordVoiceAnswer({
   const chunksRef = useRef<Blob[]>([])
   const mimeTypeRef = useRef('audio/webm')
   const silenceWatcherRef = useRef<SilenceWatcherHandle | null>(null)
-  const vadWatcherRef = useRef<VoiceActivityWatcherHandle | null>(null)
   const ttsPlaybackRef = useRef<TtsPlaybackHandle | null>(null)
-  // '생각 중'에 다음 답변 녹음을 열 신호(실제 발화 감지 또는 직전 답변 분석
-  // 실패)를 기다리는 resolver. 분석 실패 시 이걸 대신 호출해 VAD 감지를
-  // 기다리지 않고 곧바로 같은 질문에 대한 녹음을 다시 연다(무한 대기 방지).
+  // '생각 중'에 분석 실패 시 같은 질문에 대한 녹음을 다시 열 신호를 기다리는
+  // resolver(무한 대기 방지) — 그 외에는 이 대기를 풀 방법이 없다(2026-08-21
+  // 결정: 분석 중엔 추가 발화를 듣지 않음, 아래 runTurn() 참고).
   const forceRecordResolverRef = useRef<(() => void) | null>(null)
   // 이번 질문에서 AUDIO_ANALYSIS_FAILED로 강제 재개방한 횟수 — runTurn() 시작 시
   // (새 질문마다) 0으로 되돌린다.
@@ -256,21 +254,18 @@ export function useRecordVoiceAnswer({
       await recordSegment(stream)
       if (cancelled) return
 
-      // 다음 질문이 올 때까지 '생각 중' — 그 사이 시니어가 먼저 말을 시작하면
-      // 그 발화를 지금 질문에 대한 추가 답변으로 받는다(TTS가 재생 중이 아닌
-      // 구간이라 에코로 오탐지될 위험이 없다). 다음 질문이 실제로 도착하면
-      // (currentQuestion 변경) 이 effect의 cleanup이 cancelled를 세워 이 루프를 끝낸다.
+      // 다음 질문이 올 때까지 '생각 중'으로 대기한다 — 다음 질문이 실제로 도착하면
+      // (currentQuestion 변경) 이 effect의 cleanup이 cancelled를 세워 이 루프를
+      // 끝낸다. 분석이 실패하면(AUDIO_ANALYSIS_FAILED, 아래 handleError) 예외적으로
+      // forceRecordResolverRef가 이 대기를 풀어 같은 질문에 대한 녹음을 다시 연다 —
+      // 그 외에는(분석이 정상 진행 중이면) 시니어가 다시 말해도 새 녹음을 열지 않는다.
       while (!cancelled) {
         setPhase('thinking')
-        const gotVoice = await new Promise<boolean>((resolve) => {
-          forceRecordResolverRef.current = () => resolve(true)
-          vadWatcherRef.current = createVoiceActivityWatcher(stream, {
-            onVoiceDetected: () => resolve(true),
-          })
+        await new Promise<void>((resolve) => {
+          forceRecordResolverRef.current = resolve
         })
         forceRecordResolverRef.current = null
-        vadWatcherRef.current = null
-        if (cancelled || !gotVoice) break
+        if (cancelled) break
         await recordSegment(stream)
         if (cancelled) break
       }
@@ -284,8 +279,6 @@ export function useRecordVoiceAnswer({
       ttsArrivedResolverRef.current = null
       ttsPlaybackRef.current?.stop()
       ttsPlaybackRef.current = null
-      vadWatcherRef.current?.stop()
-      vadWatcherRef.current = null
       silenceWatcherRef.current?.stop()
       silenceWatcherRef.current = null
       if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
@@ -304,8 +297,11 @@ export function useRecordVoiceAnswer({
   useEffect(() => {
     function handleError(payload: WsErrorPayload) {
       if (payload.code !== 'AUDIO_ANALYSIS_FAILED') return
-      // 상한에 닿으면 강제 재개방을 멈춘다 — 발화 감지(VAD)로 이어서 답변하는
-      // 경로는 이 훅과 무관하게 계속 살아있으니 무한 대기로 막히지는 않는다.
+      // 상한에 닿으면 더 이상 강제 재개방하지 않는다 — '생각 중'엔 추가 발화도
+      // 듣지 않으므로(위 runTurn() 참고), ai-server가 계속 실패하는 극단적인
+      // 경우엔 다음 질문이 올 때까지 '생각 중'에 머문다(실패 안내 배너는 계속
+      // 뜬다). 상한을 두는 목적은 그 반복 실패가 답변 개수 상한을 조용히
+      // 소모하는 걸 막는 것이지, 이 경우까지 스스로 복구시키는 게 아니다.
       if (autoAnalysisRetriesRef.current >= MAX_AUTO_ANALYSIS_RETRIES) return
       autoAnalysisRetriesRef.current += 1
       forceRecordResolverRef.current?.()

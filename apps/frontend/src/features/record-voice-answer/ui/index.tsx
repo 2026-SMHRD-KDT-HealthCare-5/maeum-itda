@@ -86,7 +86,7 @@ export function RecordVoiceAnswerAction({
       ? '다슬이의 이야기를 다 듣지 않아도 답변할 수 있어요'
       : isRecording
         ? '말씀을 멈추시면 잠시 후 답변이 자동으로 완료돼요'
-        : '말씀을 시작하시면 다슬이가 멈추고 답변을 들어요'
+        : '잠시만 기다리시면 다슬이가 다음 질문을 이어서 드려요'
 
   return (
     <section className={styles.controls} aria-labelledby="conversation-status">
