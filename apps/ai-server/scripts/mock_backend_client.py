@@ -1,7 +1,6 @@
 """NestJS 없이 AI 서버의 REST 배치 API를 호출하는 테스트 클라이언트."""
 
 import argparse
-import base64
 import binascii
 import json
 import sys
@@ -14,7 +13,6 @@ import httpx
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INPUT_SOUND_DIR = PROJECT_ROOT / "input_sound"
 OUTPUT_TEXT_DIR = PROJECT_ROOT / "output_text"
-OUTPUT_SOUND_DIR = PROJECT_ROOT / "output_sound"
 AUDIO_EXTS = {
     ".wav", ".mp3", ".mpga", ".mpeg", ".mp4", ".m4a", ".webm",
     ".flac", ".ogg", ".opus", ".aac", ".wma",
@@ -200,28 +198,9 @@ def main() -> None:
         encoding="utf-8",
     )
     print(f"결과 저장: {output_path}")
-
-    tts_base64 = result.get("ttsAudioBase64")
-    tts_mime_type = result.get("ttsMimeType", "audio/mpeg")
-    if not isinstance(tts_base64, str) or not tts_base64:
-        raise ValueError("REST 응답에 ttsAudioBase64가 없습니다.")
-
-    try:
-        tts_audio = base64.b64decode(tts_base64, validate=True)
-    except ValueError as exc:
-        raise ValueError("ttsAudioBase64가 올바른 Base64 형식이 아닙니다.") from exc
-    if not tts_audio:
-        raise ValueError("디코딩된 TTS 음성이 비어 있습니다.")
-
-    extension = {
-        "audio/mpeg": "mp3",
-        "audio/wav": "wav",
-        "audio/ogg": "ogg",
-    }.get(tts_mime_type, "audio")
-    OUTPUT_SOUND_DIR.mkdir(parents=True, exist_ok=True)
-    tts_path = OUTPUT_SOUND_DIR / f"mock_rest_tts_{stamp}.{extension}"
-    tts_path.write_bytes(tts_audio)
-    print(f"TTS 저장: {tts_path} ({tts_mime_type}, {len(tts_audio):,} bytes)")
+    # /analysis/audio/batch는 더 이상 TTS를 합성하지 않는다(질문 텍스트를
+    # TTS 생성을 기다리지 않고 즉시 반환하기 위한 구조 변경) — nextQuestion을
+    # 실제 음성으로 듣고 싶으면 scripts/test_tts.py를 별도로 실행할 것.
 
 
 if __name__ == "__main__":
