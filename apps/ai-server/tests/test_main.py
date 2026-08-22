@@ -479,10 +479,9 @@ class TtsSynthesizeStreamApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.content, b"chunk-1chunk-2")
-        self.assertEqual(
-            response.headers["content-type"],
-            _tts_mime_type(get_settings().typecast_audio_format.lower()),
-        )
+        # tts_service.synthesize_stream()은 TYPECAST_AUDIO_FORMAT 설정과 무관하게
+        # 항상 mp3를 내보내므로 Content-Type도 그와 무관하게 항상 audio/mpeg다.
+        self.assertEqual(response.headers["content-type"], "audio/mpeg")
         synthesize.assert_called_once_with("산책은 어떠셨어요?")
 
     def test_rejects_blank_text(self):

@@ -211,10 +211,11 @@ async def synthesize_tts_stream(request: TtsSynthesizeRequest) -> StreamingRespo
         async for chunk in generator:
             yield chunk
 
-    audio_format = get_settings().typecast_audio_format.lower()
-    return StreamingResponse(
-        _stream_from_first_chunk(), media_type=_tts_mime_type(audio_format)
-    )
+    # tts_service.synthesize_stream()은 TYPECAST_AUDIO_FORMAT 설정과 무관하게 항상
+    # mp3를 요청한다(app/services/tts.py 모듈 docstring 참고) — media_type도 그에 맞춰
+    # 고정한다. 여기서 설정값을 그대로 읽으면 실제 바이트(mp3)와 선언한 Content-Type
+    # (예: audio/wav)이 어긋나 브라우저가 디코딩에 실패한다.
+    return StreamingResponse(_stream_from_first_chunk(), media_type="audio/mpeg")
 
 
 @app.post("/reports/daily-summary", response_model=DailySummaryResponse)
