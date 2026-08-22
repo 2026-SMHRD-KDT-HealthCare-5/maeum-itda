@@ -23,13 +23,18 @@ httpx의 진짜 스트리밍 클라이언트(`client.stream()`)로 바이트가 
 2000자를 넘는 경우에만(사실상 발생 안 함) 문장 단위로 나눠 순차 스트리밍한다.
 평소에는 세그먼트가 1개뿐이라 이 분기는 사실상 타지 않는다.
 
-## 포맷 선택: mp3 기본
-스트리밍 응답에서 wav를 쓰면 "첫 청크에 들어있는 44바이트 WAV 헤더의 size 필드가
-스트리밍이라 0xFFFFFFFF(무효값)로 온다"는 특이사항이 있어, 재생 측에서 헤더를
-잘라내고 raw PCM만 이어붙이는 처리가 필요하다. mp3는 각 청크가 독립적으로
-디코딩 가능한 MPEG 프레임이라 별도 처리 없이 그대로 흘려보내면 된다. 그래서
-기본값을 mp3로 유지한다(config의 TYPECAST_AUDIO_FORMAT). wav로 바꾸고 싶다면
-아래 `synthesize_stream()`의 첫 청크 처리 부분에 헤더 스킵 로직을 추가해야 한다.
+## 포맷 선택: 스트리밍은 항상 mp3
+스트리밍 응답에서 wav를 쓰면 "첫 청크에 들어있는 44바이트 WAV 헤더의 size 필드이
+스트리밍이라 0xFFFFFFFF(무효값)로 온다"는 특이사항이 있다. 그 무효 헤더를 잘라내는
+것만으로는 재생 가능한 WAV가 안 된다 — 뒤에 남는 건 컨테이너 헤더가 전혀 없는 raw
+PCM이라, 브라우저의 `<audio src>`는 샘플레이트/채널/비트뎁스를 알 방법이 없어
+디코딩 자체를 못 한다(HTTP 200으로 바이트는 온전히 도착하는데 무음인 이유). 유효한
+WAV 헤더를 새로 만들어 붙이는 건 가능하지만 시도할 값어치가 없다 — mp3는 각 청크가
+독립적으로 디코딩 가능한 MPEG 프레임이라 별도 처리 없이 그대로 흘려보내면 재생되기
+때문이다. 그래서 이 스트리밍 경로는 `TYPECAST_AUDIO_FORMAT` 설정값과 무관하게 항상
+mp3로 요청한다(아래 `_STREAM_AUDIO_FORMAT`). 그 설정은 `synthesize_full()`(완성된
+파일 전체를 한 번에 반환하는 배치 엔드포인트, 헤더가 처음부터 유효해서 문제없음)에만
+적용된다.
 
 인증 헤더는 Authorization: Bearer가 아니라 X-API-KEY (Typecast 스펙).
 target_lufs 와 volume 은 동시 사용 불가.
@@ -49,6 +54,10 @@ API_HOST = "https://api.typecast.ai"
 STREAM_ENDPOINT = "/v1/text-to-speech/stream"
 BATCH_ENDPOINT = "/v1/text-to-speech"       # 완성된 오디오 전체가 필요할 때(synthesize_full)만 사용
 VOICES_ENDPOINT = "/v2/voices"
+
+# 스트리밍 엔드포인트(/tts/synthesize/stream)는 TYPECAST_AUDIO_FORMAT 설정과 무관하게
+# 항상 이 포맷으로 Typecast에 요청한다 — 위 모듈 docstring 참고.
+_STREAM_AUDIO_FORMAT = "mp3"
 
 MAX_CHARS = 2000
 # 문장 끝: . ! ? 。 ！ ？ 뒤 공백, 또는 줄바꿈
@@ -93,7 +102,7 @@ def split_text(text: str, max_chars: int = MAX_CHARS) -> list[str]:
     return chunks
 
 
-def _build_payload(text: str) -> dict:
+def _build_payload(text: str, audio_format: str) -> dict:
     return {
         "voice_id": settings.typecast_voice_id,
         "text": text,
@@ -104,7 +113,7 @@ def _build_payload(text: str) -> dict:
             "emotion_intensity": settings.typecast_emotion_intensity,
         },
         "output": {
-            "audio_format": settings.typecast_audio_format,
+            "audio_format": audio_format,
             "audio_tempo": settings.typecast_audio_tempo,
             "audio_pitch": settings.typecast_audio_pitch,
             # target_lufs와 volume은 동시 사용 불가
@@ -134,24 +143,17 @@ def _raise_for_typecast_error(resp: httpx.Response, body: bytes | None = None) -
 
 
 async def _stream_one_segment(client: httpx.AsyncClient, text: str, chunk_size: int = 4096) -> AsyncIterator[bytes]:
-    """세그먼트 하나를 실제 HTTP chunked transfer로 스트리밍 수신.
-    audio_format=wav일 때는 첫 청크의 44바이트 헤더(size=0xFFFFFFFF, 무효값)를
-    건너뛰고 PCM만 내보낸다. mp3는 그대로 흘려보낸다."""
-    is_wav = settings.typecast_audio_format == "wav"
-    first_chunk = True
+    """세그먼트 하나를 실제 HTTP chunked transfer로 스트리밍 수신. mp3 청크는
+    각각 독립적으로 디코딩 가능한 MPEG 프레임이라 별도 처리 없이 그대로
+    흘려보낸다(위 모듈 docstring의 포맷 선택 이유 참고)."""
+    payload = _build_payload(text, _STREAM_AUDIO_FORMAT)
 
-    async with client.stream("POST", STREAM_ENDPOINT, headers=_headers(), json=_build_payload(text)) as resp:
+    async with client.stream("POST", STREAM_ENDPOINT, headers=_headers(), json=payload) as resp:
         if resp.status_code != 200:
             body = await resp.aread()
             _raise_for_typecast_error(resp, body)
 
         async for chunk in resp.aiter_bytes(chunk_size=chunk_size):
-            if not chunk:
-                continue
-            if first_chunk:
-                first_chunk = False
-                if is_wav and len(chunk) > 44:
-                    chunk = chunk[44:]
             if chunk:
                 yield chunk
 
@@ -176,7 +178,8 @@ async def synthesize_full(text: str) -> bytes:
     parts = []
     async with httpx.AsyncClient(base_url=API_HOST, timeout=httpx.Timeout(60.0, connect=10.0)) as client:
         for segment in segments:
-            resp = await client.post(BATCH_ENDPOINT, headers=_headers(), json=_build_payload(segment))
+            payload = _build_payload(segment, settings.typecast_audio_format)
+            resp = await client.post(BATCH_ENDPOINT, headers=_headers(), json=payload)
             _raise_for_typecast_error(resp, resp.content)
             parts.append(resp.content)
     return b"".join(parts)
