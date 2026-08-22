@@ -9,6 +9,7 @@ openai==1.51.0
 
 # 로컬 STT 폴백용 (선택 설치 - CPU에서도 동작)
 faster-whisper==1.0.3
+requests==2.32.3  # faster-whisper -> huggingface_hub 모델 다운로드에 필수(암묵적 의존성, 명시 안 하면 누락됨)
 
 # 음성 특징 추출용 (audio_features.py) — 별도 감정 분류 모델 없이 numpy만으로 계산
 numpy==1.26.4
