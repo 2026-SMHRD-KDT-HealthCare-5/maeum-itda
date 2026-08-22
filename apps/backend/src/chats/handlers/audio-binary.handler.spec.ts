@@ -108,6 +108,32 @@ describe('AudioBinaryHandler', () => {
     );
   });
 
+  // enqueue()가 QuestionAnswerQueueLimitError가 아닌 예상 밖 에러(예: 같은 질문
+  // 큐에 서로 다른 대화 정보가 섞이는 내부 불변조건 위반)를 던지면, 이걸 잡지
+  // 않고 그대로 던지면 handleAudioBinary가 fire-and-forget으로 호출되는
+  // 호출부에서 처리되지 않은 rejection이 되어 프로세스 전체가 죽는다(실제 배포
+  // 환경의 tts-stream 크래시와 동일한 패턴). 여기서는 그 대신 INTERNAL_ERROR로
+  // 응답을 끝내는지만 확인한다.
+  it('enqueue()가 예상 밖 에러를 던지면 크래시 없이 INTERNAL_ERROR를 전송한다', () => {
+    const context = createContext();
+    context.questionAnswerQueueService.enqueue.mockImplementationOnce(() => {
+      throw new Error(
+        '같은 질문 큐에 서로 다른 대화 정보가 포함될 수 없습니다.',
+      );
+    });
+
+    expect(() =>
+      context.handler.handleAudioBinary(context.client, Buffer.from([1])),
+    ).not.toThrow();
+
+    expect(JSON.parse(context.send.mock.calls[0][0]) as unknown).toEqual(
+      expect.objectContaining({
+        event: 'error',
+        payload: expect.objectContaining({ code: 'INTERNAL_ERROR' }),
+      }),
+    );
+  });
+
   it('처리한 audioTransferId가 다시 오면 큐에 다시 등록하지 않고 기존 ACK를 재전송한다', () => {
     const context = createContext();
     context.transferStateService.has.mockReturnValueOnce(true);

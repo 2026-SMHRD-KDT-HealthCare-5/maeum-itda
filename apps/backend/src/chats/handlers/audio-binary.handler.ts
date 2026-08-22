@@ -14,6 +14,7 @@ import type { RawData } from 'ws';
 import { AnalysisService } from '../../analysis/analysis.service';
 import { ChatConnectionStateService } from '../chat-connection-state.service';
 import {
+  type EnqueuedQuestionAnswers,
   QuestionAnswerQueueLimitError,
   QuestionAnswerQueueService,
 } from '../question-answer-queue.service';
@@ -105,36 +106,48 @@ export class AudioBinaryHandler {
       return;
     }
 
+    // enqueue()가 내부에서 assertCanAccept()를 다시 호출하고, 같은 질문에 이미
+    // 대기 중인 배치가 있으면 assertSameQuestionContext()로 seniorId/generationId
+    // 일치까지 검사한다 — 둘 다 여기서 잡아야 한다. 이 try 없이 던지면(동기 함수인
+    // handleAudioBinary가 async 호출부에서 fire-and-forget으로 불려서) 처리되지
+    // 않은 Promise rejection이 되어 프로세스 전체를 죽인다(tts-stream.controller.ts
+    // 크래시와 동일한 패턴).
+    let queued: EnqueuedQuestionAnswers;
     try {
-      this.questionAnswerQueueService.assertCanAccept(
-        metadata.questionMessageId,
-        audioBuffer.byteLength,
-      );
+      queued = this.questionAnswerQueueService.enqueue({
+        tempAnswerId: this.nextTempAnswerId++,
+        seniorId: metadata.seniorId,
+        questionMessageId: metadata.questionMessageId,
+        generationId: metadata.generationId,
+        audioTransferId: metadata.audioTransferId,
+        mimeType: metadata.mimeType,
+        capturedAt: metadata.capturedAt,
+        endType: metadata.endType,
+        audioBuffer,
+        continueConversation:
+          this.chatConnectionStateService.matchesCurrentQuestion(
+            client,
+            metadata.questionMessageId,
+            metadata.generationId,
+          ),
+      });
     } catch (error: unknown) {
       if (error instanceof QuestionAnswerQueueLimitError) {
         this.sendError(client, error.code, error.message, false);
         return;
       }
-      throw error;
+      this.logger.error(
+        `답변 큐 등록 실패: questionMessageId=${metadata.questionMessageId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      this.sendError(
+        client,
+        'INTERNAL_ERROR',
+        '음성 답변을 처리하는 중 오류가 발생했습니다.',
+        false,
+      );
+      return;
     }
-
-    const queued = this.questionAnswerQueueService.enqueue({
-      tempAnswerId: this.nextTempAnswerId++,
-      seniorId: metadata.seniorId,
-      questionMessageId: metadata.questionMessageId,
-      generationId: metadata.generationId,
-      audioTransferId: metadata.audioTransferId,
-      mimeType: metadata.mimeType,
-      capturedAt: metadata.capturedAt,
-      endType: metadata.endType,
-      audioBuffer,
-      continueConversation:
-        this.chatConnectionStateService.matchesCurrentQuestion(
-          client,
-          metadata.questionMessageId,
-          metadata.generationId,
-        ),
-    });
 
     this.audioTransferStateService.markProcessed(
       client,

@@ -6,6 +6,12 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { TtsSynthesizeRequest } from './dto/tts.contract';
 
+// Render 무료 플랜의 ai-server 콜드스타트가 30초를 넘기는 경우가 있어(2026-08-23
+// 확인) 그보다 여유를 둔다. 이 요청은 스트리밍 응답이라 재시도를 두지 않는다 —
+// 첫 바이트가 이미 브라우저로 흘러간 뒤라면 다시 시도해도 처음부터 새로
+// 스트리밍해야 해서 의미가 없다.
+const TTS_STREAM_TIMEOUT_MS = 45_000;
+
 @Injectable()
 export class TtsClient {
   private readonly baseUrl: string | undefined;
@@ -26,7 +32,7 @@ export class TtsClient {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(request),
-      signal: AbortSignal.timeout(30_000),
+      signal: AbortSignal.timeout(TTS_STREAM_TIMEOUT_MS),
     });
     if (!response.ok || response.body === null) {
       throw new Error(

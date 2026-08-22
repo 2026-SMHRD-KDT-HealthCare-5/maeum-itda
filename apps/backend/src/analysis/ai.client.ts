@@ -13,6 +13,10 @@ import {
 import { validateQuestionAnswerAnalysisResponse } from './validators/audio-analysis-response.validator';
 
 const FAST_API_RETRY_DELAY_MS = 500;
+// Render 무료 플랜의 ai-server 콜드스타트가 30초를 넘기는 경우가 있어(2026-08-23
+// 확인) 그보다 여유를 둔다. 타임아웃 시 1회 재시도하므로 최악의 경우 이 값의
+// 2배(+FAST_API_RETRY_DELAY_MS) 만큼 기다린 뒤에야 실패로 확정된다.
+const FAST_API_TIMEOUT_MS = 45_000;
 const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504]);
 
 class FastApiHttpError extends Error {
@@ -47,7 +51,7 @@ export class AiClient {
         const response = await fetch(`${this.baseUrl}/analysis/audio/batch`, {
           method: 'POST',
           body: this.createFormData(batch),
-          signal: AbortSignal.timeout(30_000),
+          signal: AbortSignal.timeout(FAST_API_TIMEOUT_MS),
         });
         if (!response.ok) throw new FastApiHttpError(response.status);
         return validateQuestionAnswerAnalysisResponse(

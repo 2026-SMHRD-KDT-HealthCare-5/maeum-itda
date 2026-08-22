@@ -2,10 +2,13 @@
 환경설정 로더.
 .env 파일 (또는 실제 배포 환경변수)에서 값을 읽어온다.
 """
+import logging
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 # .env는 "현재 실행 위치(cwd) 기준 상대경로"가 아니라 이 파일(app/config.py) 기준으로
 # 프로젝트 루트에 있는 걸 찾는다. cwd 기준으로 찾으면 scripts/ 안에서 실행하거나 다른
@@ -65,6 +68,34 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
 
+# scale_analysis_mode/stt_correction_mode 오타는 요청 처리 중(llm.py)엔 조용히
+# 안전 폴백(고정 목업 또는 STT 원문 그대로)으로 흡수된다 — 실시간 대화 중 하나가
+# 잘못됐다고 전체 파이프라인을 502로 끊는 게 데모 중엔 더 나쁘기 때문에 의도적으로
+# 그렇게 설계했다. 하지만 그 대가로 오타가 나면 증상(채점이 항상 목업이거나 STT
+# 교정이 전혀 안 먹는 것)만 보이고 원인은 로그를 뒤져야만 보인다(2026-08-23,
+# TTS wav 헤더 버그와 같은 종류의 "설정값 오류가 조용히 실패"하는 패턴). 그래서
+# 런타임 동작은 그대로 두고, 기동 시점에만 값이 이상하면 크게 경고해서 배포 직후
+# Render 로그만 보면 바로 알 수 있게 한다.
+_VALID_MODES = {
+    "scale_analysis_mode": {"test", "empty", "model"},
+    "stt_correction_mode": {"test", "model"},
+    "daily_summary_mode": {"test", "model"},
+}
+
+
+def _warn_on_unexpected_mode(settings: "Settings") -> None:
+    for field_name, valid_values in _VALID_MODES.items():
+        value = getattr(settings, field_name).strip().lower()
+        if value not in valid_values:
+            logger.warning(
+                "%s=%r 값이 예상 밖입니다(유효값: %s) — 요청 처리 중엔 조용히 "
+                "안전 폴백으로 흡수되니, 오타라면 지금 Render 환경변수를 고치세요.",
+                field_name.upper(), value, sorted(valid_values),
+            )
+
+
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    _warn_on_unexpected_mode(settings)
+    return settings
