@@ -11,7 +11,10 @@ import type {
 } from './dto/daily-summary.contract';
 import { validateDailySummaryResponse } from './validators/daily-summary-response.validator';
 
-const DAILY_SUMMARY_TIMEOUT_MS = 30_000;
+// Render 무료 플랜의 ai-server 콜드스타트가 30초를 넘기는 경우가 있어(2026-08-23
+// 확인) 그보다 여유를 둔다. 타임아웃 시 1회 재시도하므로 최악의 경우 이 값의
+// 2배(+RETRY_DELAY_MS) 만큼 기다린 뒤에야 실패로 확정된다.
+const DAILY_SUMMARY_TIMEOUT_MS = 45_000;
 const RETRY_DELAY_MS = 500;
 const RETRYABLE_HTTP_STATUSES = new Set([502, 503, 504]);
 
