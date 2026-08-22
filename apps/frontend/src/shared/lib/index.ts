@@ -51,6 +51,25 @@ export function useDelayedPending(
   return show
 }
 
+let sharedAudioContext: AudioContext | null = null
+
+// iOS Safari는 사용자 제스처 콜스택 안에서 만들어지거나 resume()된 AudioContext만
+// 안정적으로 'running' 상태가 되고, 그 뒤로는 같은 페이지에서 새로 만드는
+// AudioContext도 제스처 없이 곧바로 'running'으로 생성된다 — 반대로 제스처 없이
+// 만든 첫 AudioContext는 resume()을 호출해도 계속 'suspended'로 남는다. 그래서
+// "안부 대화 시작하기" 버튼의 클릭 핸들러처럼 확실한 탭 이벤트 안에서 이 함수를
+// 동기적으로 한 번 호출해 컨텍스트를 미리 깨워두고, 대화 내내 같은 인스턴스를
+// 재사용한다(record-voice-answer의 createSilenceWatcher 참고).
+export function getUnlockedAudioContext(): AudioContext {
+  if (!sharedAudioContext || sharedAudioContext.state === 'closed') {
+    sharedAudioContext = new AudioContext()
+  }
+  if (sharedAudioContext.state === 'suspended') {
+    void sharedAudioContext.resume()
+  }
+  return sharedAudioContext
+}
+
 export interface TtsPlaybackHandle {
   // 재생이 끝나거나(ended) 아예 시작하지 못했으면(autoplay 차단, 디코딩 실패
   // 등) resolve된다 — 호출부는 이 promise를 기다렸다가 다음 동작(마이크 열기

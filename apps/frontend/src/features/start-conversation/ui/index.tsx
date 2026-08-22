@@ -1,8 +1,16 @@
 import { Link } from 'react-router-dom'
+import { getUnlockedAudioContext } from '../../../shared/lib'
 import characterImage from './character-daseul-greeting.png'
 import styles from './StartConversationAction.module.css'
 
 export function StartConversationAction() {
+  // 이 클릭이 실제 사용자 제스처이므로, 대화 화면의 묵음 감지(record-voice-answer의
+  // createSilenceWatcher)가 쓸 AudioContext를 여기서 미리 깨워둔다 — iOS Safari는
+  // 제스처 없이 만든 AudioContext의 resume()을 무시한다.
+  function handleStartClick() {
+    getUnlockedAudioContext()
+  }
+
   return (
     <section className={styles.hero} aria-labelledby="conversation-invitation">
       <div className={styles.scene}>
@@ -18,7 +26,7 @@ export function StartConversationAction() {
         />
       </div>
 
-      <Link className={styles.button} to="/senior/conversation">
+      <Link className={styles.button} to="/senior/conversation" onClick={handleStartClick}>
         <span className={styles.microphone} aria-hidden="true">
           <svg viewBox="0 0 24 24">
             <rect x="8" y="3" width="8" height="12" rx="4" />

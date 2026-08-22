@@ -1,4 +1,6 @@
 // UC-02 feature-local helpers: 브라우저 녹음 포맷 선택과 발화·묵음 감지.
+import { getUnlockedAudioContext } from '../../../shared/lib'
+
 const CANDIDATE_MIME_TYPES = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
 
 export function pickSupportedAudioMimeType(): string {
@@ -90,13 +92,11 @@ export function createSilenceWatcher(
   stream: MediaStream,
   { silenceMs, onSilence, onVoiceDetected }: SilenceWatcherOptions,
 ): SilenceWatcherHandle {
-  const audioContext = new AudioContext()
-  // iOS Safari 등은 사용자 제스처 없이 만든 AudioContext를 'suspended'로 시작할
-  // 수 있다 — resume() 없이 두면 analyser가 데이터를 못 받아 묵음 감지 자체가
-  // 조용히 죽는다.
-  if (audioContext.state === 'suspended') {
-    void audioContext.resume()
-  }
+  // 매 턴마다 새 AudioContext를 만들지 않고 대화 전체에서 하나를 공유한다 —
+  // "안부 대화 시작하기" 탭에서 이미 깨워둔(getUnlockedAudioContext) 인스턴스를
+  // 그대로 재사용해야, 그 탭의 사용자 제스처 없이 만들어진 새 컨텍스트가 iOS
+  // Safari에서 계속 'suspended'로 남는 문제를 피할 수 있다.
+  const audioContext = getUnlockedAudioContext()
   const source = audioContext.createMediaStreamSource(stream)
   const analyser = audioContext.createAnalyser()
   analyser.fftSize = 2048
@@ -137,8 +137,9 @@ export function createSilenceWatcher(
   return {
     stop: () => {
       stopped = true
+      // audioContext는 다음 턴에도 재사용하므로 여기서 닫지 않고, 이번 턴의
+      // source 노드만 끊는다.
       source.disconnect()
-      void audioContext.close()
     },
     hasDetectedVoice: () => detectedVoice,
   }
