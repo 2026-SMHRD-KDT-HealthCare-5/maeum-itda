@@ -159,4 +159,37 @@ describe('TtsStreamController', () => {
       ),
     ).rejects.toMatchObject({ status: 404 });
   });
+
+  // 업스트림 fetch가 30초 타임아웃 등으로 스트리밍 도중 abort되면 Readable이
+  // 'error'를 emit한다 — 리스너 없이 pipe()만 걸어두면 이 error가 처리되지 않은
+  // 채 Node 프로세스 전체를 죽인다(실제로 배포 환경에서 발생, 그 순간의 모든
+  // WebSocket 연결이 함께 끊기는 사고로 이어졌다). 여기서는 그 크래시 없이
+  // 502로 응답을 끝내는지만 확인한다 — "프로세스가 안 죽는다"는 이 테스트가
+  // 통과하는 것 자체로 간접 검증된다(에러가 unhandled였다면 이 테스트 프로세스가
+  // 죽어 스펙 전체가 실패한다).
+  it('업스트림 스트림이 도중에 에러나면 프로세스를 죽이지 않고 502로 응답을 끝낸다', async () => {
+    const erroringStream = new ReadableStream({
+      start(controller) {
+        controller.error(new Error('upstream aborted'));
+      },
+    });
+    const { controller } = createController({
+      synthesizeStream: jest.fn().mockResolvedValue(
+        new Response(erroringStream, {
+          status: 200,
+          headers: { 'Content-Type': 'audio/mpeg' },
+        }),
+      ),
+    });
+    const response = createResponse();
+
+    await controller.streamTts(
+      '101',
+      'valid-token',
+      response.writable as unknown as import('express').Response,
+    );
+    await response.finished;
+
+    expect(response.statusCode).toBe(502);
+  });
 });
