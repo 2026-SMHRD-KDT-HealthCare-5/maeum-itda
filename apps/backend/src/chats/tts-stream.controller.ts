@@ -11,6 +11,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  Logger,
   Query,
   Res,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ import { ConversationMessageRepository } from './repositories/conversation-messa
 @ApiTags('3. 대화 기록')
 @Controller('chats')
 export class TtsStreamController {
+  private readonly logger = new Logger(TtsStreamController.name);
   private readonly authService: AuthService;
   private readonly ttsClient: TtsClient;
   private readonly conversationMessageRepository: ConversationMessageRepository;
@@ -81,8 +83,22 @@ export class TtsStreamController {
     const contentType = upstream.headers.get('content-type');
     if (contentType !== null) res.setHeader('Content-Type', contentType);
     res.status(HttpStatus.OK);
-    Readable.fromWeb(upstream.body as unknown as NodeWebReadableStream).pipe(
-      res,
+    const source = Readable.fromWeb(
+      upstream.body as unknown as NodeWebReadableStream,
     );
+    // pipe()는 source의 'error'를 res로 전달해주지 않는다 — 리스너 없이 두면
+    // (예: 30초 타임아웃으로 업스트림 fetch가 중간에 abort될 때) 처리되지 않은
+    // 'error' 이벤트가 Node 프로세스 전체를 죽여, 이 TTS 요청 하나가 그 순간의
+    // 모든 WebSocket 연결을 함께 끊어버린다.
+    source.on('error', (error: Error) => {
+      this.logger.error('TTS 스트림 중계 실패', error.stack);
+      if (!res.headersSent) {
+        res.status(HttpStatus.BAD_GATEWAY);
+        res.end();
+      } else {
+        res.destroy(error);
+      }
+    });
+    source.pipe(res);
   }
 }
