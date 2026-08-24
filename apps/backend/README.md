@@ -59,9 +59,8 @@ MySQL
 ```
 
 - AI 재생 중에도 시니어 음성을 계속 캡처하며 브라우저 AEC를 적용합니다.
-- 실시간 끼어들기로 AI 음성을 중단하는 기능은 MVP에서 제외합니다.
-- TTS 결과는 청크 단위로 WebSocket을 통해 스트리밍합니다.
-- 발화 종료 후 첫 TTS 청크 재생까지 목표 지연 시간은 3.5초 이내입니다.
+- 실시간 끼어들기로 AI 음성을 중단하는 기능은 MVP에서 제외합니다(버튼 클릭 기반 "질문 건너뛰기"는 있음, 음성감지 기반 끼어들기는 에코 오탐 문제로 제거함).
+- **[2026-08-21 변경] TTS 오디오 자체는 더 이상 WebSocket으로 전송하지 않습니다.** `tts:audio` WS 이벤트는 짧은 인증 토큰이 붙은 스트리밍 URL(`streamPath`)만 담아 보내고, 프론트가 그 URL로 별도 인증 HTTP GET(`/chats/tts-stream`)을 열어 FastAPI의 실시간 스트림(mp3 청크)을 그대로 재생합니다 — base64 일괄 전달 방식은 폐기했습니다. 상세 계약은 `docs/ws-protocol.md` §4.2/§6.4 참고.
 
 ### 정서 분석과 리포트
 
@@ -171,6 +170,22 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 ```
 
 예를 들어 `ChatsGateway`가 생성자에서 `AuthService`를 요구하면 NestJS DI 컨테이너가 `AuthService` 객체를 찾아 전달합니다.
+
+## 모듈 구성
+
+`app.module.ts`가 등록하는 기능 모듈은 아래 표와 같습니다. 이 문서의 "핵심 파일 흐름"은 실시간 대화 경로(`auth`/`chats`/`analysis`) 위주로 상세히 설명하고, 나머지 모듈은 REST 조회/조작 중심이라 여기서는 목록만 남깁니다 — 각 모듈 내부 구조는 소스를 직접 참고하세요.
+
+| 모듈 | 역할 |
+| --- | --- |
+| `auth` | 로그인/회원가입, JWT 발급·검증, TTS 스트림 전용 단기 토큰 |
+| `users` | 사용자 조회(`GET /users/me`) |
+| `chats` | 실시간 대화 WS 게이트웨이, 과거 메시지 cursor 조회, TTS 스트림 중계 |
+| `analysis` | FastAPI 분석 요청·응답 처리, 정서지수 재계산 트리거 |
+| `connections` | 시니어-보호자 연결 요청·수락·거절·해제 |
+| `reports` | 일간/주간 리포트 생성·조회, 일간 요약 API 호출 |
+| `notifications` | 알림함, 웹 푸시(VAPID·`PushSubscription`·임계치 발송), 안부 알림 리마인더 |
+| `guardian-dashboard` | 보호자 대시보드 집계 데이터 |
+| `profile-settings` | 내 정보 조회/수정, 알림 임계치 설정 |
 
 ## 핵심 파일 흐름
 
@@ -304,23 +319,28 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - `ChatsService → AnalysisService → AiClient` 의존성 주입
 - 대화 메시지에서 대화 세션 ID 제거
 
-### 다음 구현
+위 목록은 초기 스캐폴딩 시점 스냅샷입니다. 이후 아래도 전부 구현·연동 완료됐습니다(자세한 계약은 `docs/ws-protocol.md` 참고):
 
-- 음성 바이너리 수신과 metadata 페어링
-- `audio:ack` 전송과 `captureId` 중복 완료 처리
-- Repository를 통한 메시지 저장
-- FastAPI STT·척도 채점·acoustic 특징·감성분석 REST API 호출
+- 음성 바이너리 수신과 metadata 페어링, `audio:ack` 전송과 중복 전송 재확인
+- Repository를 통한 메시지 저장(분석 성공 시점에야 저장 — 실패 시 흔적을 남기지 않음)
+- FastAPI STT·척도 채점·감성분석 REST API 호출(`/analysis/audio/batch`)
 - 원본 음성 분석 완료 후 즉시 폐기
-- 직전 STT 결과와 다음 AI 질문 동시 전송
-- TTS 청크 WebSocket 스트리밍
-- 연결 상태·재연결·중복 음성 재전송 처리
+- 직전 STT 결과(`audio:transcript`)와 다음 AI 질문(`ai:question`) 전송, TTS는 스트리밍 URL(`tts:audio`)로 비동기 전달
+- 무응답 안내(30초)·자동 종료(10분), 같은 서버 프로세스 내 단기 재접속 복원
+- 웹 푸시 발송 인프라(VAPID, `PushSubscription` 저장, 임계치 하락 알림 발송)
+- 일간/주간 리포트 생성·조회, 일간 대화 요약(UC-06-4)
+- 시니어-보호자 연결 요청·수락·거절·해제
+
+### 아직 남은 것
+
+- Redis 기반 서버 재시작·다중 인스턴스 상태 복원(MVP는 단일 인스턴스 메모리 전제)
+- 다중 기기(탭) 동시 접속 시 시니어 ID 단위 잠금(현재는 WebSocket 연결 단위라 듀얼탭 동시 시작을 완전히 막지 못함)
 
 ## 문서 확인이 필요한 미결 사항
 
 - 요구사항정의서는 수치형 음성 점수를 사용하지 않지만 기획서와 테이블명세서에는 `VOICE_EMOTION_SCORE`가 남아 있습니다.
 - 요구사항정의서의 무한 스크롤은 “페이지네이션 없이”라고 표현되어 있으나 서버 구현은 cursor 기반 분할 조회가 필요합니다.
 - 요구사항정의서에는 관리자 역할이 있지만 현재 DB와 MVP 역할은 시니어·보호자만 지원합니다.
-- 요구사항정의서는 실제 푸시 발송을 요구하지만 팀 MVP 결정은 알림함 REST 조회까지만 구현하는 것입니다.
 
 ## 코드 주석 기준
 
@@ -334,6 +354,17 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - Service에서 Repository·AnalysisService를 호출하는 위치
 - `AuthService`에서 `JwtService`를 호출하는 위치
 - `AiClient`에서 FastAPI를 호출하는 위치
+
+## 환경변수
+
+`.env`(gitignore 대상, `.env.example` 없음)에 설정합니다.
+
+| 변수 | 용도 |
+| --- | --- |
+| `AI_BASE_URL` | FastAPI AI 서버 주소 |
+| `DB_HOST`/`DB_PORT`/`DB_USERNAME`/`DB_PASSWORD`/`DB_DATABASE` | MySQL 연결 |
+| `JWT_SECRET`/`JWT_EXPIRES_IN` | 로그인 access token 서명·만료 |
+| `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` | 웹 푸시(Push API) 발송 |
 
 ## 실행 및 검증
 

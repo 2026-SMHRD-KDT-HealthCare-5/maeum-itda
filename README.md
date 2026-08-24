@@ -14,8 +14,7 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 
 | 이름 | 역할 |
 |---|---|
-| 박해성 (팀장) | Front-end, PM |
-| 김동희 | Data Modeling, Docs |
+| 박해성 (팀장) | Front-end, UI/UX, PM |
 | 김재부 | Data Modeling, AI |
 | 정현우 | Back-end, DB |
 
@@ -44,12 +43,12 @@ maeum-itda/
 ├── packages/
 │   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (ChatMessage, 대화 이력 cursor pagination, WebSocket 이벤트 계약 등 실제 타입 존재)
 │   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (backend OpenAPI 스펙 기반 swagger-typescript-api 생성 완료)
-│   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 스캐폴딩 완료, apps/frontend가 사용 중)
+│   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 실제 동작, apps/frontend가 사용 중)
 ├── infra/                # 배포/인프라 관련 설정 (TODO: 초기 세팅 예정)
 └── docs/                 # 기획서, 요구사항정의서, 화면설계서 등 프로젝트 문서
 ```
 
-> `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS·KLUE 텍스트/Kresnik 음성 5감정 분류·확률 보정·클래스별 가중합이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 동작합니다. 다만 AI 서버가 만들어내는 TTS 오디오와 척도 문항 커버리지/이전 세션 요약 연동은 아직 백엔드에 반영되지 않았습니다. 감정 모델 파라미터는 잠가둔 최종 테스트 세트 평가 전의 현재 후보값입니다 — 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
+> `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS까지 한 턴 파이프라인이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 실제 API 호출로 동작합니다. AI 서버가 만들어내는 TTS 오디오(2026-08-21부로 실시간 스트리밍)와 척도 문항 커버리지(`pendingScaleItems`)/이전 세션 요약(`prevSessionSummary`) 연동도 백엔드까지 전부 종단간 연결됐습니다. **감성분석은 2026-08-21부로 별도 5감정 분류 모델(KLUE 텍스트/Kresnik 음성)이 아니라 꼬리질문 생성과 같은 LLM 호출이 직접 담당합니다** — 별도 체크포인트나 확률 보정·가중합 로직은 더 이상 없습니다(자세한 내용은 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) §8 참고). 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
 >
 > ⚠️ **`apps/ai-server`는 아직 pnpm이 인식하는 패키지가 아닙니다.** `package.json`이 없어 `pnpm --filter ai-server ...`가 동작하지 않으며, Python(FastAPI) 프로젝트이므로 의존성은 pnpm이 아닌 별도 가상환경(`venv`)과 `requirements.txt`로 관리할 예정입니다.
 

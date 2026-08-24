@@ -136,3 +136,9 @@ git commit -m "style: 메인 페이지 컴포넌트 스타일 수정 및 린트 
 git commit -m "chore: dotenv 패키지 추가"
 
 ```
+
+* 📄 **`docs`** : 문서(`README.md`, `CLAUDE.md`, `docs/` 등)만 수정 (코드 변경 없음)
+```bash
+git commit -m "docs: sprint-plan.md 최신화"
+
+```
