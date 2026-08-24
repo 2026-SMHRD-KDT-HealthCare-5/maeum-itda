@@ -11,7 +11,7 @@ import { SelectDailyRecordDateAction } from '../../../features/select-daily-reco
 import { toDateKey } from '../../../features/select-daily-record-date/model'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, LoadingSpinner } from '../../../shared/ui'
+import { ErrorState, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import styles from './SeniorDailyRecordPage.module.css'
@@ -82,12 +82,14 @@ export function SeniorDailyRecordPage() {
           )}
 
           {messagesQuery.isError && (
-            <div className={styles.statusMessage} role="alert">
-              <p>{extractApiErrorMessage(messagesQuery.error, '대화 기록을 불러오지 못했어요.')}</p>
-              <Button type="button" onClick={() => messagesQuery.refetch()}>
-                다시 시도
-              </Button>
-            </div>
+            <ErrorState
+              message={extractApiErrorMessage(
+                messagesQuery.error,
+                '대화 기록을 불러오지 못했어요.',
+              )}
+              onRetry={() => void messagesQuery.refetch()}
+              isRetrying={messagesQuery.isFetching}
+            />
           )}
 
           {messages && messages.length > 0 && <DailyConversationList messages={messages} />}

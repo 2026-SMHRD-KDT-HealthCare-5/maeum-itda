@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { InlineFeedback, type InlineFeedbackTone } from '../../../shared/ui'
 import {
   formatPhoneNumber,
   validateBasicInfo,
@@ -11,7 +12,7 @@ interface EditBasicInfoActionProps {
   values: BasicInfoValues
   onSave: (next: Pick<BasicInfoValues, 'name' | 'phone'>) => void
   onEditStart?: () => void
-  feedback?: { tone: 'success' | 'error'; message: string } | null
+  feedback?: { tone: InlineFeedbackTone; message: string } | null
   variant?: 'default' | 'guardian'
 }
 
@@ -108,18 +109,7 @@ export function EditBasicInfoAction({
         {isEditing && errors.phone && <p className={styles.error}>{errors.phone}</p>}
       </div>
 
-      {feedback && !isEditing && (
-        <p
-          className={[
-            styles.feedback,
-            feedback.tone === 'success' ? styles.feedbackSuccess : styles.feedbackError,
-          ].join(' ')}
-          role={feedback.tone === 'error' ? 'alert' : 'status'}
-        >
-          <span aria-hidden="true">{feedback.tone === 'success' ? '✓' : '!'}</span>
-          {feedback.message}
-        </p>
-      )}
+      {feedback && !isEditing && <InlineFeedback message={feedback.message} tone={feedback.tone} />}
 
       {isEditing && (
         <button type="button" className={styles.doneButton} onClick={handleDone}>

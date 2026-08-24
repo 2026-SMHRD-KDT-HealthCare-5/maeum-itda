@@ -14,7 +14,7 @@ import daseulGuideImage from '../../../shared/assets/character/character-daseul-
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, Skeleton } from '../../../shared/ui'
+import { Card, ErrorState, Skeleton } from '../../../shared/ui'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import { ReportPeriodTabs } from '../../../widgets/report-period-tabs'
@@ -94,12 +94,11 @@ export function GuardianWeeklyReportPage() {
         )}
 
         {weeklyReportQuery.isError && !reportMissing && (
-          <div className={styles.statusMessage} role="alert">
-            <p>{extractApiErrorMessage(weeklyReportQuery.error, '리포트를 불러오지 못했어요.')}</p>
-            <Button type="button" onClick={() => weeklyReportQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message={extractApiErrorMessage(weeklyReportQuery.error, '리포트를 불러오지 못했어요.')}
+            onRetry={() => void weeklyReportQuery.refetch()}
+            isRetrying={weeklyReportQuery.isFetching}
+          />
         )}
 
         {report && (

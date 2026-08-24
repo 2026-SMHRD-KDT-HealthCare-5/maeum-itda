@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAnimatedPresence } from '../../../shared/lib'
 import { formatKoreanDate, getCalendarDates, isSameDate, toDateKey } from '../lib'
 import styles from './SelectReportDateAction.module.css'
 
@@ -25,6 +26,7 @@ export function SelectReportDateAction({
   onVisibleMonthChange,
 }: SelectReportDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const calendarPresence = useAnimatedPresence(isCalendarOpen)
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
   )
@@ -92,10 +94,13 @@ export function SelectReportDateAction({
         </button>
       </div>
 
-      {isCalendarOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsCalendarOpen(false)}>
+      {calendarPresence.isRendered && (
+        <div
+          className={`${styles.modalOverlay} ${calendarPresence.isClosing ? styles.modalOverlayClosing : ''}`}
+          onClick={() => setIsCalendarOpen(false)}
+        >
           <div
-            className={styles.modal}
+            className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label="리포트 날짜 선택"

@@ -25,7 +25,7 @@ import {
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner, PageHeading } from '../../../shared/ui'
+import { Button, Card, ErrorState, LoadingSpinner, PageHeading } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
@@ -80,6 +80,7 @@ export function GuardianMyInfoPage() {
   const pushSubscription = usePushSubscription()
 
   function handleNotificationChange(next: NotificationThresholdValue) {
+    updateNotificationMutation.reset()
     setNotificationDraft(next)
     if (notificationSaveTimer.current) clearTimeout(notificationSaveTimer.current)
     notificationSaveTimer.current = setTimeout(() => {
@@ -118,12 +119,11 @@ export function GuardianMyInfoPage() {
       <>
         <main className={styles.page}>
           <PageHeading eyebrow="마이페이지" title="내 정보" />
-          <div className={styles.errorState} role="alert">
-            <p>내 정보를 불러오지 못했어요.</p>
-            <Button type="button" onClick={() => profileQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message="내 정보를 불러오지 못했어요."
+            onRetry={() => void profileQuery.refetch()}
+            isRetrying={profileQuery.isFetching}
+          />
         </main>
         <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
       </>
@@ -238,9 +238,19 @@ export function GuardianMyInfoPage() {
                 value={displayedNotification}
                 onChange={handleNotificationChange}
                 feedback={
-                  updateNotificationMutation.isError
-                    ? extractApiErrorMessage(updateNotificationMutation.error, '저장에 실패했어요.')
-                    : null
+                  updateNotificationMutation.isPending
+                    ? { tone: 'info', message: '알림 기준을 저장하고 있어요.' }
+                    : updateNotificationMutation.isSuccess
+                      ? { tone: 'success', message: '알림 기준이 저장됐어요.' }
+                      : updateNotificationMutation.isError
+                        ? {
+                            tone: 'error',
+                            message: extractApiErrorMessage(
+                              updateNotificationMutation.error,
+                              '저장에 실패했어요.',
+                            ),
+                          }
+                        : null
                 }
                 pushPermissionDenied={pushSubscription.status === 'permission-denied'}
                 pushBusy={pushSubscription.isBusy}

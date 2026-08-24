@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Toggle } from '../../../shared/ui'
+import { useAnimatedPresence } from '../../../shared/lib'
+import { InlineFeedback, Toggle, type InlineFeedbackTone } from '../../../shared/ui'
 import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
 
 interface SetCheckinReminderActionProps {
   value: CheckinReminderValue
   onChange: (next: CheckinReminderValue) => void
-  feedback?: string | null
+  feedback?: { tone: InlineFeedbackTone; message: string } | null
   // 이 기기의 웹 푸시 구독은 토글 하나로 통합해서 다룬다(내부적으로만 관리) —
   // 그래서 브라우저 권한/구독 상태는 features/enable-push-notifications의
   // usePushSubscription을 페이지가 직접 호출해 아래 형태로 풀어서 넘긴다.
@@ -30,6 +31,7 @@ export function SetCheckinReminderAction({
   onRequestPushUnsubscribe,
 }: SetCheckinReminderActionProps) {
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false)
+  const timeModalPresence = useAnimatedPresence(isTimeModalOpen)
   const [hour, minute] = value.time.split(':').map(Number)
   const timePeriod = hour < 12 ? '오전' : '오후'
   const displayHour = hour % 12 || 12
@@ -81,16 +83,19 @@ export function SetCheckinReminderAction({
       </div>
 
       {pushPermissionDenied && (
-        <p className={styles.feedback} role="alert">
-          브라우저 알림이 차단되어 있어요. 주소창의 사이트 설정에서 알림을 허용한 뒤
-          새로고침해주세요.
-        </p>
+        <InlineFeedback
+          message="브라우저 알림이 차단되어 있어요. 주소창의 사이트 설정에서 알림을 허용한 뒤 새로고침해주세요."
+          tone="error"
+        />
       )}
-      {!pushPermissionDenied && pushBusy && <p className={styles.feedback}>처리 중이에요…</p>}
+      {!pushPermissionDenied && pushBusy && (
+        <InlineFeedback message="알림 설정을 처리하고 있어요." tone="info" />
+      )}
       {!pushPermissionDenied && !pushBusy && (feedback ?? pushError) && (
-        <p className={styles.feedback} role="alert">
-          {feedback ?? pushError}
-        </p>
+        <InlineFeedback
+          message={feedback?.message ?? pushError ?? ''}
+          tone={feedback?.tone ?? 'error'}
+        />
       )}
 
       <div className={styles.timeRow}>
@@ -114,10 +119,13 @@ export function SetCheckinReminderAction({
         </button>
       </div>
 
-      {isTimeModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsTimeModalOpen(false)}>
+      {timeModalPresence.isRendered && (
+        <div
+          className={`${styles.modalOverlay} ${timeModalPresence.isClosing ? styles.modalOverlayClosing : ''}`}
+          onClick={() => setIsTimeModalOpen(false)}
+        >
           <div
-            className={styles.modal}
+            className={`${styles.modal} ${timeModalPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="reminder-time-title"

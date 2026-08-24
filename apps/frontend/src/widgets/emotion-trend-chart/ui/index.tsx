@@ -69,6 +69,8 @@ function ScoreDot({
       onClick={() => onSelectDate(payload.date)}
       onKeyDown={handleKeyDown}
     >
+      <circle className={styles.pointHitArea} cx={cx} cy={cy} r={22} />
+      <circle className={styles.pointInteractionHalo} cx={cx} cy={cy} r={12} />
       {isLast && <circle className={styles.pointHalo} cx={cx} cy={cy} r={10} />}
       <circle
         className={isLast ? styles.pointLast : styles.point}
@@ -76,6 +78,18 @@ function ScoreDot({
         cy={cy}
         r={isLast ? 5.5 : 4.5}
       />
+    </g>
+  )
+}
+
+// Recharts가 마우스·터치로 가리킨 지점을 별도 강조해 현재 선택 위치를 즉시 알린다.
+function ActiveScoreDot({ cx, cy }: ScoreDotProps) {
+  if (cx === undefined || cy === undefined) return null
+
+  return (
+    <g className={styles.activePoint} aria-hidden="true">
+      <circle className={styles.activePointHalo} cx={cx} cy={cy} r={13} />
+      <circle className={styles.activePointCore} cx={cx} cy={cy} r={6.5} />
     </g>
   )
 }
@@ -217,6 +231,7 @@ export function EmotionTrendChart({
                 strokeWidth={1.25}
               />
               <Line
+                activeDot={<ActiveScoreDot />}
                 connectNulls
                 dataKey="emotionScore"
                 dot={

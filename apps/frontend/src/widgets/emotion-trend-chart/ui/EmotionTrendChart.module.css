@@ -3,6 +3,7 @@
   background: var(--bg);
   padding: 22px 20px 18px;
   box-shadow: 0 5px 18px rgba(43, 58, 51, 0.06);
+  font-variant-numeric: tabular-nums;
 }
 
 .header {
@@ -179,15 +180,62 @@
   outline: none;
 }
 
+.pointHitArea {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.pointInteractionHalo {
+  fill: rgba(82, 106, 130, 0.16);
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+
+.point,
+.pointLast {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform 140ms ease,
+    filter 140ms ease,
+    stroke-width 140ms ease;
+}
+
+.activePoint {
+  pointer-events: none;
+}
+
+.activePointHalo {
+  fill: rgba(82, 106, 130, 0.2);
+  stroke: rgba(82, 106, 130, 0.12);
+}
+
+.activePointCore {
+  fill: #334a61;
+  stroke: #fff;
+  stroke-width: 3;
+  filter: drop-shadow(0 3px 5px rgba(51, 74, 97, 0.3));
+}
+
+.clickablePoint:hover .pointInteractionHalo,
+.clickablePoint:focus-visible .pointInteractionHalo,
+.clickablePoint:active .pointInteractionHalo {
+  opacity: 1;
+}
+
 .clickablePoint:focus-visible .point,
 .clickablePoint:focus-visible .pointLast {
   stroke: #182c3d;
   stroke-width: 4;
+  transform: scale(1.18);
 }
 
 .clickablePoint:hover .point,
-.clickablePoint:hover .pointLast {
+.clickablePoint:hover .pointLast,
+.clickablePoint:active .point,
+.clickablePoint:active .pointLast {
   filter: drop-shadow(0 3px 6px rgba(51, 74, 97, 0.36));
+  transform: scale(1.18);
 }
 
 @media (max-width: 360px) {

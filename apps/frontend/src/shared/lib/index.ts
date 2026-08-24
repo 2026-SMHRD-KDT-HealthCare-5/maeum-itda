@@ -51,6 +51,37 @@ export function useDelayedPending(
   return show
 }
 
+// 조건부 렌더링 모달이 닫힘 애니메이션을 마친 뒤 DOM에서 제거되도록 수명을 관리한다.
+export function useAnimatedPresence(isOpen: boolean, exitDuration = 180) {
+  const [isRendered, setIsRendered] = useState(isOpen)
+  const [isClosing, setIsClosing] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      const timer = window.setTimeout(() => {
+        setIsRendered(true)
+        setIsClosing(false)
+      }, 0)
+      return () => window.clearTimeout(timer)
+    }
+
+    if (!isRendered) return
+
+    const closingTimer = window.setTimeout(() => setIsClosing(true), 0)
+    const removalTimer = window.setTimeout(() => {
+      setIsRendered(false)
+      setIsClosing(false)
+    }, exitDuration)
+
+    return () => {
+      window.clearTimeout(closingTimer)
+      window.clearTimeout(removalTimer)
+    }
+  }, [exitDuration, isOpen, isRendered])
+
+  return { isRendered, isClosing }
+}
+
 let sharedAudioContext: AudioContext | null = null
 
 // iOS Safari는 사용자 제스처 콜스택 안에서 만들어지거나 resume()된 AudioContext만
