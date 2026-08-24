@@ -7,10 +7,7 @@ import {
   formatPhoneNumber,
   updateMyProfile,
 } from '../../../features/edit-basic-info'
-import {
-  EnablePushNotificationsAction,
-  usePushSubscription,
-} from '../../../features/enable-push-notifications'
+import { usePushSubscription } from '../../../features/enable-push-notifications'
 import {
   SetNotificationThresholdAction,
   NOTIFICATION_THRESHOLD_QUERY_KEY,
@@ -80,18 +77,9 @@ export function GuardianMyInfoPage() {
     }
   }, [])
 
-  // 위험 알림은 실제로는 웹 푸시로 전달되므로, 이 기기가 아직 푸시 구독 전이면
-  // "정서 지수 하락 알림"을 켜봐야 아무것도 안 온다 — 켜려는 시도를 막고 아래
-  // 푸시 토글부터 켜라고 안내한다.
   const pushSubscription = usePushSubscription()
-  const [pushRequiredNotice, setPushRequiredNotice] = useState(false)
 
   function handleNotificationChange(next: NotificationThresholdValue) {
-    if (next.enabled && pushSubscription.status !== 'subscribed') {
-      setPushRequiredNotice(true)
-      return
-    }
-    setPushRequiredNotice(false)
     setNotificationDraft(next)
     if (notificationSaveTimer.current) clearTimeout(notificationSaveTimer.current)
     notificationSaveTimer.current = setTimeout(() => {
@@ -241,18 +229,15 @@ export function GuardianMyInfoPage() {
                 value={displayedNotification}
                 onChange={handleNotificationChange}
                 feedback={
-                  pushRequiredNotice
-                    ? "위 '알림 푸시 허용'을 먼저 켜주세요."
-                    : updateNotificationMutation.isError
-                      ? extractApiErrorMessage(
-                          updateNotificationMutation.error,
-                          '저장에 실패했어요.',
-                        )
-                      : null
+                  updateNotificationMutation.isError
+                    ? extractApiErrorMessage(updateNotificationMutation.error, '저장에 실패했어요.')
+                    : null
                 }
-                beforeContent={
-                  <EnablePushNotificationsAction pushSubscription={pushSubscription} />
-                }
+                pushPermissionDenied={pushSubscription.status === 'permission-denied'}
+                pushBusy={pushSubscription.isBusy}
+                pushError={pushSubscription.error}
+                onRequestPushSubscribe={pushSubscription.subscribe}
+                onRequestPushUnsubscribe={() => void pushSubscription.unsubscribe()}
               />
             )}
           </Card>

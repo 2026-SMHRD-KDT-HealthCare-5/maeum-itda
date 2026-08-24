@@ -13,7 +13,10 @@ export interface UsePushSubscriptionResult {
   status: PushSubscriptionStatus
   isBusy: boolean
   error: string | null
-  subscribe: () => Promise<void>
+  // 브라우저 구독 성립까지 성공했을 때만 true를 반환한다 — 호출부가 이 결과를
+  // 보고 나서야 "알림 켜짐" 값을 저장해야, 권한이 거절된 순간에도 실제로는
+  // 꺼진 상태를 켜짐으로 잘못 저장하지 않는다.
+  subscribe: () => Promise<boolean>
   unsubscribe: () => Promise<void>
 }
 
@@ -59,7 +62,7 @@ export function usePushSubscription(): UsePushSubscriptionResult {
       const permission = await Notification.requestPermission()
       if (permission !== 'granted') {
         setStatus(permission === 'denied' ? 'permission-denied' : 'not-subscribed')
-        return
+        return false
       }
 
       const registration = await navigator.serviceWorker.ready
@@ -80,8 +83,10 @@ export function usePushSubscription(): UsePushSubscriptionResult {
         keys: { p256dh: json.keys.p256dh, auth: json.keys.auth },
       })
       setStatus('subscribed')
+      return true
     } catch {
       setError('알림 구독에 실패했어요. 잠시 후 다시 시도해주세요.')
+      return false
     } finally {
       setIsBusy(false)
     }

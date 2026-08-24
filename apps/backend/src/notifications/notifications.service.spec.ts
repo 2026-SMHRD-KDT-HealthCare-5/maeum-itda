@@ -169,4 +169,22 @@ describe('NotificationsService', () => {
     await service.createEmotionIndexDropNotification(7, 31, '2026-08-13', 49);
     expect(deliveryService.sendToUser).not.toHaveBeenCalled();
   });
+
+  it('알림 꺼짐이면 저장은 하되 푸시는 보내지 않는다', async () => {
+    const { service, repository, preferenceRepository, deliveryService } =
+      createService();
+    preferenceRepository.findGuardianPreference.mockResolvedValue({
+      enabled: false,
+      threshold: 50,
+    });
+    repository.saveEmotionIndexDrop.mockResolvedValue({
+      created: true,
+      notification: { content: '정서지수가 50점 이하예요.' },
+    });
+
+    await service.createEmotionIndexDropNotification(7, 31, '2026-08-13', 49);
+
+    expect(repository.saveEmotionIndexDrop).toHaveBeenCalled();
+    expect(deliveryService.sendToUser).not.toHaveBeenCalled();
+  });
 });

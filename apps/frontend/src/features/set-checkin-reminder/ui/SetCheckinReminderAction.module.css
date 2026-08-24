@@ -1,35 +1,8 @@
-.title {
-  margin: 0 0 18px;
-  color: var(--primary);
-  font-size: 17px;
-  font-weight: 800;
-}
-
 .row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   column-gap: 16px;
-}
-
-.separatedRow {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-
-.row > label {
-  flex: 0 0 auto;
-  margin-top: 3px;
-}
-
-.row > label > span:last-child {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
 }
 
 .notificationCopy {

@@ -125,6 +125,9 @@ export class NotificationsService {
     return saved.notification;
   }
 
+  // 알림함 적재는 알림 켜짐 여부와 무관하게 항상 하고, 실제 웹 푸시 발송만 이
+  // 값이 true일 때 시도한다 — 구독이 없으면 webPushDeliveryService.sendToUser가
+  // 조용히 아무 일도 하지 않는다(과도한 조회 없이 그 안전망에 맡긴다).
   private async deliverIfEnabled(
     guardianId: number,
     payload: WebPushPayload,
