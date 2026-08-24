@@ -11,6 +11,17 @@ import type { ChatConnectionStateService } from './chat-connection-state.service
 import type { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import type { QuestionAnswerQueueService } from './question-answer-queue.service';
 import type { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
+import type { QuestionProcessingTrackerService } from './question-processing-tracker.service';
+
+// 등록된 then() 체인이 전부 정리될 때까지 마이크로태스크 큐를 비운다.
+// 이 파일은 jest.useFakeTimers()를 쓰므로 setImmediate 대신 네이티브 Promise
+// 마이크로태스크만으로 비운다(가짜 타이머가 setImmediate/process.nextTick까지
+// 가짜로 만들지만 Promise.then 자체의 V8 마이크로태스크 큐는 건드리지 않는다).
+async function flushMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 describe('ChatInactivityService', () => {
   beforeEach(() => jest.useFakeTimers());
@@ -33,6 +44,9 @@ describe('ChatInactivityService', () => {
     };
     const recalcTriggerService = { recalcToday: jest.fn() };
     const lastTurnRecalcTimerService = { cancel: jest.fn() };
+    const questionProcessingTrackerService = {
+      waitFor: jest.fn().mockResolvedValue(undefined),
+    };
     const service = new ChatInactivityService(
       queue as unknown as QuestionAnswerQueueService,
       metadata as unknown as AudioMetadataHandler,
@@ -40,6 +54,7 @@ describe('ChatInactivityService', () => {
       state as unknown as ChatConnectionStateService,
       recalcTriggerService as unknown as EmotionIndexRecalcTriggerService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
+      questionProcessingTrackerService as unknown as QuestionProcessingTrackerService,
     );
     return {
       service,
@@ -51,6 +66,7 @@ describe('ChatInactivityService', () => {
       state,
       recalcTriggerService,
       lastTurnRecalcTimerService,
+      questionProcessingTrackerService,
     };
   }
 
@@ -74,13 +90,37 @@ describe('ChatInactivityService', () => {
     );
   });
 
-  it('유휴 타임아웃으로 종료될 때 정서지수 즉시 재계산을 트리거한다', () => {
+  it('유휴 타임아웃으로 종료될 때, 진행 중인 답변 처리가 끝난 뒤 정서지수 즉시 재계산을 트리거한다', async () => {
     const context = createContext();
 
     context.service.startWaitingForAnswer(context.client);
     jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
 
+    expect(
+      context.questionProcessingTrackerService.waitFor,
+    ).toHaveBeenCalledWith(101);
+    await flushMicrotasks();
+
     expect(context.recalcTriggerService.recalcToday).toHaveBeenCalledWith(7);
     expect(context.lastTurnRecalcTimerService.cancel).toHaveBeenCalledWith(7);
+  });
+
+  it('진행 중인 답변 처리가 끝나기 전에는 재계산을 실행하지 않는다(race 방지)', async () => {
+    const context = createContext();
+    let resolvePending!: () => void;
+    context.questionProcessingTrackerService.waitFor.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolvePending = resolve;
+      }),
+    );
+
+    context.service.startWaitingForAnswer(context.client);
+    jest.advanceTimersByTime(INACTIVITY_TIMEOUT_MS);
+    await flushMicrotasks();
+    expect(context.recalcTriggerService.recalcToday).not.toHaveBeenCalled();
+
+    resolvePending();
+    await flushMicrotasks();
+    expect(context.recalcTriggerService.recalcToday).toHaveBeenCalledWith(7);
   });
 });

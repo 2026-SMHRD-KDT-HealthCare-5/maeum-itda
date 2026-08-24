@@ -9,6 +9,7 @@ import type { AudioTransferStateService } from '../audio-transfer-state.service'
 import type { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import type { ChatInactivityService } from '../chat-inactivity.service';
 import type { QuestionDeliveryService } from '../question-delivery.service';
+import type { QuestionProcessingTrackerService } from '../question-processing-tracker.service';
 
 describe('AudioBinaryHandler', () => {
   const metadata = {
@@ -57,6 +58,13 @@ describe('AudioBinaryHandler', () => {
       deliverQuestion: jest.fn(),
       deliverTtsToken: jest.fn().mockResolvedValue(undefined),
     };
+    // 실제 QuestionProcessingTrackerService처럼 process()를 그대로 실행해준다 —
+    // 이 테스트들은 추적 자체가 아니라 그 결과로 일어나는 동작을 검증한다.
+    const questionProcessingTrackerService = {
+      track: jest.fn(
+        (_questionMessageId: number, process: () => Promise<void>) => process(),
+      ),
+    };
     const handler = new AudioBinaryHandler(
       metadataHandler as unknown as AudioMetadataHandler,
       questionAnswerQueueService as unknown as QuestionAnswerQueueService,
@@ -66,6 +74,7 @@ describe('AudioBinaryHandler', () => {
       chatInactivityService as unknown as ChatInactivityService,
       lastTurnRecalcTimerService as unknown as LastTurnRecalcTimerService,
       questionDeliveryService as unknown as QuestionDeliveryService,
+      questionProcessingTrackerService as unknown as QuestionProcessingTrackerService,
     );
 
     return {
@@ -79,6 +88,7 @@ describe('AudioBinaryHandler', () => {
       transferStateService,
       lastTurnRecalcTimerService,
       questionDeliveryService,
+      questionProcessingTrackerService,
     };
   }
 

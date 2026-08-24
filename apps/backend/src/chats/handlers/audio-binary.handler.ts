@@ -24,17 +24,13 @@ import { AudioTransferStateService } from '../audio-transfer-state.service';
 import { ChatInactivityService } from '../chat-inactivity.service';
 import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
 import { QuestionDeliveryService } from '../question-delivery.service';
+import { QuestionProcessingTrackerService } from '../question-processing-tracker.service';
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class AudioBinaryHandler {
   private readonly logger = new Logger(AudioBinaryHandler.name);
-  // 같은 질문에 늦게 도착한 추가 묶음은 앞선 FastAPI 요청 뒤에 순서대로 처리한다.
-  private readonly processingByQuestionMessageId = new Map<
-    number,
-    Promise<void>
-  >();
   // FastAPI 요청·응답 안에서만 답변을 구분하는 임시 번호 — DB MESSAGE_ID가 아니다.
   private nextTempAnswerId = 1;
   private readonly audioMetadataHandler: AudioMetadataHandler;
@@ -45,6 +41,7 @@ export class AudioBinaryHandler {
   private readonly chatInactivityService: ChatInactivityService;
   private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
   private readonly questionDeliveryService: QuestionDeliveryService;
+  private readonly questionProcessingTrackerService: QuestionProcessingTrackerService;
 
   constructor(
     audioMetadataHandler: AudioMetadataHandler,
@@ -55,6 +52,7 @@ export class AudioBinaryHandler {
     chatInactivityService: ChatInactivityService,
     lastTurnRecalcTimerService: LastTurnRecalcTimerService,
     questionDeliveryService: QuestionDeliveryService,
+    questionProcessingTrackerService: QuestionProcessingTrackerService,
   ) {
     this.audioMetadataHandler = audioMetadataHandler;
     this.questionAnswerQueueService = questionAnswerQueueService;
@@ -64,6 +62,7 @@ export class AudioBinaryHandler {
     this.chatInactivityService = chatInactivityService;
     this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
     this.questionDeliveryService = questionDeliveryService;
+    this.questionProcessingTrackerService = questionProcessingTrackerService;
   }
 
   // 역할: 음성 한 건은 즉시 큐에 등록·확인하고, 분석은 같은 질문의 추가 답변 대기가 끝난 뒤 한 번만 시작한다.
@@ -182,21 +181,13 @@ export class AudioBinaryHandler {
     client: WebSocket,
     batch: Parameters<AnalysisService['enqueueAnswerBatch']>[0],
   ): void {
-    const previous =
-      this.processingByQuestionMessageId.get(batch.questionMessageId) ??
-      Promise.resolve();
-    const current = previous.then(() =>
-      this.processBatchAndSendNextQuestion(client, batch),
+    // 같은 질문에 늦게 도착한 추가 묶음은 앞선 처리 뒤에 순서대로 실행되며,
+    // ChatEndHandler/ChatInactivityService는 이 완료를 QuestionProcessingTrackerService로
+    // 기다렸다가 정서지수를 재계산한다(대화 종료 race 방지).
+    void this.questionProcessingTrackerService.track(
+      batch.questionMessageId,
+      () => this.processBatchAndSendNextQuestion(client, batch),
     );
-    this.processingByQuestionMessageId.set(batch.questionMessageId, current);
-    void current.finally(() => {
-      if (
-        this.processingByQuestionMessageId.get(batch.questionMessageId) ===
-        current
-      ) {
-        this.processingByQuestionMessageId.delete(batch.questionMessageId);
-      }
-    });
   }
 
   // 역할: 확정 묶음을 임시 저장하고 FastAPI가 연결된 경우 분석 결과와 다음 질문을 처리한다.
