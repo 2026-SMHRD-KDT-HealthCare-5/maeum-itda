@@ -104,7 +104,11 @@ export function GuardianWeeklyReportPage() {
 
         {report && (
           <>
-            <section className={styles.trendSection} aria-label="주간 정서 지수와 요약 통계">
+            <section
+              className={styles.trendSection}
+              aria-label="주간 정서 지수와 요약 통계"
+              key={`trend-${selectedWeekStart}`}
+            >
               <EmotionTrendChart
                 dailyScores={report.dailyScores}
                 highlightToday={false}
@@ -119,14 +123,22 @@ export function GuardianWeeklyReportPage() {
               </div>
             </section>
 
-            <section className={styles.recommendationSection} aria-label="다슬이의 한마디">
+            <section
+              className={styles.recommendationSection}
+              aria-label="다슬이의 한마디"
+              key={`recommendation-${selectedWeekStart}`}
+            >
               <img className={styles.recommendationCharacter} src={daseulGuideImage} alt="" />
               <Card className={styles.recommendationCard}>
                 <RecommendedActionCard action={report.recommendedAction} variant="report" />
               </Card>
             </section>
 
-            <section className={styles.dailySection} aria-labelledby="weekly-daily-summary-title">
+            <section
+              className={styles.dailySection}
+              aria-labelledby="weekly-daily-summary-title"
+              key={`daily-${selectedWeekStart}`}
+            >
               <div className={styles.sectionHeader}>
                 <h2 id="weekly-daily-summary-title">일별 요약</h2>
                 <p>카드를 탭하면 일간 리포트로 이동해요</p>
@@ -137,7 +149,11 @@ export function GuardianWeeklyReportPage() {
         )}
 
         {reportMissing && (
-          <section className={styles.emptyState} aria-labelledby="weekly-report-empty-title">
+          <section
+            className={styles.emptyState}
+            aria-labelledby="weekly-report-empty-title"
+            key={`weekly-empty-${selectedWeekStart}`}
+          >
             <img
               className={styles.emptyCharacter}
               src={daseulNoDataImage}

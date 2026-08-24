@@ -121,7 +121,7 @@ export function GuardianReportPage() {
         {report && hasAnalysis && (
           <>
             {report.emotionScore !== null && (
-              <Card className={styles.scoreCard}>
+              <Card className={styles.scoreCard} key={`score-${dateKey}`}>
                 <EmotionScoreCard
                   title="이날의 정서 지수"
                   score={report.emotionScore}
@@ -133,11 +133,18 @@ export function GuardianReportPage() {
             )}
 
             {report.evidenceSentences.length > 0 && (
-              <ConversationTimeline evidences={report.evidenceSentences} />
+              <ConversationTimeline
+                key={`evidence-${dateKey}`}
+                evidences={report.evidenceSentences}
+              />
             )}
 
             {report.conversationSummary && (
-              <section className={styles.summarySection} aria-label="이날의 대화 요약">
+              <section
+                className={styles.summarySection}
+                aria-label="이날의 대화 요약"
+                key={`summary-${dateKey}`}
+              >
                 <Card className={styles.summaryCard}>
                   <ConversationSummaryCard summary={report.conversationSummary} />
                 </Card>
@@ -145,7 +152,11 @@ export function GuardianReportPage() {
             )}
 
             {report.recommendedAction && (
-              <section className={styles.recommendationSection} aria-label="다슬이의 한마디">
+              <section
+                className={styles.recommendationSection}
+                aria-label="다슬이의 한마디"
+                key={`recommendation-${dateKey}`}
+              >
                 <img className={styles.recommendationCharacter} src={daseulGuideImage} alt="" />
                 <Card className={styles.recommendationCard}>
                   <RecommendedActionCard action={report.recommendedAction} variant="report" />
@@ -156,7 +167,11 @@ export function GuardianReportPage() {
         )}
 
         {report && !hasAnalysis && (
-          <section className={styles.emptyState} aria-labelledby="analysis-empty-title">
+          <section
+            className={styles.emptyState}
+            aria-labelledby="analysis-empty-title"
+            key={`analysis-empty-${dateKey}`}
+          >
             <img
               className={styles.emptyCharacter}
               src={daseulNoDataImage}
@@ -181,7 +196,11 @@ export function GuardianReportPage() {
         )}
 
         {reportMissing && (
-          <section className={styles.emptyState} aria-labelledby="guardian-report-empty-title">
+          <section
+            className={styles.emptyState}
+            aria-labelledby="guardian-report-empty-title"
+            key={`report-empty-${dateKey}`}
+          >
             <img
               className={styles.emptyCharacter}
               src={daseulNoDataImage}

@@ -184,3 +184,19 @@
   font-size: 14px;
   text-align: center;
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .trendSection,
+  .recommendationSection,
+  .dailySection,
+  .emptyState {
+    animation: report-data-enter 180ms ease-out both;
+  }
+}
+
+@keyframes report-data-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
