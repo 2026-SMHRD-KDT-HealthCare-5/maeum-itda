@@ -63,7 +63,7 @@ def build_user_prompt(
     pending_str = json.dumps(session.pending_scale_items, ensure_ascii=False)
     answer_blocks = "\n\n".join(
         f"[답변 {index + 1}] (messageId={answer['message_id']})\n"
-        f"발화: {answer['text']}\n"
+        f"발화: 「{answer['text']}」\n"
         f"음성 특징: {format_features_for_prompt(answer['voice_features'])}"
         for index, answer in enumerate(answers)
     )
@@ -252,6 +252,28 @@ def _apply_corrected_transcripts(
     ]
 
 
+# 성별 드러나는 호칭 금지 규칙(SYSTEM_PROMPT [말투·호칭])이 실제로 지켜졌는지
+# 확인하는 가벼운 사후 점검. 강제로 막지는 않는다(잘못 걸러내면 정상 응답을
+# 날려버릴 위험이 더 크다) — 로그로만 남겨서 프롬프트가 실제로 얼마나 잘
+# 지켜지는지 관찰할 수 있게 한다.
+_GENDERED_HONORIFICS = ("할머니", "할아버지")
+
+
+def _check_ai_question_style(ai_question: str) -> None:
+    """말투 규칙(성별 호칭 금지, 질문 하나만) 위반이 보이면 경고 로그만 남긴다."""
+    found_honorific = next(
+        (word for word in _GENDERED_HONORIFICS if word in ai_question), None
+    )
+    if found_honorific is not None:
+        logger.warning(
+            "ai_question에 금지된 성별 호칭이 포함됨(%s): %r", found_honorific, ai_question
+        )
+    if ai_question.count("?") > 1:
+        logger.warning(
+            "ai_question에 물음표가 2개 이상 — 질문이 여러 개일 수 있음: %r", ai_question
+        )
+
+
 def generate_next_question(
     answers: list[dict],
     session: SessionState,
@@ -288,6 +310,7 @@ def generate_next_question(
         data["answer_analyses"] = _apply_corrected_transcripts(
             validated_answer_analyses, answers, data
         )
+        _check_ai_question_style(data["ai_question"])
         return data
     except Exception as e:  # noqa: BLE001
         logger.error("LLM 질문 생성 실패, 기본 질문으로 대체: %s", e)
@@ -334,7 +357,7 @@ def _has_senior_turn(turns: list[dict]) -> bool:
 def _format_daily_turn(turn: dict) -> str:
     sentiment = turn.get("sentiment_label")
     suffix = f" (감정: {sentiment})" if sentiment else ""
-    return f"[{turn['speaker_type']}] {turn['content']}{suffix}"
+    return f"[{turn['speaker_type']}] 「{turn['content']}」{suffix}"
 
 
 def build_daily_summary_user_prompt(turns: list[dict]) -> str:
