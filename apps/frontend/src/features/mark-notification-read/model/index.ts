@@ -1,23 +1,45 @@
 import type { Notification } from '../../../entities/notification'
 
-export function groupByDay(notifications: Notification[]): {
-  today: Notification[]
-  earlier: Notification[]
-} {
-  // 브라우저나 배포 서버의 로컬 시간대와 무관하게 서비스 기준 날짜(서울)로 묶는다.
-  const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  })
-  const todayKey = dateKeyFormatter.format(new Date())
-  const isToday = (iso: string) => dateKeyFormatter.format(new Date(iso)) === todayKey
+const dateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
 
-  return {
-    today: notifications.filter((notification) => isToday(notification.createdAt)),
-    earlier: notifications.filter((notification) => !isToday(notification.createdAt)),
-  }
+const dateLabelFormatter = new Intl.DateTimeFormat('ko-KR', {
+  timeZone: 'Asia/Seoul',
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  weekday: 'short',
+})
+
+// 알림을 서비스 기준 시간대의 실제 날짜별로 묶어 긴 이력에서도 시점을 명확히 구분한다.
+export function groupNotificationsByDate(notifications: Notification[]): Array<{
+  dateKey: string
+  label: string
+  notifications: Notification[]
+}> {
+  const groups = new Map<string, { label: string; notifications: Notification[] }>()
+
+  notifications.forEach((notification) => {
+    const createdAt = new Date(notification.createdAt)
+    const dateKey = dateKeyFormatter.format(createdAt)
+    const current = groups.get(dateKey)
+
+    if (current) {
+      current.notifications.push(notification)
+      return
+    }
+
+    groups.set(dateKey, {
+      label: dateLabelFormatter.format(createdAt),
+      notifications: [notification],
+    })
+  })
+
+  return Array.from(groups, ([dateKey, group]) => ({ dateKey, ...group }))
 }
 
 export function reportLinkPath(target: Notification['target']): { label: string; to: string } {
@@ -33,18 +55,11 @@ export function reportLinkPath(target: Notification['target']): { label: string;
   }
 }
 
-export function formatNotificationDate(iso: string): string {
-  const parts = new Intl.DateTimeFormat('ko-KR', {
+export function formatNotificationTime(iso: string): string {
+  return new Intl.DateTimeFormat('ko-KR', {
     timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
+    hour: 'numeric',
     minute: '2-digit',
-    hour12: false,
-  }).formatToParts(new Date(iso))
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? ''
-
-  return `${value('year')}.${value('month')}.${value('day')} ${value('hour')}:${value('minute')}`
+    hour12: true,
+  }).format(new Date(iso))
 }

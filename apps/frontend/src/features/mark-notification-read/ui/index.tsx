@@ -2,7 +2,7 @@ import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { Notification } from '../../../entities/notification'
 import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.webp'
-import { formatNotificationDate, groupByDay, reportLinkPath } from '../model'
+import { formatNotificationTime, groupNotificationsByDate, reportLinkPath } from '../model'
 import styles from './MarkNotificationReadAction.module.css'
 
 interface MarkNotificationReadActionProps {
@@ -36,7 +36,7 @@ export function MarkNotificationReadAction({
     )
   }
 
-  const { today, earlier } = groupByDay(notifications)
+  const dateGroups = groupNotificationsByDate(notifications)
   const unreadCount = notifications.filter((notification) => !notification.isRead).length
 
   return (
@@ -53,11 +53,11 @@ export function MarkNotificationReadAction({
         </button>
       </div>
 
-      {today.length > 0 && (
-        <section>
-          <h2 className={styles.groupLabel}>오늘</h2>
+      {dateGroups.map((group) => (
+        <section key={group.dateKey}>
+          <h2 className={styles.groupLabel}>{group.label}</h2>
           <ul className={styles.list}>
-            {today.map((notification) => (
+            {group.notifications.map((notification) => (
               <NotificationRow
                 key={notification.id}
                 notification={notification}
@@ -66,22 +66,7 @@ export function MarkNotificationReadAction({
             ))}
           </ul>
         </section>
-      )}
-
-      {earlier.length > 0 && (
-        <section>
-          <h2 className={styles.groupLabel}>이전</h2>
-          <ul className={styles.list}>
-            {earlier.map((notification) => (
-              <NotificationRow
-                key={notification.id}
-                notification={notification}
-                onRead={onMarkRead}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
+      ))}
     </div>
   )
 }
@@ -130,7 +115,7 @@ function NotificationRow({
           </span>
           <span className={styles.content}>{notification.content}</span>
           <span className={styles.footer}>
-            <span className={styles.date}>{formatNotificationDate(notification.createdAt)}</span>
+            <span className={styles.date}>{formatNotificationTime(notification.createdAt)}</span>
             <Link
               className={styles.link}
               to={link.to}

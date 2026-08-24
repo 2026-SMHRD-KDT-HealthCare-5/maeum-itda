@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import { fetchNotifications, NOTIFICATIONS_QUERY_KEY } from '../../../entities/notification'
 import styles from './BottomTabBar.module.css'
 
@@ -62,6 +62,7 @@ function TabIcon({ icon }: { icon: TabItem['icon'] }) {
 // items를 주입해주는 방식으로 둔다 (widgets는 features/entities를
 // 조합하지만, role 분기 자체는 pages 책임).
 export function BottomTabBar({ items }: { items: TabItem[] }) {
+  const location = useLocation()
   const hasNotificationTab = items.some((item) => item.icon === 'notification')
   const notificationsQuery = useQuery({
     queryKey: NOTIFICATIONS_QUERY_KEY,
@@ -80,6 +81,18 @@ export function BottomTabBar({ items }: { items: TabItem[] }) {
           key={item.to}
           to={item.to}
           viewTransition
+          onClick={(event) => {
+            const exactTab = item.to === '/senior' || item.to === '/guardian'
+            const isCurrentTab = exactTab
+              ? location.pathname === item.to
+              : location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
+
+            if (!isCurrentTab) return
+
+            event.preventDefault()
+            const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
+          }}
           aria-label={
             item.icon === 'notification' && unreadCount > 0
               ? `${item.label}, 읽지 않은 알림 ${unreadCount}개`
