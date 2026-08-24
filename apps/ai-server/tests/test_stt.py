@@ -42,27 +42,27 @@ class IsPlausibleKoreanAnswerTests(unittest.TestCase):
 
 
 class TranscribeHallucinationGuardTests(unittest.TestCase):
-    def test_openai_non_korean_result_falls_back_to_local_korean_result(self):
+    def test_openai_non_korean_result_fails_without_local_fallback(self):
         with (
             patch("app.services.stt._transcribe_openai", return_value="Hello, world!"),
-            patch("app.services.stt._transcribe_local", return_value="오늘 산책했어요."),
+            patch("app.services.stt._transcribe_local") as local_mock,
         ):
             result = transcribe(b"fake-audio", "webm")
 
-        self.assertEqual(
-            result,
-            SttResult(ok=True, text="오늘 산책했어요.", engine="local_whisper"),
-        )
-
-    def test_both_engines_non_korean_fails(self):
-        with (
-            patch("app.services.stt._transcribe_openai", return_value="Hello, world!"),
-            patch("app.services.stt._transcribe_local", return_value="Tienes que estudiar."),
-        ):
-            result = transcribe(b"fake-audio", "webm")
-
+        local_mock.assert_not_called()
         self.assertFalse(result.ok)
         self.assertIn("non_korean_transcript", result.reason)
+
+    def test_openai_empty_result_fails_without_local_fallback(self):
+        with (
+            patch("app.services.stt._transcribe_openai", return_value=""),
+            patch("app.services.stt._transcribe_local") as local_mock,
+        ):
+            result = transcribe(b"fake-audio", "webm")
+
+        local_mock.assert_not_called()
+        self.assertFalse(result.ok)
+        self.assertIn("empty_transcript", result.reason)
 
     def test_openai_korean_result_used_directly(self):
         with (

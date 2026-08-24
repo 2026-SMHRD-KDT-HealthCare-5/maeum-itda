@@ -224,14 +224,14 @@ def transcribe(audio_bytes: bytes, audio_format: str = "webm") -> SttResult:
 
     if text and _is_plausible_korean_answer(text):
         return SttResult(ok=True, text=text, engine="openai")
-    if text:
-        logger.warning("OpenAI STT 결과가 한국어로 보이지 않아 환각 의심, 로컬로 폴백: %r", text)
-    else:
-        logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 로컬로 폴백")
 
-    # 2) 언어 환각 의심 시에만 로컬 whisper로 한 번 더 검증(language 강제라 다른
-    # 언어 환각 가능성이 낮음).
-    return _transcribe_local_and_validate(audio_bytes, audio_format)
+    # 환각 의심(비-한국어)이나 빈 결과는 키/쿼터 문제가 아니므로 로컬 whisper로
+    # 폴백하지 않고 바로 실패 처리한다(폴백은 OpenAiSttUnavailableError일 때만).
+    if text:
+        logger.warning("OpenAI STT 결과가 한국어로 보이지 않아 환각 의심, 실패 처리: %r", text)
+        return SttResult(ok=False, reason=f"non_korean_transcript: {text!r}", engine="openai")
+    logger.warning("OpenAI STT 결과가 비어 있음(무음/잡음 추정), 실패 처리")
+    return SttResult(ok=False, reason="empty_transcript", engine="openai")
 
 
 def _transcribe_local_and_validate(audio_bytes: bytes, audio_format: str) -> SttResult:
