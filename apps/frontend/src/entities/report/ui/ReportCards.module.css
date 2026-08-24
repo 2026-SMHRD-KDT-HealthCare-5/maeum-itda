@@ -17,6 +17,7 @@
   place-items: center;
   border-radius: 50%;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   font-size: 20px;
 }
 
@@ -174,6 +175,7 @@
   display: flex;
   align-items: baseline;
   gap: 7px;
+  font-variant-numeric: tabular-nums;
   margin: 0;
   padding: 0;
   background: transparent;
@@ -467,6 +469,7 @@
 .statValue {
   font-weight: 800;
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
 }
 
 .statAverage {
@@ -539,12 +542,15 @@
 .dailyDate small {
   color: #a0a6a2;
   font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dailyScore {
   border-left: 1px solid #e7e9e7;
   font-weight: 800;
   font-size: 18px;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 

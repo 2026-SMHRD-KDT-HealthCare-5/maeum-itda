@@ -58,6 +58,8 @@
   color: var(--text-h);
   font-weight: 700;
   font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   border: 0;
   cursor: pointer;
   font-family: inherit;

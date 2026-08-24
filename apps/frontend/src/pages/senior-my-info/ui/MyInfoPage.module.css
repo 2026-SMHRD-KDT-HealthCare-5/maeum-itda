@@ -158,6 +158,8 @@
   margin: 3px 0 0;
   color: var(--primary);
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .logoutButton {

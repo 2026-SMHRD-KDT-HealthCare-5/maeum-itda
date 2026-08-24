@@ -47,6 +47,8 @@
   color: #2d4138;
   font-weight: 800;
   font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   box-shadow: 0 3px 10px rgba(44, 59, 51, 0.08);
   cursor: pointer;
   transition:
@@ -136,6 +138,7 @@
 .monthNav strong {
   color: #2e4138;
   font-size: 20px;
+  font-variant-numeric: tabular-nums;
 }
 
 .calendar {
@@ -165,6 +168,7 @@
   max-width: 100%;
   justify-self: center;
   font-size: 15px;
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
