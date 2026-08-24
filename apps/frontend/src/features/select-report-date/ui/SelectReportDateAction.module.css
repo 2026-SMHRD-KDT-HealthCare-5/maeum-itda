@@ -182,7 +182,8 @@
   font-weight: 700;
 }
 
-.hasReport::after {
+.hasCompletedReport::after,
+.hasIncompleteReport::after {
   position: absolute;
   bottom: 2px;
   width: 4px;
@@ -192,7 +193,12 @@
   content: '';
 }
 
-.selected.hasReport::after {
+.hasIncompleteReport::after {
+  background: #d89b4c;
+}
+
+.selected.hasCompletedReport::after,
+.selected.hasIncompleteReport::after {
   background: #fff;
 }
 
@@ -203,4 +209,12 @@
   margin-top: 18px;
   color: var(--text);
   font-size: 13px;
+}
+
+.completedLegend {
+  color: var(--primary);
+}
+
+.incompleteLegend {
+  color: #b7792f;
 }

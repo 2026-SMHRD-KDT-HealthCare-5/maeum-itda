@@ -32,18 +32,18 @@
 
 .recommendationSection {
   display: grid;
-  grid-template-columns: 94px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: start;
-  gap: 8px;
+  gap: 12px;
 }
 
 .recommendationCharacter {
-  width: 112px;
-  height: 150px;
+  width: 84px;
+  height: 116px;
   justify-self: start;
   object-fit: contain;
   object-position: center top;
-  transform: translateX(-8px);
+  transform: translateX(-6px);
 }
 
 .recommendationCard {
@@ -94,13 +94,39 @@
   text-align: center;
 }
 
-/* emptyState와 같은 최소 높이를 줘서, 로딩 중일 때만 셸이 짧아졌다 다시 늘어나며
-   위 탭까지 흔들리는 것처럼 보이는 걸 막는다. */
+/* 실제 주간 차트·추천·목록 높이를 닮은 뼈대로 주 전환 중 레이아웃 이동을 줄인다. */
 .loadingState {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100svh - 310px);
+  display: grid;
+  gap: 16px;
+}
+
+.loadingLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.trendSkeleton,
+.recommendationSkeleton,
+.listSkeleton {
+  border: 1px solid rgba(37, 51, 45, 0.04);
+  border-radius: var(--radius-xl);
+}
+
+.trendSkeleton {
+  height: 330px;
+}
+
+.recommendationSkeleton {
+  height: 148px;
+}
+
+.listSkeleton {
+  height: 220px;
 }
 
 .emptyCharacter {
@@ -134,12 +160,12 @@
   }
 
   .recommendationSection {
-    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-columns: 62px minmax(0, 1fr);
   }
 
   .recommendationCharacter {
-    width: 88px;
-    height: 120px;
+    width: 72px;
+    height: 100px;
   }
 
   .recommendationCard {
@@ -157,4 +183,20 @@
   color: var(--text);
   font-size: 14px;
   text-align: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .trendSection,
+  .recommendationSection,
+  .dailySection,
+  .emptyState {
+    animation: report-data-enter 180ms ease-out both;
+  }
+}
+
+@keyframes report-data-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }

@@ -1,5 +1,7 @@
 export * from './Button'
 export * from './Card'
 export * from './LoadingSpinner'
+export * from './PageHeading'
+export * from './Skeleton'
 export * from './TextField'
 export * from './Toggle'

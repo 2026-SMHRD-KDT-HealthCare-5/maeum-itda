@@ -1,0 +1,24 @@
+.skeleton {
+  display: block;
+  overflow: hidden;
+  background: linear-gradient(
+    100deg,
+    rgba(224, 229, 226, 0.72) 20%,
+    rgba(245, 247, 246, 0.96) 42%,
+    rgba(224, 229, 226, 0.72) 64%
+  );
+  background-size: 220% 100%;
+  animation: skeleton-shimmer 1.25s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    background-position-x: -220%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

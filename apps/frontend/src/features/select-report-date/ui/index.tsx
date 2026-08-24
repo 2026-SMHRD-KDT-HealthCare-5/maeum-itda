@@ -7,7 +7,7 @@ const weekDays = ['일', '월', '화', '수', '목', '금', '토']
 interface SelectReportDateActionProps {
   selectedDate: Date
   onSelectDate: (date: Date) => void
-  datesWithReport: Set<string>
+  reportStatusByDate: Map<string, 'WAITING' | 'COMPLETED' | 'FAILED'>
   // 모달에서 보고 있는 달이 바뀔 때마다 알려준다 — 부모가 이 달 기준으로
   // datesWithReport를 새로 가져오지 않으면, 선택된 날짜의 달과 다른 달로
   // 넘겼을 때 그 달의 "리포트 있음" 점이 안 찍힌 채로 남는다.
@@ -21,7 +21,7 @@ interface SelectReportDateActionProps {
 export function SelectReportDateAction({
   selectedDate,
   onSelectDate,
-  datesWithReport,
+  reportStatusByDate,
   onVisibleMonthChange,
 }: SelectReportDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
@@ -120,7 +120,9 @@ export function SelectReportDateAction({
                 </span>
               ))}
               {calendarDates.map((date) => {
-                const hasReport = datesWithReport.has(toDateKey(date))
+                const reportStatus = reportStatusByDate.get(toDateKey(date))
+                const hasCompletedReport = reportStatus === 'COMPLETED'
+                const hasIncompleteReport = reportStatus === 'WAITING' || reportStatus === 'FAILED'
                 const isSelected = isSameDate(date, selectedDate)
                 const isOutsideMonth = date.getMonth() !== month
 
@@ -131,12 +133,19 @@ export function SelectReportDateAction({
                     className={[
                       styles.dateCell,
                       isOutsideMonth ? styles.outsideMonth : '',
-                      hasReport ? styles.hasReport : '',
+                      hasCompletedReport ? styles.hasCompletedReport : '',
+                      hasIncompleteReport ? styles.hasIncompleteReport : '',
                       isSelected ? styles.selected : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
-                    aria-label={`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일, 리포트 ${hasReport ? '있음' : '없음'}`}
+                    aria-label={`${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일, ${
+                      hasCompletedReport
+                        ? '분석 완료'
+                        : hasIncompleteReport
+                          ? '대화 기록 있음, 분석 미완료'
+                          : '리포트 없음'
+                    }`}
                     aria-pressed={isSelected}
                     onClick={() => {
                       onSelectDate(date)
@@ -149,8 +158,8 @@ export function SelectReportDateAction({
               })}
             </div>
             <div className={styles.legend}>
-              <span>● 리포트 있음</span>
-              <span>○ 리포트 없음</span>
+              <span className={styles.completedLegend}>● 분석 완료</span>
+              <span className={styles.incompleteLegend}>● 대화 기록만 있음</span>
             </div>
           </div>
         </div>

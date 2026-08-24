@@ -11,3 +11,6 @@ export interface Notification {
     | { type: 'DAILY_REPORT'; reportId: number | null; reportDate: string | null }
     | { type: 'WEEKLY_REPORT'; weeklyReportId: number | null; weekStart: string | null }
 }
+
+// 알림 화면과 전역 내비게이션 배지가 같은 서버 상태를 구독하도록 공유한다.
+export const NOTIFICATIONS_QUERY_KEY = ['notifications'] as const
