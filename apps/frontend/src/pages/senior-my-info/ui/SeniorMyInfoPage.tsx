@@ -25,7 +25,7 @@ import {
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner } from '../../../shared/ui'
+import { Button, Card, LoadingSpinner, PageHeading } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
@@ -88,7 +88,7 @@ export function SeniorMyInfoPage() {
     return (
       <>
         <main className={styles.page}>
-          <h1 className={styles.pageTitle}>내 정보</h1>
+          <PageHeading eyebrow="마이페이지" title="내 정보" />
           {showLoadingOverlay && <LoadingSpinner overlay label="내 정보를 불러오는 중이에요" />}
         </main>
         <BottomTabBar items={SENIOR_TAB_ITEMS} />
@@ -100,7 +100,7 @@ export function SeniorMyInfoPage() {
     return (
       <>
         <main className={styles.page}>
-          <h1 className={styles.pageTitle}>내 정보</h1>
+          <PageHeading eyebrow="마이페이지" title="내 정보" />
           <div className={styles.errorState} role="alert">
             <p>내 정보를 불러오지 못했어요.</p>
             <Button type="button" onClick={() => profileQuery.refetch()}>
@@ -119,7 +119,11 @@ export function SeniorMyInfoPage() {
   return (
     <>
       <main className={styles.page}>
-        <h1 className={styles.pageTitle}>내 정보</h1>
+        <PageHeading
+          eyebrow="마이페이지"
+          title="내 정보"
+          description="내 정보와 연결된 보호자, 알림 설정을 관리해요."
+        />
         <header className={styles.header}>
           <img className={styles.avatar} src={seniorCoupleImage} alt="" />
           <h2 className={styles.name}>{profile.name} 어르신</h2>

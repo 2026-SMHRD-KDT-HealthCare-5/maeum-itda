@@ -25,7 +25,7 @@ import {
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner } from '../../../shared/ui'
+import { Button, Card, LoadingSpinner, PageHeading } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
@@ -105,7 +105,7 @@ export function GuardianMyInfoPage() {
     return (
       <>
         <main className={styles.page}>
-          <h1 className={styles.pageTitle}>내 정보</h1>
+          <PageHeading eyebrow="마이페이지" title="내 정보" />
           {showLoadingOverlay && <LoadingSpinner overlay label="내 정보를 불러오는 중이에요" />}
         </main>
         <BottomTabBar items={GUARDIAN_TAB_ITEMS} />
@@ -117,7 +117,7 @@ export function GuardianMyInfoPage() {
     return (
       <>
         <main className={styles.page}>
-          <h1 className={styles.pageTitle}>내 정보</h1>
+          <PageHeading eyebrow="마이페이지" title="내 정보" />
           <div className={styles.errorState} role="alert">
             <p>내 정보를 불러오지 못했어요.</p>
             <Button type="button" onClick={() => profileQuery.refetch()}>
@@ -136,10 +136,14 @@ export function GuardianMyInfoPage() {
   return (
     <>
       <main className={styles.page}>
-        <h1 className={styles.pageTitle}>내 정보</h1>
+        <PageHeading
+          eyebrow="마이페이지"
+          title="내 정보"
+          description="내 정보와 어르신 연결, 알림 기준을 관리해요."
+        />
         <header className={styles.header}>
           <img className={styles.avatar} src={guardianCoupleImage} alt="" />
-          <h1 className={styles.name}>{profile.name} 보호자</h1>
+          <h2 className={styles.name}>{profile.name} 보호자</h2>
         </header>
 
         <div className={styles.cards}>
