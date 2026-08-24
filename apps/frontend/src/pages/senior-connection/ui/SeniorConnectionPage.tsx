@@ -10,7 +10,7 @@ import {
 } from '../../../entities/connection'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, LoadingSpinner } from '../../../shared/ui'
+import { ErrorState, LoadingSpinner } from '../../../shared/ui'
 import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.webp'
 import styles from './SeniorConnectionPage.module.css'
 
@@ -59,12 +59,11 @@ export function SeniorConnectionPage() {
       {showConnectionSpinner && <LoadingSpinner overlay label="연결 요청을 확인하는 중이에요" />}
 
       {!showConnectionSpinner && connectionQuery.isError && (
-        <div className={styles.statusMessage} role="alert">
-          <p>연결 요청을 불러오지 못했어요.</p>
-          <Button type="button" onClick={() => connectionQuery.refetch()}>
-            다시 시도
-          </Button>
-        </div>
+        <ErrorState
+          message="연결 요청을 불러오지 못했어요."
+          onRetry={() => void connectionQuery.refetch()}
+          isRetrying={connectionQuery.isFetching}
+        />
       )}
 
       {!showConnectionSpinner &&

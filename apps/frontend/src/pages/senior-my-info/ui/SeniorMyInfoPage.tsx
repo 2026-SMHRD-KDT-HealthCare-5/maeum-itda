@@ -25,7 +25,7 @@ import {
 import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entities/user'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner, PageHeading } from '../../../shared/ui'
+import { Button, Card, ErrorState, LoadingSpinner, PageHeading } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
@@ -102,12 +102,11 @@ export function SeniorMyInfoPage() {
       <>
         <main className={styles.page}>
           <PageHeading eyebrow="마이페이지" title="내 정보" />
-          <div className={styles.errorState} role="alert">
-            <p>내 정보를 불러오지 못했어요.</p>
-            <Button type="button" onClick={() => profileQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message="내 정보를 불러오지 못했어요."
+            onRetry={() => void profileQuery.refetch()}
+            isRetrying={profileQuery.isFetching}
+          />
         </main>
         <BottomTabBar items={SENIOR_TAB_ITEMS} />
       </>

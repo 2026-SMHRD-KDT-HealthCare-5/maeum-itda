@@ -10,7 +10,7 @@ import {
 } from '../../../entities/connection'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, LoadingSpinner } from '../../../shared/ui'
+import { ErrorState, LoadingSpinner } from '../../../shared/ui'
 import styles from './GuardianConnectionPage.module.css'
 
 // GUARDIAN_LINK_01 (UC-00-1) — 내 정보의 미연결 상태에서 진입하는
@@ -79,12 +79,11 @@ export function GuardianConnectionPage() {
       {showConnectionSpinner && <LoadingSpinner overlay label="연결 상태를 확인하는 중이에요" />}
 
       {!showConnectionSpinner && connectionQuery.isError && (
-        <div className={styles.statusMessage} role="alert">
-          <p>연결 상태를 불러오지 못했어요.</p>
-          <Button type="button" onClick={() => connectionQuery.refetch()}>
-            다시 시도
-          </Button>
-        </div>
+        <ErrorState
+          message="연결 상태를 불러오지 못했어요."
+          onRetry={() => void connectionQuery.refetch()}
+          isRetrying={connectionQuery.isFetching}
+        />
       )}
 
       {!showConnectionSpinner && connectionQuery.data?.status === 'CONNECTED' && (

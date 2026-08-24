@@ -1,5 +1,6 @@
 export * from './Button'
 export * from './Card'
+export * from './ErrorState'
 export * from './InlineFeedback'
 export * from './LoadingSpinner'
 export * from './PageHeading'

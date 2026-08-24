@@ -9,7 +9,7 @@ import {
 } from '../../../entities/notification'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, LoadingSpinner } from '../../../shared/ui'
+import { ErrorState, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './GuardianNotificationPage.module.css'
 
@@ -62,12 +62,11 @@ export function GuardianNotificationPage() {
         {showSpinner && <LoadingSpinner overlay label="알림을 불러오고 있어요" />}
 
         {!showSpinner && notificationsQuery.isError && (
-          <div className={styles.statusMessage} role="alert">
-            <p>{extractApiErrorMessage(notificationsQuery.error, '알림을 불러오지 못했어요.')}</p>
-            <Button type="button" onClick={() => notificationsQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message={extractApiErrorMessage(notificationsQuery.error, '알림을 불러오지 못했어요.')}
+            onRetry={() => void notificationsQuery.refetch()}
+            isRetrying={notificationsQuery.isFetching}
+          />
         )}
 
         {!showSpinner && notificationsQuery.data && (

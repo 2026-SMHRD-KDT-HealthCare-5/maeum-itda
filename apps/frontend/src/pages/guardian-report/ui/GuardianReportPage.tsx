@@ -12,7 +12,7 @@ import {
 } from '../../../entities/report'
 import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, Skeleton } from '../../../shared/ui'
+import { Button, Card, ErrorState, Skeleton } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import { ConversationTimeline } from '../../../widgets/conversation-timeline'
@@ -110,12 +110,11 @@ export function GuardianReportPage() {
         )}
 
         {dailyReportQuery.isError && !reportMissing && (
-          <div className={styles.statusMessage} role="alert">
-            <p>{extractApiErrorMessage(dailyReportQuery.error, '리포트를 불러오지 못했어요.')}</p>
-            <Button type="button" onClick={() => dailyReportQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message={extractApiErrorMessage(dailyReportQuery.error, '리포트를 불러오지 못했어요.')}
+            onRetry={() => void dailyReportQuery.refetch()}
+            isRetrying={dailyReportQuery.isFetching}
+          />
         )}
 
         {report && hasAnalysis && (

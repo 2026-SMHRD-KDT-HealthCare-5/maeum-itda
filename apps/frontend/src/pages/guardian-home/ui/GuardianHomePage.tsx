@@ -7,7 +7,7 @@ import {
 } from '../../../entities/report'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner } from '../../../shared/ui'
+import { Card, ErrorState, LoadingSpinner } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
@@ -42,12 +42,11 @@ export function GuardianHomePage() {
         {showSpinner && <LoadingSpinner overlay label="오늘의 소식을 불러오고 있어요" />}
 
         {!showSpinner && dashboardQuery.isError && (
-          <div className={styles.statusMessage} role="alert">
-            <p>{extractApiErrorMessage(dashboardQuery.error, '정보를 불러오지 못했어요.')}</p>
-            <Button type="button" onClick={() => dashboardQuery.refetch()}>
-              다시 시도
-            </Button>
-          </div>
+          <ErrorState
+            message={extractApiErrorMessage(dashboardQuery.error, '정보를 불러오지 못했어요.')}
+            onRetry={() => void dashboardQuery.refetch()}
+            isRetrying={dashboardQuery.isFetching}
+          />
         )}
 
         {!showSpinner && dashboard && (
