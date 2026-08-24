@@ -40,6 +40,22 @@ export class ReportsService {
       this.summaryContextRepository.findTurns(seniorId, reportDate),
     ]);
     const calculation = calculateDailyEmotionIndex(analyses);
+    const generationStatus =
+      calculation.status === 'COMPLETED'
+        ? GenerationStatus.COMPLETED
+        : GenerationStatus.WAITING;
+
+    // 정서지수·근거를 먼저 저장한다 — AI 일간 요약(FastAPI LLM 호출, 수 초~수십 초)이
+    // 끝나기 전에도 보호자 화면이 최신 점수를 바로 볼 수 있게 한다. 요약 생성이
+    // 느리거나 실패해도(generateSummarySafely가 이미 삼킴) 이 저장은 영향받지 않는다.
+    await this.dailyReportRepository.saveDailyReport(
+      seniorId,
+      reportDate,
+      calculation.emotionIndex,
+      generationStatus,
+      evidenceMessageIds,
+    );
+
     const summary = await this.generateSummarySafely(
       seniorId,
       reportDate,
@@ -50,9 +66,7 @@ export class ReportsService {
       seniorId,
       reportDate,
       calculation.emotionIndex,
-      calculation.status === 'COMPLETED'
-        ? GenerationStatus.COMPLETED
-        : GenerationStatus.WAITING,
+      generationStatus,
       evidenceMessageIds,
       summary?.conversationSummary,
       summary?.recommendedAction,
