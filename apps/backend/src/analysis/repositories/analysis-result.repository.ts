@@ -141,4 +141,12 @@ export class AnalysisResultRepository {
       .getRepository(VoiceAnalysisStatus)
       .findOne({ where: { messageId } });
   }
+
+  // 역할: REST 조회/재시도 엔드포인트의 소유권 검증을 위해 메시지가 속한 시니어를 확인한다.
+  async findMessageSeniorId(messageId: number): Promise<number | null> {
+    const message = await this.dataSource
+      .getRepository(ConversationMessage)
+      .findOne({ where: { messageId }, select: { seniorId: true } });
+    return message?.seniorId ?? null;
+  }
 }

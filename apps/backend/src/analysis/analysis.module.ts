@@ -4,6 +4,7 @@
  */
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from '../auth/auth.module';
 import { AiClient } from './ai.client';
 import { AnalysisService } from './analysis.service';
 import { EmotionTag } from './entities/emotion-tag.entity';
@@ -23,6 +24,7 @@ import { AnalysisContextRepository } from './repositories/analysis-context.repos
 // exports의 AnalysisService는 ChatsService에서 주입받아 사용할 수 있다.
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       ScaleQuestionAnalysis,
       EmotionTag,
