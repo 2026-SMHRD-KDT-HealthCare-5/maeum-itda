@@ -15,6 +15,7 @@ import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
 import { QuestionAnswerQueueService } from './question-answer-queue.service';
 import { LastTurnRecalcTimerService } from './last-turn-recalc-timer.service';
+import { QuestionProcessingTrackerService } from './question-processing-tracker.service';
 import { sendWsEvent } from './ws-event';
 
 export const IDLE_WARNING_MS = 30_000;
@@ -34,6 +35,7 @@ export class ChatInactivityService {
   private readonly chatConnectionStateService: ChatConnectionStateService;
   private readonly recalcTriggerService: EmotionIndexRecalcTriggerService;
   private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
+  private readonly questionProcessingTrackerService: QuestionProcessingTrackerService;
 
   constructor(
     questionAnswerQueueService: QuestionAnswerQueueService,
@@ -42,6 +44,7 @@ export class ChatInactivityService {
     chatConnectionStateService: ChatConnectionStateService,
     recalcTriggerService: EmotionIndexRecalcTriggerService,
     lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+    questionProcessingTrackerService: QuestionProcessingTrackerService,
   ) {
     this.questionAnswerQueueService = questionAnswerQueueService;
     this.audioMetadataHandler = audioMetadataHandler;
@@ -49,6 +52,7 @@ export class ChatInactivityService {
     this.chatConnectionStateService = chatConnectionStateService;
     this.recalcTriggerService = recalcTriggerService;
     this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+    this.questionProcessingTrackerService = questionProcessingTrackerService;
   }
 
   startWaitingForAnswer(client: WebSocket): void {
@@ -97,7 +101,16 @@ export class ChatInactivityService {
     const seniorId = this.chatConnectionStateService.getSeniorId(client);
     if (seniorId !== undefined) {
       this.lastTurnRecalcTimerService.cancel(seniorId);
-      this.recalcTriggerService.recalcToday(seniorId);
+      // ChatEndHandler와 동일한 이유로, 방금 flush한 답변(있다면)의 처리가
+      // 끝나기를 기다린 뒤에 재계산한다 — chat:ended 전송 자체는 지연 없이 진행.
+      const pendingQuestionMessageId = currentQuestion?.questionMessageId;
+      void (
+        pendingQuestionMessageId === undefined
+          ? Promise.resolve()
+          : this.questionProcessingTrackerService.waitFor(
+              pendingQuestionMessageId,
+            )
+      ).then(() => this.recalcTriggerService.recalcToday(seniorId));
     }
 
     this.clearClient(client);

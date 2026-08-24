@@ -14,6 +14,7 @@ import { AudioBinaryHandler } from './audio-binary.handler';
 import { AudioMetadataHandler } from './audio-metadata.handler';
 import { ChatInactivityService } from '../chat-inactivity.service';
 import { LastTurnRecalcTimerService } from '../last-turn-recalc-timer.service';
+import { QuestionProcessingTrackerService } from '../question-processing-tracker.service';
 
 import type { ChatEndEvent } from '../client-ws-event';
 
@@ -26,6 +27,7 @@ export class ChatEndHandler {
   private readonly chatInactivityService: ChatInactivityService;
   private readonly recalcTriggerService: EmotionIndexRecalcTriggerService;
   private readonly lastTurnRecalcTimerService: LastTurnRecalcTimerService;
+  private readonly questionProcessingTrackerService: QuestionProcessingTrackerService;
 
   constructor(
     questionAnswerQueueService: QuestionAnswerQueueService,
@@ -35,6 +37,7 @@ export class ChatEndHandler {
     chatInactivityService: ChatInactivityService,
     recalcTriggerService: EmotionIndexRecalcTriggerService,
     lastTurnRecalcTimerService: LastTurnRecalcTimerService,
+    questionProcessingTrackerService: QuestionProcessingTrackerService,
   ) {
     this.questionAnswerQueueService = questionAnswerQueueService;
     this.audioMetadataHandler = audioMetadataHandler;
@@ -43,6 +46,7 @@ export class ChatEndHandler {
     this.chatInactivityService = chatInactivityService;
     this.recalcTriggerService = recalcTriggerService;
     this.lastTurnRecalcTimerService = lastTurnRecalcTimerService;
+    this.questionProcessingTrackerService = questionProcessingTrackerService;
   }
 
   // 역할: 사용자의 수동 종료를 처리하되 WebSocket 연결은 유지하여 새 chat:start를 받을 수 있게 한다.
@@ -68,7 +72,18 @@ export class ChatEndHandler {
     const seniorId = this.chatConnectionStateService.getSeniorId(client);
     if (seniorId !== undefined) {
       this.lastTurnRecalcTimerService.cancel(seniorId);
-      this.recalcTriggerService.recalcToday(seniorId);
+      // 방금 flush한 답변(있다면)의 FastAPI 분석·DB 저장이 아직 진행 중일 수
+      // 있다 — 그게 끝나기 전에 재계산하면 그 날 리포트가 마지막 턴 점수가
+      // 빠진 채로 "완료" 상태가 돼버린다(chat:ended 응답 자체는 지연 없이
+      // 즉시 보내고, 재계산만 내부적으로 기다린 뒤 실행한다).
+      const pendingQuestionMessageId = currentQuestion?.questionMessageId;
+      void (
+        pendingQuestionMessageId === undefined
+          ? Promise.resolve()
+          : this.questionProcessingTrackerService.waitFor(
+              pendingQuestionMessageId,
+            )
+      ).then(() => this.recalcTriggerService.recalcToday(seniorId));
     }
 
     this.audioMetadataHandler.clearClient(client);
