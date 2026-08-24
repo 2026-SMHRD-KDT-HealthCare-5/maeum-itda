@@ -41,6 +41,9 @@ const characterByPhase: Record<RecordingPhase, { alt: string; src: string }> = {
   },
 }
 
+// 말하는 중 live STT 임시 말풍선 — DB messageId가 없으므로 음수 sentinel을 쓴다.
+const LIVE_PARTIAL_MESSAGE_ID = -1
+
 function questionToMessage(question: AiQuestionPayload): ChatMessage {
   return {
     messageId: question.messageId,
@@ -122,12 +125,15 @@ export function SeniorConversationPage() {
       setConnectionError(null)
       // 서버 재시작 후 재진입 시 위 이력 조회 effect가 같은 질문을 이미 넣어뒀을
       // 수 있어(오늘 마지막 메시지가 아직 답변되지 않은 AI 질문인 경우), 같은
-      // messageId면 중복으로 추가하지 않는다.
-      setMessages((prev) =>
-        prev.some((message) => message.messageId === payload.messageId)
-          ? prev
-          : [...prev, questionToMessage(payload)],
-      )
+      // messageId면 중복으로 추가하지 않는다. live 임시 말풍선은 새 질문과 함께 지운다.
+      setMessages((prev) => {
+        const withoutPartial = prev.filter(
+          (message) => message.messageId !== LIVE_PARTIAL_MESSAGE_ID,
+        )
+        return withoutPartial.some((message) => message.messageId === payload.messageId)
+          ? withoutPartial
+          : [...withoutPartial, questionToMessage(payload)]
+      })
     }
     // tts:audio는 항상 이미 화면에 뜬 질문과 같은 messageId로 뒤이어 온다 — 다른
     // 질문으로 넘어간 뒤 늦게 도착한 것이면(messageId 불일치) 조용히 버린다.
@@ -139,12 +145,13 @@ export function SeniorConversationPage() {
     // 도착한다(결정사항: 분석 실패 시 아무 메시지도 만들지 않는다) — 그래서
     // 기존 말풍선을 갱신하는 게 아니라 여기서 새로 추가한다. 분석 실패는
     // error 이벤트(AUDIO_ANALYSIS_FAILED)의 배너로만 안내한다.
+    // live STT 임시 말풍선(LIVE_PARTIAL_MESSAGE_ID)은 확정 텍스트로 교체한다.
     const handleAudioTranscript: Parameters<typeof socket.on<'audio:transcript'>>[1] = (
       payload,
     ) => {
       setAnswerRetryNotice(null)
       setMessages((prev) => [
-        ...prev,
+        ...prev.filter((message) => message.messageId !== LIVE_PARTIAL_MESSAGE_ID),
         ...payload.transcripts.map(({ messageId, content }): ChatMessage => ({
           messageId,
           speakerType: 'SENIOR',
@@ -153,6 +160,26 @@ export function SeniorConversationPage() {
           createdAt: new Date().toISOString(),
         })),
       ])
+    }
+    const handleAudioPartial: Parameters<typeof socket.on<'audio:partial'>>[1] = (
+      payload,
+    ) => {
+      if (payload.questionMessageId !== currentQuestionMessageIdRef.current) return
+      setMessages((prev) => {
+        const withoutPartial = prev.filter(
+          (message) => message.messageId !== LIVE_PARTIAL_MESSAGE_ID,
+        )
+        return [
+          ...withoutPartial,
+          {
+            messageId: LIVE_PARTIAL_MESSAGE_ID,
+            speakerType: 'SENIOR',
+            content: payload.content,
+            sttStatus: 'PROCESSING',
+            createdAt: new Date().toISOString(),
+          },
+        ]
+      })
     }
     const handleIdleWarning: Parameters<typeof socket.on<'chat:idle-warning'>>[1] = (payload) =>
       setIdleNotice(payload.message)
@@ -165,7 +192,10 @@ export function SeniorConversationPage() {
       if (payload.code === 'AUDIO_ANALYSIS_FAILED') {
         // 연결 장애가 아니라 방금 답변 분석 실패다 — 답변 조작부 바로 위에서
         // 재답변을 안내한다(녹음 자체는 record-voice-answer 훅이 이 이벤트를
-        // 받아 곧바로 다시 연다).
+        // 받아 곧바로 다시 연다). live 임시 말풍선도 함께 지운다.
+        setMessages((prev) =>
+          prev.filter((message) => message.messageId !== LIVE_PARTIAL_MESSAGE_ID),
+        )
         setAnswerRetryNotice('음성을 분석하지 못했어요. 다시 말씀해주세요.')
         return
       }
@@ -181,6 +211,7 @@ export function SeniorConversationPage() {
     socket.on('ai:question', handleAiQuestion)
     socket.on('tts:audio', handleTtsAudio)
     socket.on('audio:transcript', handleAudioTranscript)
+    socket.on('audio:partial', handleAudioPartial)
     socket.on('chat:idle-warning', handleIdleWarning)
     socket.on('chat:ended', handleChatEnded)
     socket.on('error', handleError)
@@ -224,6 +255,7 @@ export function SeniorConversationPage() {
       socket.off('ai:question', handleAiQuestion)
       socket.off('tts:audio', handleTtsAudio)
       socket.off('audio:transcript', handleAudioTranscript)
+      socket.off('audio:partial', handleAudioPartial)
       socket.off('chat:idle-warning', handleIdleWarning)
       socket.off('chat:ended', handleChatEnded)
       socket.off('error', handleError)

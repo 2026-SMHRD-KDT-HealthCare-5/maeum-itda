@@ -1,26 +1,26 @@
 """
 STT 서비스.
 
-1순위: OpenAI STT API (`/v1/audio/transcriptions`, httpx로 직접 호출)
-2순위(폴백): 로컬 faster-whisper (OpenAI 호출 실패/타임아웃/네트워크 장애 시 자동 전환)
-
-이 파일의 요청 형식(멀티파트 필드명, 모델별 language/languages[] 분기 등)과
-faster-whisper 추론 파라미터(vad_filter, beam_size 등)는 2026-08-05에 STT만 따로
-떼어 검증했던 프로젝트(STT-...-v1-API-openai / STT-...-v2-로컬-fasterwhisper)의
-실전 검증된 구현을 그대로 가져와 REST 배치 파이프라인에 맞게 통합한 것이다.
+1순위: OpenAI gpt-live-transcribe (Realtime transcription WebSocket).
+      녹음 파일은 PCM16 24kHz로 디코딩한 뒤 세션에 append → commit 한다.
+      whisper-1/gpt-transcribe 등 파일 전용 모델이 설정된 경우에만
+      예전 POST /v1/audio/transcriptions 경로를 쓴다.
+2순위(폴백): 로컬 faster-whisper (OpenAI 키가 무효하거나 쿼터 소진일 때만)
 
 FR-01-08(음성 분석 실패 처리) 대응: 두 경로 모두 실패하면 SttResult.ok=False로
 반환하고, REST 엔드포인트가 HTTP 422 응답으로 변환한다.
 
-주의(원본 프로젝트에서 확인된 함정):
+주의:
 - 로컬 whisper 추론은 블로킹이라 이벤트 루프에서 직접 호출하면 안 됨
   -> 이 모듈은 동기 함수로 유지하고, 호출부(app/main.py)가 asyncio.to_thread로 감싼다.
 - 로컬 whisper는 CPU/GPU를 통째로 쓰므로 동시 추론을 직렬화해야 함 -> _local_infer_lock
 """
 import logging
+import json
 import re
 import tempfile
 import threading
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -28,6 +28,8 @@ from pathlib import Path
 import httpx
 
 from app.config import get_settings
+from app.services import audio_features
+from app.services import stt_live
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -79,8 +81,16 @@ def _is_plausible_korean_answer(text: str) -> bool:
 # language 필드가 단수(language)인 모델과 복수(languages[])인 모델이 나뉜다.
 # OpenAI 공식 문서(2026-08 기준) 확인 결과:
 #   단수(language)  : whisper-1, gpt-4o-transcribe, gpt-4o-mini-transcribe
-#   복수(languages[]): gpt-transcribe(현재 OpenAI 기본 추천 모델), gpt-4o-transcribe-diarize
+#   복수(languages[]): gpt-transcribe, gpt-4o-transcribe-diarize
+# gpt-live-transcribe는 파일 업로드가 아니라 Realtime 세션의 languages 배열을 쓴다.
 _SINGULAR_LANGUAGE_MODELS = {"whisper-1", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"}
+_FILE_TRANSCRIPTION_MODELS = {
+    "whisper-1",
+    "gpt-transcribe",
+    "gpt-4o-transcribe",
+    "gpt-4o-mini-transcribe",
+    "gpt-4o-transcribe-diarize",
+}
 
 
 def _build_openai_form(model: str) -> dict:
@@ -122,9 +132,15 @@ def _raise_openai_stt_error(status_code: int, detail) -> None:
 
 
 def _transcribe_openai(audio_bytes: bytes, audio_format: str) -> str:
+    model = settings.openai_stt_model.strip()
+    if model in _FILE_TRANSCRIPTION_MODELS:
+        return _transcribe_openai_file(audio_bytes, audio_format, model)
+    return _transcribe_openai_live(audio_bytes, audio_format)
+
+
+def _transcribe_openai_file(audio_bytes: bytes, audio_format: str, model: str) -> str:
     ext = audio_format.lower().lstrip(".")
     mime = MIME_BY_EXT.get(ext, "application/octet-stream")
-    model = settings.openai_stt_model
 
     files = {"file": (f"utterance.{ext}", audio_bytes, mime)}
     form = _build_openai_form(model)
@@ -146,6 +162,68 @@ def _transcribe_openai(audio_bytes: bytes, audio_format: str) -> str:
 
     result = resp.json()
     return (result.get("text") or "").strip()
+
+
+def _open_openai_realtime():
+    from websockets.sync.client import connect
+
+    return connect(
+        stt_live.OPENAI_REALTIME_URL,
+        additional_headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+        open_timeout=10,
+        close_timeout=5,
+    )
+
+
+def _transcribe_openai_live(audio_bytes: bytes, audio_format: str) -> str:
+    del audio_format  # 디코더가 컨테이너를 스스로 판별한다.
+    try:
+        pcm_bytes = audio_features.to_pcm16le_mono(audio_bytes)
+    except audio_features.AudioFeatureExtractionError as exc:
+        raise RuntimeError(f"OpenAI live STT용 오디오 디코딩 실패: {exc}") from exc
+
+    deltas: list[str] = []
+    try:
+        with _open_openai_realtime() as ws:
+            ws.send(json.dumps(stt_live.build_session_update(
+                language=settings.openai_stt_language,
+                prompt=settings.openai_stt_prompt,
+                delay=settings.openai_stt_delay,
+            )))
+            for chunk in stt_live.iter_pcm_chunks(pcm_bytes):
+                ws.send(json.dumps(stt_live.build_audio_append(chunk)))
+            ws.send(json.dumps(stt_live.build_audio_commit()))
+
+            deadline = time.monotonic() + settings.openai_timeout_sec
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                raw = ws.recv(timeout=remaining)
+                event = json.loads(raw)
+                kind, text = stt_live.classify_realtime_event(event)
+                if kind == "delta" and text:
+                    deltas.append(text)
+                elif kind == "completed":
+                    return text or "".join(deltas).strip()
+                elif kind == "unavailable":
+                    raise OpenAiSttUnavailableError(text)
+                elif kind == "error":
+                    raise RuntimeError(f"OpenAI live STT 오류: {text}")
+    except OpenAiSttUnavailableError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+        if status in {401, 403}:
+            raise OpenAiSttUnavailableError(str(exc)) from exc
+        if isinstance(exc, RuntimeError) and str(exc).startswith("OpenAI live STT"):
+            raise
+        raise RuntimeError(f"OpenAI live STT 오류: {exc}") from exc
+
+    joined = "".join(deltas).strip()
+    if joined:
+        return joined
+    raise RuntimeError("OpenAI live STT 타임아웃: 최종 transcript가 도착하지 않았습니다.")
 
 
 # ---------------------------------------------------------------- 2) 로컬 faster-whisper
