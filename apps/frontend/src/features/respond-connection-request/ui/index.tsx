@@ -1,4 +1,4 @@
-import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import styles from './RespondConnectionRequestAction.module.css'
 
 interface RespondConnectionRequestActionProps {

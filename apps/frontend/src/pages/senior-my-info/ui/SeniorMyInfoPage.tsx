@@ -27,8 +27,8 @@ import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
-import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
-import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
+import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
 import styles from './MyInfoPage.module.css'
 
 // 결정사항 로그 §7 — Figma '시니어 내 정보' 화면 최초 반영. 기본 정보/보호자

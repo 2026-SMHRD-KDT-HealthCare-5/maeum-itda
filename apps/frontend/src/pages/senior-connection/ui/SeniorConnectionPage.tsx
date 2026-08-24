@@ -11,7 +11,7 @@ import {
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, LoadingSpinner } from '../../../shared/ui'
-import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.png'
+import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.webp'
 import styles from './SeniorConnectionPage.module.css'
 
 // SENIOR_LINK_01 (UC-00-1) — 받은 연결 요청(GET /connections/me의 status가

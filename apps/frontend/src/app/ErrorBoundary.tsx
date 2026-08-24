@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import characterImage from '../shared/assets/character/character-daseul-error.png'
+import characterImage from '../shared/assets/character/character-daseul-error.webp'
 import { Button } from '../shared/ui'
 import styles from './ErrorBoundary.module.css'
 

@@ -26,8 +26,8 @@ import { fetchMyProfile, MY_PROFILE_QUERY_KEY, useSession } from '../../../entit
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, LoadingSpinner } from '../../../shared/ui'
-import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
-import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.png'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
+import seniorCoupleImage from '../../../shared/assets/illustrations/senior-couple.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './MyInfoPage.module.css'
 

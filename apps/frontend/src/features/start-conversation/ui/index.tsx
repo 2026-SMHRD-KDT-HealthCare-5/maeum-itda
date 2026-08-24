@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { getUnlockedAudioContext } from '../../../shared/lib'
-import characterImage from './character-daseul-greeting.png'
+import characterImage from './character-daseul-greeting.webp'
 import styles from './StartConversationAction.module.css'
 
 export function StartConversationAction() {

@@ -1,7 +1,7 @@
 import type { KeyboardEvent } from 'react'
 import { Link } from 'react-router-dom'
 import type { Notification } from '../../../entities/notification'
-import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.png'
+import daseulNoNotificationImage from '../../../shared/assets/character/character-daseul-no-notification.webp'
 import { formatNotificationDate, groupByDay, reportLinkPath } from '../model'
 import styles from './MarkNotificationReadAction.module.css'
 

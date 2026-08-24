@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card } from '../../../shared/ui'
 import { LoginForm } from '../../../features/login-with-credentials'
-import brandImage from './logo-daseul.png'
+import brandImage from './logo-daseul.webp'
 import styles from './LoginPage.module.css'
 
 const EASTER_EGG_CLICK_COUNT = 5
