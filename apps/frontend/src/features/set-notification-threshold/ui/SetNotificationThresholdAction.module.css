@@ -12,26 +12,6 @@
   column-gap: 16px;
 }
 
-.separatedRow {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid #eceae4;
-}
-
-.row > label {
-  flex: 0 0 auto;
-  margin-top: 3px;
-}
-
-.row > label > span:last-child {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-
 .notificationCopy {
   min-width: 0;
 }
