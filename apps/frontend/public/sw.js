@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'maeum-itda-shell-v3'
+const SHELL_CACHE = 'maeum-itda-shell-v4'
 const SHELL_ASSETS = [
   '/',
   '/manifest.webmanifest',
