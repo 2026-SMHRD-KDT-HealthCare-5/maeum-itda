@@ -31,8 +31,8 @@
   flex: none;
   width: 44px;
   height: 26px;
-  border-radius: 999px;
-  background: #dce2df;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
   transition: background-color 0.18s ease;
 }
 
@@ -54,7 +54,7 @@
 }
 
 .input:focus-visible + .track {
-  box-shadow: 0 0 0 3px rgba(31, 111, 84, 0.14);
+  box-shadow: var(--focus-ring);
 }
 
 .input:checked + .track::before {
@@ -63,7 +63,7 @@
 
 .label {
   font-size: 14px;
-  color: #59635f;
+  color: var(--color-text-secondary);
 }
 
 .labelHidden {

@@ -1,7 +1,7 @@
 .button {
   width: 100%;
   height: 56px;
-  border-radius: 15px;
+  border-radius: var(--radius-md);
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -16,7 +16,7 @@
 
 .button:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 4px rgba(31, 111, 84, 0.14);
+  box-shadow: var(--focus-ring);
 }
 
 .button:disabled {
@@ -27,7 +27,7 @@
 .primary {
   background: var(--primary);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(31, 111, 84, 0.2);
+  box-shadow: 0 7px 16px rgba(31, 111, 84, 0.18);
 }
 
 .primary:hover:not(:disabled) {
@@ -39,8 +39,8 @@
 }
 
 .outline {
-  background: #fff;
-  border-color: #d7e4de;
+  background: var(--color-surface-primary);
+  border-color: var(--color-border-strong);
   color: var(--primary);
 }
 
