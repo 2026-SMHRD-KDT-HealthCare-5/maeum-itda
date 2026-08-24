@@ -1,6 +1,7 @@
 /*
 역할: 시니어 음성 metadata와 접수 ACK payload를 공유한다.
 연결 흐름: audio:metadata → binary frame → NestJS DB 저장 → audio:ack
+말하는 중 부분 전사: audio:pcm → NestJS → FastAPI live STT → audio:partial
 */
 import type { AudioEndType } from './common'
 
@@ -13,11 +14,25 @@ export interface AudioMetadataPayload {
   endType: AudioEndType
 }
 
+// 발화 중 PCM16 LE mono(24kHz) 청크. NestJS가 FastAPI /analysis/stt/live 로 중계한다.
+export interface AudioPcmPayload {
+  questionMessageId: number
+  generationId: string
+  pcmBase64: string
+}
+
 // 답변 메시지는 분석 성공 전까지 서버에 저장되지 않는다(결정사항: 분석 실패
 // 시 DB에 흔적을 남기지 않는다) — ack는 바이너리 수신 확인일 뿐 아직 실제
 // 메시지가 존재한다는 뜻이 아니라 messageId를 담지 않는다.
 export interface AudioAckPayload {
   audioTransferId: string
+}
+
+// 말하는 동안 gpt-live-transcribe가 낸 누적 부분 전사. DB에 저장하지 않으며
+// 프론트 임시 말풍선용이다. 확정 텍스트는 여전히 audio:transcript 로 온다.
+export interface AudioPartialPayload {
+  questionMessageId: number
+  content: string
 }
 
 // 답변 묶음(질문별 첫 답변 + 추가 답변) 분석이 끝나 STT(LLM 교정 포함) 결과가

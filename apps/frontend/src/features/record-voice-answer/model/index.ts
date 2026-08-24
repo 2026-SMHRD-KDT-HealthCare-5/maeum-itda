@@ -3,7 +3,13 @@ import type { AiQuestionPayload, AudioEndType, WsErrorPayload } from '../../../s
 import type { ChatSocket } from '../../../shared/api'
 import { playTtsAudioStream, type TtsPlaybackHandle } from '../../../shared/lib'
 import { sendVoiceAnswer } from '../api'
-import { createSilenceWatcher, pickSupportedAudioMimeType, type SilenceWatcherHandle } from '../lib'
+import {
+  createSilenceWatcher,
+  pickSupportedAudioMimeType,
+  startPcmStream,
+  type PcmStreamHandle,
+  type SilenceWatcherHandle,
+} from '../lib'
 
 // SeniorConversationPage가 캐릭터 이미지를 고르는 데 쓰는 상태.
 // 'question': 새 AI 질문의 TTS가 재생 중(또는 TTS가 없어 곧바로 다음 단계로 넘어가는 중)
@@ -89,6 +95,7 @@ export function useRecordVoiceAnswer({
   const chunksRef = useRef<Blob[]>([])
   const mimeTypeRef = useRef('audio/webm')
   const silenceWatcherRef = useRef<SilenceWatcherHandle | null>(null)
+  const pcmStreamRef = useRef<PcmStreamHandle | null>(null)
   const ttsPlaybackRef = useRef<TtsPlaybackHandle | null>(null)
   // '생각 중'에 분석 실패 시 같은 질문에 대한 녹음을 다시 열 신호를 기다리는
   // resolver(무한 대기 방지) — 그 외에는 이 대기를 풀 방법이 없다(2026-08-21
@@ -174,6 +181,8 @@ export function useRecordVoiceAnswer({
         const settle = (submit: boolean) => {
           if (settled) return
           settled = true
+          pcmStreamRef.current?.stop()
+          pcmStreamRef.current = null
           const question = currentQuestionRef.current
           // effect가 이미 정리된(새 질문 도착·언마운트) 뒤라면 제출하지 않는다 —
           // onstop/onerror는 비동기로 나중에 도착하므로, 그 사이 currentQuestionRef가
@@ -212,6 +221,20 @@ export function useRecordVoiceAnswer({
             setHasDetectedVoice(true)
             setPhase('listening')
             onVoiceDetected?.()
+            // 말소리가 확인된 뒤에만 live STT로 PCM을 보낸다 — 대기 중 무음이
+            // gpt-live-transcribe 환각을 일으키는 걸 줄인다.
+            if (!pcmStreamRef.current) {
+              const question = currentQuestionRef.current
+              if (question) {
+                pcmStreamRef.current = startPcmStream(stream, (pcmBase64) => {
+                  socket.sendAudioPcm({
+                    questionMessageId: question.messageId,
+                    generationId: question.generationId,
+                    pcmBase64,
+                  })
+                })
+              }
+            }
           },
         })
       })
@@ -281,6 +304,8 @@ export function useRecordVoiceAnswer({
       ttsPlaybackRef.current = null
       silenceWatcherRef.current?.stop()
       silenceWatcherRef.current = null
+      pcmStreamRef.current?.stop()
+      pcmStreamRef.current = null
       if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop()
     }
     // currentQuestion 전체가 아니라 generationId로만 키를 잡는다 — chat:restored로
@@ -324,6 +349,8 @@ export function useRecordVoiceAnswer({
 
     silenceWatcherRef.current?.stop()
     silenceWatcherRef.current = null
+    pcmStreamRef.current?.stop()
+    pcmStreamRef.current = null
     pendingEndTypeRef.current = endType
     recorder.stop()
   }

@@ -3,7 +3,7 @@
 연결 흐름: ChatsGateway → parseAuthenticatedClientEvent() → 이벤트별 Handler
 주의: binary frame은 이 parser를 거치지 않고 AudioBinaryHandler로 직접 전달한다.
 */
-import type { AudioMetadataPayload } from '@maeum-itda/shared-types';
+import type { AudioMetadataPayload, AudioPcmPayload } from '@maeum-itda/shared-types';
 import type {
   ClientWsRequestEvent,
   WsErrorCode,
@@ -34,8 +34,12 @@ export type AudioMetadataEvent = ClientEvent<
   'audio:metadata',
   AudioMetadataPayload
 >;
+export type AudioPcmEvent = ClientEvent<'audio:pcm', AudioPcmPayload>;
 export type AuthenticatedClientEvent =
-  ChatStartEvent | ChatEndEvent | AudioMetadataEvent;
+  | ChatStartEvent
+  | ChatEndEvent
+  | AudioMetadataEvent
+  | AudioPcmEvent;
 
 export function parseAuthenticatedClientEvent(
   message: string,
@@ -81,6 +85,9 @@ export function parseAuthenticatedClientEvent(
     case 'audio:metadata':
       return parseAudioMetadataEvent(parsed);
 
+    case 'audio:pcm':
+      return parseAudioPcmEvent(parsed);
+
     default:
       throw new ClientWsEventParseError(
         'INVALID_EVENT',
@@ -124,6 +131,37 @@ function parseAudioMetadataEvent(
       mimeType: payload.mimeType,
       capturedAt: payload.capturedAt,
       endType: payload.endType,
+    },
+    ts: parsed.ts,
+  };
+}
+
+function parseAudioPcmEvent(
+  parsed: Record<string, unknown> & { ts: string },
+): AudioPcmEvent {
+  const payload = parsed.payload;
+  if (
+    !isRecord(payload) ||
+    !Number.isInteger(payload.questionMessageId) ||
+    Number(payload.questionMessageId) <= 0 ||
+    typeof payload.generationId !== 'string' ||
+    payload.generationId.length === 0 ||
+    typeof payload.pcmBase64 !== 'string' ||
+    payload.pcmBase64.length === 0
+  ) {
+    throw new ClientWsEventParseError(
+      'INVALID_EVENT',
+      'audio:pcm',
+      '유효하지 않은 audio:pcm 이벤트입니다.',
+    );
+  }
+
+  return {
+    event: 'audio:pcm',
+    payload: {
+      questionMessageId: Number(payload.questionMessageId),
+      generationId: payload.generationId,
+      pcmBase64: payload.pcmBase64,
     },
     ts: parsed.ts,
   };

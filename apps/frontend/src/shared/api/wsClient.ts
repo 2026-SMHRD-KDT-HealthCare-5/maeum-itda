@@ -82,6 +82,15 @@ export class ChatSocket {
     this.socket?.send(buffer)
   }
 
+  // 발화 중 pcm16 LE mono(24kHz) 청크 — NestJS가 FastAPI live STT로 중계한다.
+  sendAudioPcm(payload: {
+    questionMessageId: number
+    generationId: string
+    pcmBase64: string
+  }): void {
+    this.sendJson('audio:pcm', payload)
+  }
+
   on<E extends ServerEventName>(event: E, listener: Listener<E>): void {
     this.listenersFor(event).add(listener as Listener<never>)
   }

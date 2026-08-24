@@ -6,10 +6,15 @@
 */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import WebSocket from 'ws';
 import {
   QuestionAnswerAnalysisResult,
   QuestionAnswerBatch,
 } from './dto/audio-analysis.contract';
+import {
+  LiveSttSession,
+  type LiveSttSessionCallbacks,
+} from './live-stt.session';
 import { validateQuestionAnswerAnalysisResponse } from './validators/audio-analysis-response.validator';
 
 const FAST_API_RETRY_DELAY_MS = 500;
@@ -36,6 +41,36 @@ export class AiClient {
   // [완료] 실제 네트워크 상태가 아니라 FastAPI 주소 설정 여부만 반환한다.
   isConfigured(): boolean {
     return this.baseUrl !== undefined && this.baseUrl.length > 0;
+  }
+
+  // 발화 중 부분 전사용. FastAPI /analysis/stt/live 에 연결한다.
+  openLiveSttSession(
+    callbacks: LiveSttSessionCallbacks,
+  ): Promise<LiveSttSession> {
+    if (!this.isConfigured() || this.baseUrl === undefined) {
+      return Promise.reject(
+        new Error('FastAPI 음성 분석 서버 주소가 설정되지 않았습니다.'),
+      );
+    }
+
+    const wsUrl = `${this.baseUrl.replace(/\/$/, '').replace(/^http/i, 'ws')}/analysis/stt/live`;
+    return new Promise((resolve, reject) => {
+      const socket = new WebSocket(wsUrl);
+      const onOpen = () => {
+        cleanup();
+        resolve(new LiveSttSession(socket, callbacks));
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Error('FastAPI live STT WebSocket 연결에 실패했습니다.'));
+      };
+      const cleanup = () => {
+        socket.off('open', onOpen);
+        socket.off('error', onError);
+      };
+      socket.once('open', onOpen);
+      socket.once('error', onError);
+    });
   }
 
   // 역할: answers 순서를 유지하며 반복 audioFiles/messageIds 필드로 한 질문의 모든 음성을 보낸다.

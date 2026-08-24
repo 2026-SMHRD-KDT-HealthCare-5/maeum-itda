@@ -427,6 +427,44 @@ NestJS → Frontend:
 - **[결정사항] 답변 메시지는 이 시점에 DB에 저장되지 않는다** — `audio:ack`는 바이너리를 정상적으로 접수해 질문별 큐에 등록했다는 확인일 뿐이며, `messageId`를 포함하지 않는다(분석이 성공하기 전에는 실제 DB ID가 존재하지 않는다). 실제 메시지는 §6.3의 `audio:transcript`로 분석 성공이 확정된 시점에야 처음 생성된다.
 - 같은 `audioTransferId`를 재전송하면 큐에 다시 등록하지 않고 기존 ACK를 다시 보낸다.
 
+### 4.3.1 `audio:pcm` / `audio:partial` (live STT)
+
+| 구분      | 내용 |
+| --------- | ---- |
+| 요청 주체 | Frontend |
+| 처리 주체 | NestJS `AudioLiveHandler` → FastAPI `/analysis/stt/live` → OpenAI `gpt-live-transcribe` |
+| 응답 주체 | NestJS |
+
+Frontend → NestJS (발화 감지 후, 녹음이 끝날 때까지 반복):
+
+```json
+{
+  "event": "audio:pcm",
+  "payload": {
+    "questionMessageId": 101,
+    "generationId": "550e8400-e29b-41d4-a716-446655440000",
+    "pcmBase64": "<pcm16-le-mono-24kHz chunk>"
+  },
+  "ts": "2026-08-12T06:00:04.050Z"
+}
+```
+
+NestJS → Frontend (누적 부분 전사, DB 미저장):
+
+```json
+{
+  "event": "audio:partial",
+  "payload": {
+    "questionMessageId": 101,
+    "content": "오늘 산책"
+  },
+  "ts": "2026-08-12T06:00:04.120Z"
+}
+```
+
+- 확정 답변 말풍선·DB 저장은 여전히 §6.3 `audio:transcript`다. `audio:partial`은 말하는 중 자막용이며 분석 성공 시 확정 텍스트로 교체된다.
+- 배치 분석 STT도 같은 `gpt-live-transcribe` 모델을 쓴다(녹음 파일을 PCM으로 디코딩해 Realtime 세션에 append→commit).
+
 ### 4.4 `chat:idle-warning`
 
 | 구분      | 내용                           |

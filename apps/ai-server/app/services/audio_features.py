@@ -44,6 +44,18 @@ class AudioFeatureExtractionError(RuntimeError):
     """오디오 디코딩 등 추출 과정에서 신뢰할 수 없는 결과가 나왔을 때 발생한다."""
 
 
+LIVE_STT_SAMPLE_RATE = 24000  # OpenAI Realtime transcription 입력 포맷(pcm16 / 24kHz)
+
+
+def to_pcm16le_mono(audio_bytes: bytes, sample_rate: int = LIVE_STT_SAMPLE_RATE) -> bytes:
+    """녹음 파일(WebM/WAV 등)을 gpt-live-transcribe가 받는 PCM16 LE mono 바이트로 바꾼다."""
+    waveform = _decode_audio(audio_bytes, sample_rate)
+    if waveform.size == 0:
+        raise AudioFeatureExtractionError("Decoded audio is empty")
+    clipped = np.clip(np.round(waveform * 32767.0), -32768, 32767)
+    return clipped.astype(np.int16).tobytes()
+
+
 def _decode_audio(audio_bytes: bytes, sample_rate: int) -> np.ndarray:
     """WAV/WebM/Opus를 mono float32 PCM으로 정규화한다."""
     try:

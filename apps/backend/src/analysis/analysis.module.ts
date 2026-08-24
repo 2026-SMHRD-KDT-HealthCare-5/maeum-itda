@@ -42,6 +42,6 @@ import { AnalysisContextRepository } from './repositories/analysis-context.repos
     TemporaryAudioRepository,
     AnalysisContextRepository,
   ],
-  exports: [AnalysisService, TtsClient],
+  exports: [AnalysisService, TtsClient, AiClient],
 })
 export class AnalysisModule {}

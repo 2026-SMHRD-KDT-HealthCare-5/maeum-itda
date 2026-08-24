@@ -14,6 +14,7 @@ import { AccessTokenPayload } from '../auth/auth.service';
 import { ChatAuthHandler } from './handlers/chat-auth.handler';
 import { ChatStartHandler } from './handlers/chat-start.handler';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
+import { AudioLiveHandler } from './handlers/audio-live.handler';
 import { rawDataToString, sendWsError, sendWsEvent } from './ws-event';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioBinaryHandler } from './handlers/audio-binary.handler';
@@ -52,6 +53,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly chatStartHandler: ChatStartHandler; // 인증 후 대화 시작 처리 객체
   private readonly chatEndHandler: ChatEndHandler; // 시니어 수동 대화 종료 처리 객체
   private readonly audioMetadataHandler: AudioMetadataHandler; // 음성 메타데이터 처리 객체
+  private readonly audioLiveHandler: AudioLiveHandler; // 발화 중 live STT 중계 객체
   private readonly audioBinaryHandler: AudioBinaryHandler; // 음성 바이너리 처리 객체
   private readonly chatConnectionStateService: ChatConnectionStateService; // 연결별 현재 질문 관리 객체
   private readonly chatInactivityService: ChatInactivityService; // 무응답 안내·자동 종료 타이머 객체
@@ -68,6 +70,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     chatStartHandler: ChatStartHandler,
     chatEndHandler: ChatEndHandler,
     audioMetadataHandler: AudioMetadataHandler,
+    audioLiveHandler: AudioLiveHandler,
     audioBinaryHandler: AudioBinaryHandler,
     chatConnectionStateService: ChatConnectionStateService,
     chatInactivityService: ChatInactivityService,
@@ -78,6 +81,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.chatStartHandler = chatStartHandler;
     this.chatEndHandler = chatEndHandler;
     this.audioMetadataHandler = audioMetadataHandler;
+    this.audioLiveHandler = audioLiveHandler;
     this.audioBinaryHandler = audioBinaryHandler;
     this.chatConnectionStateService = chatConnectionStateService;
     this.chatInactivityService = chatInactivityService;
@@ -110,6 +114,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (context !== undefined) clearTimeout(context.authTimeout);
     this.connectionContexts.delete(client);
     this.audioMetadataHandler.clearClient(client);
+    this.audioLiveHandler.clearClient(client);
     this.audioBinaryHandler.clearClient(client);
     this.chatConnectionStateService.clearClient(client);
     this.chatInactivityService.clearClient(client);
@@ -219,6 +224,7 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     isBinary: boolean,
   ): void {
     if (isBinary) {
+      this.audioLiveHandler.clearClient(client);
       void this.audioBinaryHandler.handleAudioBinary(client, data);
       return;
     }
@@ -242,6 +248,11 @@ export class ChatsGateway implements OnGatewayConnection, OnGatewayDisconnect {
           parsedEvent,
         );
         if (accepted) this.chatInactivityService.markAnswerStarted(client);
+        return;
+      }
+
+      if (parsedEvent.event === 'audio:pcm') {
+        this.audioLiveHandler.handleAudioPcm(client, parsedEvent.payload);
         return;
       }
 
