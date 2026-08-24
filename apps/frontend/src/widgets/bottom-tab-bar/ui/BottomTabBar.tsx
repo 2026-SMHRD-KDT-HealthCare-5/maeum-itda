@@ -1,4 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
 import { NavLink } from 'react-router-dom'
+import { fetchNotifications, NOTIFICATIONS_QUERY_KEY } from '../../../entities/notification'
 import styles from './BottomTabBar.module.css'
 
 export interface TabItem {
@@ -60,6 +62,15 @@ function TabIcon({ icon }: { icon: TabItem['icon'] }) {
 // items를 주입해주는 방식으로 둔다 (widgets는 features/entities를
 // 조합하지만, role 분기 자체는 pages 책임).
 export function BottomTabBar({ items }: { items: TabItem[] }) {
+  const hasNotificationTab = items.some((item) => item.icon === 'notification')
+  const notificationsQuery = useQuery({
+    queryKey: NOTIFICATIONS_QUERY_KEY,
+    queryFn: fetchNotifications,
+    enabled: hasNotificationTab,
+    staleTime: 30_000,
+  })
+  const unreadCount = notificationsQuery.data?.unreadCount ?? 0
+
   return (
     <nav className={styles.nav} aria-label="주요 메뉴">
       {items.map((item) => (
@@ -68,9 +79,20 @@ export function BottomTabBar({ items }: { items: TabItem[] }) {
           end={item.to === '/senior' || item.to === '/guardian'}
           key={item.to}
           to={item.to}
+          viewTransition
+          aria-label={
+            item.icon === 'notification' && unreadCount > 0
+              ? `${item.label}, 읽지 않은 알림 ${unreadCount}개`
+              : item.label
+          }
         >
           <span className={styles.iconWrap}>
             <TabIcon icon={item.icon} />
+            {item.icon === 'notification' && unreadCount > 0 && (
+              <span className={styles.badge} aria-hidden="true">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </span>
           <span className={styles.label}>{item.label}</span>
         </NavLink>

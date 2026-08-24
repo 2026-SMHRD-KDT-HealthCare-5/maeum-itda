@@ -10,11 +10,13 @@
   padding: 9px 10px max(11px, env(safe-area-inset-bottom));
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  border: 1px solid rgba(37, 51, 45, 0.07);
+  border: 1px solid var(--color-border-subtle);
   border-bottom: 0;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   background: rgba(255, 253, 250, 0.96);
-  box-shadow: 0 -8px 28px rgba(37, 51, 45, 0.09);
+  box-shadow:
+    0 -1px 0 rgba(255, 255, 255, 0.75),
+    0 -10px 30px rgba(37, 51, 45, 0.09);
   backdrop-filter: blur(20px);
 }
 
@@ -36,6 +38,7 @@
 }
 
 .iconWrap {
+  position: relative;
   display: grid;
   width: 40px;
   height: 32px;
@@ -46,6 +49,26 @@
     background-color 160ms ease,
     box-shadow 160ms ease,
     transform 160ms ease;
+}
+
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -4px;
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  place-items: center;
+  border: 2px solid var(--color-surface-primary);
+  border-radius: 999px;
+  background: #dc5656;
+  box-shadow: 0 2px 6px rgba(127, 35, 35, 0.2);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .iconWrap svg {
@@ -90,6 +113,19 @@
 
 .active .label {
   font-weight: 800;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .active .iconWrap {
+    animation: tab-select 180ms ease-out;
+  }
+}
+
+@keyframes tab-select {
+  from {
+    opacity: 0.72;
+    transform: translateY(2px) scale(0.94);
+  }
 }
 
 @media (max-width: 360px) {

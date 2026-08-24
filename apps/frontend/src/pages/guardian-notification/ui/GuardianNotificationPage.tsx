@@ -4,6 +4,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  NOTIFICATIONS_QUERY_KEY,
   type Notification,
 } from '../../../entities/notification'
 import { extractApiErrorMessage } from '../../../shared/api'
@@ -11,8 +12,6 @@ import { useDelayedPending } from '../../../shared/lib'
 import { Button, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './GuardianNotificationPage.module.css'
-
-const NOTIFICATIONS_QUERY_KEY = ['notifications']
 
 // GUARDIAN_NOTIFICATION_01 (UC-11) — GET /notifications, PATCH .../read 실연동.
 export function GuardianNotificationPage() {

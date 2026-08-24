@@ -172,6 +172,30 @@ body {
   background: var(--app-bg);
 }
 
+/* 하단 탭의 viewTransition과 연결되며, 미지원 브라우저에서는 이 선언만 무시된다. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root) {
+    animation: 90ms ease-in both app-page-exit;
+  }
+
+  ::view-transition-new(root) {
+    animation: 180ms ease-out both app-page-enter;
+  }
+}
+
+@keyframes app-page-exit {
+  to {
+    opacity: 0.84;
+  }
+}
+
+@keyframes app-page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
 @media (min-width: 481px) {
   body {
     background-color: var(--app-bg);
