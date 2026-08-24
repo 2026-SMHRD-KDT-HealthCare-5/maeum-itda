@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAnimatedPresence } from '../../../shared/lib'
 import styles from './SelectReportWeekAction.module.css'
 
 interface SelectReportWeekActionProps {
@@ -62,6 +63,7 @@ export function SelectReportWeekAction({
   const navigate = useNavigate()
   const selectedWeek = parseDateKey(weekStart)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const calendarPresence = useAnimatedPresence(isCalendarOpen)
   const [visibleMonth, setVisibleMonth] = useState(() => selectedWeek ?? new Date())
 
   function selectWeek(date: Date) {
@@ -127,10 +129,13 @@ export function SelectReportWeekAction({
         </button>
       </div>
 
-      {isCalendarOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsCalendarOpen(false)}>
+      {calendarPresence.isRendered && (
+        <div
+          className={`${styles.modalOverlay} ${calendarPresence.isClosing ? styles.modalOverlayClosing : ''}`}
+          onClick={() => setIsCalendarOpen(false)}
+        >
           <div
-            className={styles.modal}
+            className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label="주간 리포트 날짜 선택"
@@ -157,6 +162,8 @@ export function SelectReportWeekAction({
               {calendarDates.map((date) => {
                 const hasReport = weeksWithReport.has(toDateKey(startOfWeek(date)))
                 const isSelected = date >= selectedWeek && date <= selectedEnd
+                const weekDay = date.getUTCDay()
+                const showsReportMarker = hasReport && weekDay === 1
                 const isOutsideMonth = date.getUTCMonth() !== month
                 return (
                   <button
@@ -165,8 +172,11 @@ export function SelectReportWeekAction({
                     className={[
                       styles.dateCell,
                       isOutsideMonth ? styles.outsideMonth : '',
-                      hasReport ? styles.hasReport : '',
+                      showsReportMarker ? styles.hasReport : '',
                       isSelected ? styles.selectedWeek : '',
+                      isSelected && weekDay === 1 ? styles.selectedWeekStart : '',
+                      isSelected && weekDay === 6 ? styles.selectedWeekRowEnd : '',
+                      isSelected && weekDay === 0 ? styles.selectedWeekEnd : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
@@ -180,8 +190,14 @@ export function SelectReportWeekAction({
               })}
             </div>
             <div className={styles.legend}>
-              <span>● 주간 리포트 있음</span>
-              <span>○ 리포트 없음</span>
+              <span className={styles.legendItem}>
+                <i className={styles.reportLegendDot} aria-hidden="true" />
+                주간 리포트 있음
+              </span>
+              <span className={styles.legendItem}>
+                <i className={styles.selectedWeekLegend} aria-hidden="true" />
+                선택한 주
+              </span>
             </div>
           </div>
         </div>

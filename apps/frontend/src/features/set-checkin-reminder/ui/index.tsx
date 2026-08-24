@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAnimatedPresence } from '../../../shared/lib'
 import { InlineFeedback, Toggle, type InlineFeedbackTone } from '../../../shared/ui'
 import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
@@ -30,6 +31,7 @@ export function SetCheckinReminderAction({
   onRequestPushUnsubscribe,
 }: SetCheckinReminderActionProps) {
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false)
+  const timeModalPresence = useAnimatedPresence(isTimeModalOpen)
   const [hour, minute] = value.time.split(':').map(Number)
   const timePeriod = hour < 12 ? '오전' : '오후'
   const displayHour = hour % 12 || 12
@@ -117,10 +119,13 @@ export function SetCheckinReminderAction({
         </button>
       </div>
 
-      {isTimeModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsTimeModalOpen(false)}>
+      {timeModalPresence.isRendered && (
+        <div
+          className={`${styles.modalOverlay} ${timeModalPresence.isClosing ? styles.modalOverlayClosing : ''}`}
+          onClick={() => setIsTimeModalOpen(false)}
+        >
           <div
-            className={styles.modal}
+            className={`${styles.modal} ${timeModalPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
             aria-labelledby="reminder-time-title"

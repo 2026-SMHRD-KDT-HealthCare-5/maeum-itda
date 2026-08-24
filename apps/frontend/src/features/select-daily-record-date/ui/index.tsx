@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAnimatedPresence } from '../../../shared/lib'
 import { formatKoreanDate, getCalendarDates, isSameDate, toDateKey } from '../model'
 import styles from './SelectDailyRecordDateAction.module.css'
 
@@ -17,6 +18,7 @@ export function SelectDailyRecordDateAction({
   datesWithConversation,
 }: SelectDailyRecordDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const calendarPresence = useAnimatedPresence(isCalendarOpen)
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
   )
@@ -78,10 +80,13 @@ export function SelectDailyRecordDateAction({
         </button>
       </div>
 
-      {isCalendarOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsCalendarOpen(false)}>
+      {calendarPresence.isRendered && (
+        <div
+          className={`${styles.modalOverlay} ${calendarPresence.isClosing ? styles.modalOverlayClosing : ''}`}
+          onClick={() => setIsCalendarOpen(false)}
+        >
           <div
-            className={styles.modal}
+            className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
             aria-label="날짜 선택"
@@ -138,8 +143,7 @@ export function SelectDailyRecordDateAction({
             </div>
 
             <div className={styles.legend}>
-              <span>● 대화 기록 있음</span>
-              <span>○ 대화 기록 없음</span>
+              <span className={styles.conversationLegend}>● 대화 기록 있음</span>
             </div>
           </div>
         </div>
