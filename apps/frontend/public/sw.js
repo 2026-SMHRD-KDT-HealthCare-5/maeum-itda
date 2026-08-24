@@ -1,5 +1,13 @@
-const SHELL_CACHE = 'maeum-itda-shell-v2'
-const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/favicon.svg']
+const SHELL_CACHE = 'maeum-itda-shell-v3'
+const SHELL_ASSETS = [
+  '/',
+  '/manifest.webmanifest',
+  '/pwa/favicon-32.png',
+  '/pwa/apple-touch-icon.png',
+  '/pwa/icon-192.png',
+  '/pwa/icon-512.png',
+  '/pwa/icon-maskable-512.png',
+]
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)))
@@ -40,7 +48,7 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(payload.title, {
       body: payload.body,
-      icon: '/favicon.svg',
+      icon: '/pwa/icon-192.png',
       tag: payload.tag,
       data: { url: payload.url },
     }),

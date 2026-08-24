@@ -12,8 +12,8 @@ import {
   type RegisterAccountValues,
   type RegisterRole,
 } from '../model'
-import guardianRoleImage from '../../../shared/assets/illustrations/guardian-couple.png'
-import seniorRoleImage from '../../../shared/assets/illustrations/senior-couple.png'
+import guardianRoleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
+import seniorRoleImage from '../../../shared/assets/illustrations/senior-couple.webp'
 import styles from './RegisterAccountAction.module.css'
 
 const initialValues: RegisterAccountValues = {

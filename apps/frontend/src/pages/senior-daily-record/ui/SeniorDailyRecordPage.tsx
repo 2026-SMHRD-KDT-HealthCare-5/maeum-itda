@@ -13,7 +13,7 @@ import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
-import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
+import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import styles from './SeniorDailyRecordPage.module.css'
 
 // UC-14/FR-01-09 — GET /chats/messages?date=, /chats/calendar 실연동. 백엔드가

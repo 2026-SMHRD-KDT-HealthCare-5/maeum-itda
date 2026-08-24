@@ -8,7 +8,7 @@ import {
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, LoadingSpinner } from '../../../shared/ui'
-import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.png'
+import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import styles from './GuardianHomePage.module.css'

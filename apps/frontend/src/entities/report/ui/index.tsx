@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import emotionBadImage from '../../../shared/assets/character/character-daseul-emotion-bad.png'
-import emotionGoodImage from '../../../shared/assets/character/character-daseul-emotion-good.png'
-import emotionNormalImage from '../../../shared/assets/character/character-daseul-emotion-normal.png'
-import emotionNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
+import emotionBadImage from '../../../shared/assets/character/character-daseul-emotion-bad.webp'
+import emotionGoodImage from '../../../shared/assets/character/character-daseul-emotion-good.webp'
+import emotionNormalImage from '../../../shared/assets/character/character-daseul-emotion-normal.webp'
+import emotionNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import { getEmotionLevel, type EmotionLevel } from '../model'
 import styles from './ReportCards.module.css'
 

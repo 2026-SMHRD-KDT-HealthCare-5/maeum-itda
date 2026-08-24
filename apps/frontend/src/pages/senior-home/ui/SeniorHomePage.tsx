@@ -8,7 +8,7 @@ import {
 import { useSession } from '../../../entities/user'
 import { StartConversationAction } from '../../../features/start-conversation'
 import { ViewAttendanceCalendarAction } from '../../../features/view-attendance-calendar'
-import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.png'
+import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './SeniorHomePage.module.css'
 

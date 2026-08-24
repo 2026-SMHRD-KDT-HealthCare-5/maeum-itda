@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import characterImage from '../../../shared/assets/character/character-daseul-404.png'
+import characterImage from '../../../shared/assets/character/character-daseul-404.webp'
 import { useSession } from '../../../entities/user'
 import { Button } from '../../../shared/ui'
 import styles from './NotFoundPage.module.css'

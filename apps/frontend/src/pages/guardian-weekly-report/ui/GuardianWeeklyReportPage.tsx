@@ -10,8 +10,8 @@ import {
   type WeeklyReport,
 } from '../../../entities/report'
 import { SelectReportWeekAction } from '../../../features/select-report-week'
-import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.png'
-import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.png'
+import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
+import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, LoadingSpinner } from '../../../shared/ui'
