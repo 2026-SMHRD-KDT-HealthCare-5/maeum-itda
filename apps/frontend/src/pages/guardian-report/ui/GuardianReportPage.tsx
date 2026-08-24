@@ -15,7 +15,6 @@ import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, LoadingSpinner } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
-import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.webp'
 import { ConversationTimeline } from '../../../widgets/conversation-timeline'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { ReportPeriodTabs } from '../../../widgets/report-period-tabs'
@@ -75,6 +74,13 @@ export function GuardianReportPage() {
   const report =
     resolvedDateKey === dateKey && resolvedView?.kind === 'found' ? resolvedView.report : null
   const reportMissing = resolvedDateKey === dateKey && resolvedView?.kind === 'missing'
+  const hasAnalysis = Boolean(
+    report &&
+    (report.emotionScore !== null ||
+      report.conversationSummary ||
+      report.recommendedAction ||
+      report.evidenceSentences.length > 0),
+  )
 
   function selectDate(date: Date) {
     setSelectedDate(date)
@@ -90,7 +96,7 @@ export function GuardianReportPage() {
         <SelectReportDateAction
           selectedDate={selectedDate}
           onSelectDate={selectDate}
-          datesWithReport={calendarQuery.data?.datesWithDailyReport ?? new Set()}
+          reportStatusByDate={calendarQuery.data?.dailyReportStatusByDate ?? new Map()}
           onVisibleMonthChange={setCalendarMonth}
         />
 
@@ -109,34 +115,66 @@ export function GuardianReportPage() {
           </div>
         )}
 
-        {report && (
+        {report && hasAnalysis && (
           <>
-            <Card className={styles.scoreCard}>
-              <EmotionScoreCard
-                title="이날의 정서 지수"
-                score={report.emotionScore}
-                level={report.emotionLevel}
-                comment={report.conversationSummary}
-                variant="dashboard"
-              />
-            </Card>
-
-            <ConversationTimeline evidences={report.evidenceSentences} />
-
-            <section className={styles.summarySection} aria-label="이날의 대화 요약">
-              <Card className={styles.summaryCard}>
-                <ConversationSummaryCard summary={report.conversationSummary} />
+            {report.emotionScore !== null && (
+              <Card className={styles.scoreCard}>
+                <EmotionScoreCard
+                  title="이날의 정서 지수"
+                  score={report.emotionScore}
+                  level={report.emotionLevel}
+                  comment={report.conversationSummary}
+                  variant="dashboard"
+                />
               </Card>
-              <img className={styles.summaryCharacter} src={daseulSummaryImage} alt="" />
-            </section>
+            )}
 
-            <section className={styles.recommendationSection} aria-label="다슬이의 한마디">
-              <img className={styles.recommendationCharacter} src={daseulGuideImage} alt="" />
-              <Card className={styles.recommendationCard}>
-                <RecommendedActionCard action={report.recommendedAction} variant="report" />
-              </Card>
-            </section>
+            {report.evidenceSentences.length > 0 && (
+              <ConversationTimeline evidences={report.evidenceSentences} />
+            )}
+
+            {report.conversationSummary && (
+              <section className={styles.summarySection} aria-label="이날의 대화 요약">
+                <Card className={styles.summaryCard}>
+                  <ConversationSummaryCard summary={report.conversationSummary} />
+                </Card>
+              </section>
+            )}
+
+            {report.recommendedAction && (
+              <section className={styles.recommendationSection} aria-label="다슬이의 한마디">
+                <img className={styles.recommendationCharacter} src={daseulGuideImage} alt="" />
+                <Card className={styles.recommendationCard}>
+                  <RecommendedActionCard action={report.recommendedAction} variant="report" />
+                </Card>
+              </section>
+            )}
           </>
+        )}
+
+        {report && !hasAnalysis && (
+          <section className={styles.emptyState} aria-labelledby="analysis-empty-title">
+            <img
+              className={styles.emptyCharacter}
+              src={daseulNoDataImage}
+              alt="분석 결과를 기다리는 다슬"
+            />
+            <h2 id="analysis-empty-title" className={styles.emptyTitle}>
+              분석 결과가 생성되지 않았어요
+            </h2>
+            <p className={styles.emptyHint}>
+              대화 기록은 안전하게 저장됐어요. 분석할 답변이 충분하지 않았거나 처리 중 문제가 있었을
+              수 있어요.
+            </p>
+            <Button
+              type="button"
+              className={styles.analysisRetryButton}
+              onClick={() => dailyReportQuery.refetch()}
+              disabled={dailyReportQuery.isFetching}
+            >
+              {dailyReportQuery.isFetching ? '확인 중…' : '분석 결과 다시 확인'}
+            </Button>
+          </section>
         )}
 
         {reportMissing && (

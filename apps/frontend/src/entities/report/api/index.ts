@@ -80,14 +80,16 @@ export async function fetchWeeklyReport(weekStart: string): Promise<WeeklyReport
 
 // 보호자 리포트 화면들의 날짜/주 네비게이션이 "리포트가 있는 날"을 표시하는 데 쓴다.
 export interface ReportCalendar {
-  datesWithDailyReport: Set<string>
+  dailyReportStatusByDate: Map<string, 'WAITING' | 'COMPLETED' | 'FAILED'>
   weekStartsWithWeeklyReport: Set<string>
 }
 
 export async function fetchReportCalendar(year: number, month: number): Promise<ReportCalendar> {
   const { data } = await apiClient.reports.reportsControllerGetReportCalendar({ year, month })
   return {
-    datesWithDailyReport: new Set(data.dailyReports.map((item) => item.date)),
+    dailyReportStatusByDate: new Map(
+      data.dailyReports.map((item) => [item.date, item.generationStatus]),
+    ),
     weekStartsWithWeeklyReport: new Set(data.weeklyReports.map((item) => item.weekStart)),
   }
 }
