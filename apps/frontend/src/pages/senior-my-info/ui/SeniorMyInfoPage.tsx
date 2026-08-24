@@ -139,10 +139,15 @@ export function SeniorMyInfoPage() {
                 phone: formatPhoneNumber(profile.phone),
               }}
               onSave={(next) => updateProfileMutation.mutate(next)}
+              onEditStart={() => updateProfileMutation.reset()}
+              feedback={
+                updateProfileMutation.isSuccess
+                  ? { tone: 'success', message: '기본 정보가 저장됐어요.' }
+                  : updateProfileMutation.isError
+                    ? { tone: 'error', message: '저장에 실패했어요. 다시 시도해주세요.' }
+                    : null
+              }
             />
-            {updateProfileMutation.isError && (
-              <p className={styles.saveError}>저장에 실패했어요. 다시 시도해주세요.</p>
-            )}
           </Card>
 
           <Card className={styles.connectionCard}>

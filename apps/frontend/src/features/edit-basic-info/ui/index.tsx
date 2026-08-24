@@ -10,6 +10,8 @@ import styles from './EditBasicInfoAction.module.css'
 interface EditBasicInfoActionProps {
   values: BasicInfoValues
   onSave: (next: Pick<BasicInfoValues, 'name' | 'phone'>) => void
+  onEditStart?: () => void
+  feedback?: { tone: 'success' | 'error'; message: string } | null
   variant?: 'default' | 'guardian'
 }
 
@@ -18,6 +20,8 @@ interface EditBasicInfoActionProps {
 export function EditBasicInfoAction({
   values,
   onSave,
+  onEditStart,
+  feedback,
   variant = 'default',
 }: EditBasicInfoActionProps) {
   const [isEditing, setIsEditing] = useState(false)
@@ -25,6 +29,7 @@ export function EditBasicInfoAction({
   const [errors, setErrors] = useState<BasicInfoErrors>({})
 
   function startEditing() {
+    onEditStart?.()
     setDraft({ name: values.name, phone: values.phone })
     setErrors({})
     setIsEditing(true)
@@ -102,6 +107,19 @@ export function EditBasicInfoAction({
         </div>
         {isEditing && errors.phone && <p className={styles.error}>{errors.phone}</p>}
       </div>
+
+      {feedback && !isEditing && (
+        <p
+          className={[
+            styles.feedback,
+            feedback.tone === 'success' ? styles.feedbackSuccess : styles.feedbackError,
+          ].join(' ')}
+          role={feedback.tone === 'error' ? 'alert' : 'status'}
+        >
+          <span aria-hidden="true">{feedback.tone === 'success' ? '✓' : '!'}</span>
+          {feedback.message}
+        </p>
+      )}
 
       {isEditing && (
         <button type="button" className={styles.doneButton} onClick={handleDone}>
