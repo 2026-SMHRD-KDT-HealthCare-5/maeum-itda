@@ -14,7 +14,7 @@ import daseulGuideImage from '../../../shared/assets/character/character-daseul-
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'
 import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Button, Card, LoadingSpinner } from '../../../shared/ui'
+import { Button, Card, Skeleton } from '../../../shared/ui'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import { ReportPeriodTabs } from '../../../widgets/report-period-tabs'
@@ -85,8 +85,11 @@ export function GuardianWeeklyReportPage() {
         />
 
         {showSpinner && (
-          <div className={styles.loadingState}>
-            <LoadingSpinner label="리포트를 불러오고 있어요" />
+          <div className={styles.loadingState} role="status" aria-live="polite">
+            <span className={styles.loadingLabel}>리포트를 불러오고 있어요</span>
+            <Skeleton className={styles.trendSkeleton} />
+            <Skeleton className={styles.recommendationSkeleton} />
+            <Skeleton className={styles.listSkeleton} />
           </div>
         )}
 
