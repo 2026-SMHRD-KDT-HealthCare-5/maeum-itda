@@ -89,61 +89,6 @@
   text-align: right;
 }
 
-.feedback {
-  display: flex;
-  margin: 14px 0 0;
-  padding: 11px 13px;
-  align-items: center;
-  gap: 8px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.4;
-  animation: feedback-enter 180ms ease-out both;
-}
-
-.feedback span {
-  display: grid;
-  width: 20px;
-  height: 20px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 11px;
-}
-
-.feedbackSuccess {
-  background: var(--primary-tint);
-  color: var(--primary);
-}
-
-.feedbackSuccess span {
-  background: var(--primary);
-}
-
-.feedbackError {
-  background: var(--danger-bg);
-  color: var(--danger);
-}
-
-.feedbackError span {
-  background: var(--danger);
-}
-
-@keyframes feedback-enter {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .feedback {
-    animation: none;
-  }
-}
-
 .doneButton {
   min-width: 82px;
   min-height: 44px;

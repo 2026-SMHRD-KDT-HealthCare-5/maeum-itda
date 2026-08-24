@@ -80,6 +80,7 @@ export function GuardianMyInfoPage() {
   const pushSubscription = usePushSubscription()
 
   function handleNotificationChange(next: NotificationThresholdValue) {
+    updateNotificationMutation.reset()
     setNotificationDraft(next)
     if (notificationSaveTimer.current) clearTimeout(notificationSaveTimer.current)
     notificationSaveTimer.current = setTimeout(() => {
@@ -238,9 +239,19 @@ export function GuardianMyInfoPage() {
                 value={displayedNotification}
                 onChange={handleNotificationChange}
                 feedback={
-                  updateNotificationMutation.isError
-                    ? extractApiErrorMessage(updateNotificationMutation.error, '저장에 실패했어요.')
-                    : null
+                  updateNotificationMutation.isPending
+                    ? { tone: 'info', message: '알림 기준을 저장하고 있어요.' }
+                    : updateNotificationMutation.isSuccess
+                      ? { tone: 'success', message: '알림 기준이 저장됐어요.' }
+                      : updateNotificationMutation.isError
+                        ? {
+                            tone: 'error',
+                            message: extractApiErrorMessage(
+                              updateNotificationMutation.error,
+                              '저장에 실패했어요.',
+                            ),
+                          }
+                        : null
                 }
                 pushPermissionDenied={pushSubscription.status === 'permission-denied'}
                 pushBusy={pushSubscription.isBusy}

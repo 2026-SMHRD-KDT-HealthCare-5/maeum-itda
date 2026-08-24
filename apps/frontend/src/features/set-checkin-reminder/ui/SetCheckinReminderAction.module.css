@@ -25,17 +25,6 @@
   word-break: keep-all;
 }
 
-.feedback {
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: #fff4f1;
-  color: #bd4938;
-  font-size: 12px;
-  line-height: 1.55;
-  word-break: keep-all;
-}
-
 .timeRow {
   display: flex;
   align-items: center;

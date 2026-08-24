@@ -66,6 +66,7 @@ export function SeniorMyInfoPage() {
   const pushSubscription = usePushSubscription()
 
   function handleCheckinChange(next: CheckinReminderValue) {
+    updateCheckinReminderMutation.reset()
     setCheckinDraft(next)
     updateCheckinReminderMutation.mutate(next, { onSettled: () => setCheckinDraft(null) })
   }
@@ -221,12 +222,19 @@ export function SeniorMyInfoPage() {
                 value={displayedCheckinReminder}
                 onChange={handleCheckinChange}
                 feedback={
-                  updateCheckinReminderMutation.isError
-                    ? extractApiErrorMessage(
-                        updateCheckinReminderMutation.error,
-                        '저장에 실패했어요.',
-                      )
-                    : null
+                  updateCheckinReminderMutation.isPending
+                    ? { tone: 'info', message: '안부 알림 설정을 저장하고 있어요.' }
+                    : updateCheckinReminderMutation.isSuccess
+                      ? { tone: 'success', message: '안부 알림 설정이 저장됐어요.' }
+                      : updateCheckinReminderMutation.isError
+                        ? {
+                            tone: 'error',
+                            message: extractApiErrorMessage(
+                              updateCheckinReminderMutation.error,
+                              '저장에 실패했어요.',
+                            ),
+                          }
+                        : null
                 }
                 pushPermissionDenied={pushSubscription.status === 'permission-denied'}
                 pushBusy={pushSubscription.isBusy}
