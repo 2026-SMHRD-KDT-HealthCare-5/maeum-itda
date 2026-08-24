@@ -4,8 +4,14 @@
 [완료] STT·감성·척도·다음 질문 생성 자체는 FastAPI 책임이며 NestJS는 전달과 영속화만 담당한다.
 [연동 대기] 실제 FastAPI 가용성은 분석 요청 결과로 확인하며 현재 메서드는 URL 설정 여부만 판단한다.
 */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import type { AccessTokenPayload } from '../auth/auth.service';
+import { UserRole } from '../users/entities/user.entity';
 import { AiClient } from './ai.client';
 import {
   CompletedAudioAnalysis,
@@ -75,5 +81,45 @@ export class AnalysisService {
 
   getStatus(messageId: number) {
     return this.analysisResultRepository.findStatus(messageId);
+  }
+
+  // 역할: REST 조회 요청자가 그 메시지의 소유 시니어 본인인지 확인한 뒤 상태를 반환한다.
+  // 메시지 자체가 없으면(다른 사람 것이 아니라 아예 존재하지 않음) null을 그대로 반환해
+  // 컨트롤러가 기존과 동일하게 404로 처리하게 한다 — 소유자가 다를 때만 403이다.
+  async getStatusForSenior(messageId: number, auth: AccessTokenPayload) {
+    this.assertSenior(auth);
+    const ownerSeniorId =
+      await this.analysisResultRepository.findMessageSeniorId(messageId);
+    if (ownerSeniorId === null) return null;
+    if (ownerSeniorId !== auth.sub) {
+      throw new ForbiddenException('본인의 메시지가 아닙니다.');
+    }
+    return this.getStatus(messageId);
+  }
+
+  // 역할: REST 재시도 요청자가 메모리에 대기 중인 그 배치의 소유 시니어 본인인지
+  // 확인한 뒤에만 processPendingAnswerBatch를 호출한다.
+  async retryPendingAnswerBatchForSenior(
+    questionMessageId: number,
+    auth: AccessTokenPayload,
+  ): Promise<CompletedAudioAnalysis | null> {
+    this.assertSenior(auth);
+    const batch =
+      this.temporaryAudioRepository.findByQuestionMessageId(questionMessageId);
+    if (batch === undefined) {
+      throw new NotFoundException(
+        '임시 보관 중인 질문별 음성 묶음이 없습니다.',
+      );
+    }
+    if (batch.seniorId !== auth.sub) {
+      throw new ForbiddenException('본인의 대화가 아닙니다.');
+    }
+    return this.processPendingAnswerBatch(questionMessageId, () => true);
+  }
+
+  private assertSenior(auth: AccessTokenPayload): void {
+    if (auth.role !== UserRole.SENIOR) {
+      throw new ForbiddenException('시니어 계정만 접근할 수 있습니다.');
+    }
   }
 }
