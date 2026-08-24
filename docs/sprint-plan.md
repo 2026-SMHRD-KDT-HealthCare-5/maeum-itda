@@ -7,11 +7,11 @@
 - 모바일 전략: PWA로 확정 — manifest+SW 등록+아이콘 완료, 폰 홈 화면 설치 가능
 - 프로토콜 기준 문서: [ws-protocol.md](ws-protocol.md) — 세션/turn 컨테이너 개념 없음, `CONVERSATION_MESSAGE` 행 단위 저장 + `generationId` 기반 무효화
 
-## 현재 상태 (2026-08-19): 기능 구현·배포 배선 완료, ai-server 배포만 대기
+## 현재 상태 (2026-08-24): 데모(8/21) 완료, 실사용 기반 안정성 하드닝 진행 중
 
-12개 화면 전부 실 API/WS 연동 완료(아래 화면 우선순위 표 참고). 안부 대화 파이프라인(STT→감정분석→척도채점→꼬리질문→TTS)은 실모드(`model`)로 end-to-end 스모크 테스트까지 마쳤다. 프론트(Vercel)·백엔드(Render) 배포 환경변수(`VITE_API_BASE_URL`/`VITE_WS_BASE_URL`, `CORS_ORIGINS`, `AI_BASE_URL`)도 전부 등록 완료. **유일하게 남은 배선은 ai-server(FastAPI) 자체의 Render 배포** — 진행 중이며, 배포되는 즉시 아래 "ai-server 배포 완료 후 확인할 것"만 확인하면 된다.
+12개 화면 전부 실 API/WS 연동 완료(아래 화면 우선순위 표 참고). 데모 목표일(2026-08-21)을 지나 2026-08-22~23에도 실기기/실사용 테스트에서 드러난 문제를 계속 고치는 중이다 — iOS Safari 음성감지 실패, 로컬 Whisper 폴백 의존성 누락, TTS 스트림 중계 크래시·wav 헤더 버그, 서버 전체 크래시 방지 안전망까지 아래 "완료됨"에 정리했다. **아래 "8/21까지 남은 작업" 절은 데모 시점 기준 스냅샷으로 남겨두되, 그 시점 이후 상황은 이 절과 "완료됨"을 우선 참고할 것.**
 
-## 남은 작업 (8/21까지)
+## 8/21까지 남은 작업 (데모 시점 스냅샷, 이후 진행 상황은 위 "완료됨" 참고)
 
 ### ai-server 배포 완료 후 확인할 것 (우선순위 1)
 
@@ -47,6 +47,9 @@
   - 프론트 `useRecordVoiceAnswer`의 `AUDIO_ANALYSIS_FAILED` 자동 재개방(`forceRecordResolverRef`)에 질문당 최대 2회 상한(`MAX_AUTO_ANALYSIS_RETRIES`) 추가 — ai-server가 계속 실패해도 발화 없는 세그먼트를 무한정 재제출해 답변 상한을 소모하지 않도록. 상한을 넘어도 VAD로 진짜 발화를 감지해 이어서 답변하는 경로는 그대로 살아있어 대화가 막히지는 않음.
   - `question-answer-queue.service.ts`의 `answerCountByQuestionMessageId`/`answerBytesByQuestionMessageId`가 처리 완료 후에도 정리되지 않아 프로세스 수명 내내 누적되던 메모리 누수 — `clearCounters()`를 추가하고, 질문이 "완전히 끝났다"고 확신되는 세 시점(다음 질문 생성 시 `AudioBinaryHandler`, 수동 종료 시 `ChatEndHandler`, 무응답 자동 종료 시 `ChatInactivityService`)에서 호출해 정리.
 - **'생각 중'(분석 중)에는 추가 발화를 듣지 않도록 설계 변경(2026-08-21)**: 예전엔 답변 제출 후 다음 질문을 기다리는 '생각 중' 구간에도 VAD로 시니어의 발화를 감지해 같은 질문의 추가 답변으로 계속 받았다(`useRecordVoiceAnswer`의 내부 while 루프) — 사용자 피드백으로 이 동작 자체가 세그먼트가 계속 쪼개지는 근본 원인이라 판단해 제거함. 이미 3초 묵음으로 이번 답변을 마쳤다고 판단했으므로, 분석 중엔 추가 발화를 받지 않고 다음 질문이 올 때까지 기다린다. `AUDIO_ANALYSIS_FAILED` 발생 시 같은 질문에 대한 녹음을 다시 여는 실패 복구 경로는 별개 목적(오류 복구)이라 그대로 유지. 더 이상 안 쓰는 `createVoiceActivityWatcher`(`record-voice-answer/lib`)도 삭제.
+- **TTS를 base64 일괄 전달에서 실시간 스트리밍으로 전환(2026-08-21)**: `tts:audio` WS 이벤트가 더 이상 오디오 자체(base64)를 담지 않고, 짧은 인증 토큰이 붙은 스트리밍 URL(`streamPath`)만 실어 보낸다. 프론트는 그 URL로 별도 인증 HTTP GET(`/chats/tts-stream`)을 열어 FastAPI `POST /tts/synthesize/stream`의 실시간 청크를 그대로 재생한다. 최초 질문·후속 질문 모두 `ai:question`을 먼저 보내고 `tts:audio`가 비동기로 뒤따르는 순서로 통일됨(상세 계약은 `docs/ws-protocol.md` §4.2/§6.4).
+- **모바일 Safari 실기기 하드닝 2차(2026-08-22)**: iOS Safari에서 사용자 탭 제스처 밖에서 만든 `AudioContext`가 `resume()` 후에도 계속 `suspended` 상태로 남아 음성감지가 조용히 죽던 문제 수정 — "안부 대화 시작하기" 버튼 클릭(확실한 사용자 제스처) 시점에 공유 `AudioContext`를 미리 깨워 대화 내내 재사용하도록 변경.
+- **AI서버/TTS 안정성 하드닝(2026-08-23)**: (1) 로컬 Whisper 폴백(faster-whisper→huggingface_hub)이 암묵적으로 필요로 하는 `requests` 의존성이 `requirements.txt`에 없어 실패하던 문제 수정. (2) TTS 스트림 중계 중 업스트림이 끊기면 처리되지 않은 `error` 이벤트로 NestJS 프로세스 전체가 죽던 문제 수정(헤더 전송 전이면 502, 전송 후면 스트림 정리). (3) TTS 스트리밍이 `TYPECAST_AUDIO_FORMAT=wav`일 때 스트리밍 특성상 무효한 헤더의 raw PCM만 남아 재생 불가능하던 문제 — 스트리밍 경로는 설정과 무관하게 항상 mp3로 고정. (4) `process.on('unhandledRejection'/'uncaughtException')` 최후 방어 안전망 추가, Render 콜드스타트 지연에 맞춰 FastAPI 호출 타임아웃 30초→45초 상향.
 
 ## 의도적으로 미룸 (데모 전 손대지 않음)
 

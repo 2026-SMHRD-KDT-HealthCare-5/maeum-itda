@@ -251,7 +251,8 @@ NestJS AnalysisService
   → MySQL CONVERSATION_MESSAGE에 다음 AI 질문 저장
   → audio:transcript(방금 저장된 실제 messageId 포함) → Frontend
   → ai:question → Frontend (TTS 합성을 기다리지 않고 텍스트부터 보낸다, 2026-08-20 변경)
-  → (비동기) NestJS AudioBinaryHandler → POST /tts/synthesize → 성공 시 tts:audio → Frontend
+  → (비동기) NestJS QuestionDeliveryService.deliverTtsToken() → tts:audio(streamPath 포함) → Frontend
+  → Frontend가 streamPath로 GET /chats/tts-stream 요청 → NestJS가 FastAPI POST /tts/synthesize/stream 응답을 그대로 중계(2026-08-21부로 base64 일괄 전달 → 실시간 스트리밍으로 전환, §6.4 참고)
 
 [7b. 분석 실패 — 아무것도 저장하지 않음]
 NestJS AnalysisService
@@ -343,7 +344,7 @@ NestJS → Frontend:
 }
 ```
 
-**이 최초 질문(chat:start)에서만** Typecast TTS 합성이 성공했으면 `ai:question` 바로 직전에 `tts:audio`를 보낸다(`QuestionDeliveryService.deliver()`가 두 이벤트의 순서를 보장한다). `messageId`로 어느 질문의 음성인지 연결한다 — 프론트는 아직 `currentQuestion`이 이 질문으로 갱신되기 전이므로, `ai:question`이 올 때까지 messageId로 잠깐 보관해뒀다가 짝지어야 한다(`pages/senior-conversation`의 구현 참고). **후속 질문(§6.3)은 순서가 반대다** — 텍스트 표시가 TTS 합성 시간만큼 늦어지지 않도록 `ai:question`을 먼저 보내고, `tts:audio`는 합성이 끝나는 대로 비동기로 뒤이어 보낸다:
+**[2026-08-21 변경] `tts:audio`는 더 이상 합성된 오디오 자체(base64)를 담지 않는다** — 최초 질문·후속 질문 모두 순서가 동일하게 통일됐다: `ai:question`(최초 질문은 `chat:started` 다음)을 먼저 보내고, `tts:audio`는 오디오를 스트리밍으로 받아올 수 있는 짧은 인증 토큰(`streamPath`)만 담아 비동기로 뒤이어 보낸다(`QuestionDeliveryService.deliverTtsToken()`, fire-and-forget). `messageId`로 어느 질문의 음성인지 연결한다:
 
 ```json
 {
@@ -351,12 +352,13 @@ NestJS → Frontend:
   "payload": {
     "ttsTransferId": "8f14e45f-...",
     "messageId": 101,
-    "base64": "//uQxAAD...",
-    "mimeType": "audio/mpeg"
+    "streamPath": "/chats/tts-stream?messageId=101&token=<30초 TTL 단기 JWT>"
   },
   "ts": "2026-08-12T06:00:01.150Z"
 }
 ```
+
+프론트는 이 `streamPath`를 `<audio src>`에 그대로 꽂아 실제 오디오 바이트를 받는다 — 오디오 자체는 WebSocket이 아니라 별도 인증 HTTP GET으로 전달된다(§6.4).
 
 ```json
 {
@@ -370,10 +372,10 @@ NestJS → Frontend:
 }
 ```
 
-- 최초 질문을 DB에 저장한 뒤 `chat:started`, (TTS 성공 시 `tts:audio`,) `ai:question` 순서로 보낸다.
+- 최초 질문을 DB에 저장한 뒤 `chat:started`, `ai:question` 순서로 먼저 보내고, `tts:audio`(streamPath)는 비동기로 뒤이어 보낸다.
 - 활성 질문이 있는데 다시 시작하면 `CHAT_ALREADY_STARTED` 오류를 보낸다.
 - `generationId`는 질문 생성 작업 단위다.
-- Typecast 호출이 실패하면 `tts:audio` 없이 `ai:question`만 보낸다 — 텍스트 질문으로 대화는 계속된다(프론트는 TTS 재생 없이 곧바로 마이크를 연다).
+- Typecast 호출이 실패하면 `tts:audio` 자체를 보내지 않는다 — 텍스트 질문으로 대화는 계속된다(프론트는 TTS 재생 없이 곧바로 마이크를 연다).
 
 ### 4.3 `audio:metadata` / binary / `audio:ack`
 
@@ -616,13 +618,20 @@ multipart를 JSON 형태로 표현하면 다음과 같다. 실제 요청은 JSON
 - transcript 두 개는 합치지 않고 프론트에서 각각 말풍선으로 표시한다.
 - 요청과 응답의 `messageId` 집합이 정확히 일치해야 한다.
 - `nextQuestion`은 문자열 또는 `null`이다.
-- **[2026-08-20 변경] 이 응답에는 더 이상 TTS가 포함되지 않는다.** 예전에는 AI 서버가 `nextQuestion`의 Typecast 합성 결과를 `ttsAudioBase64`/`ttsMimeType`으로 같은 응답에 채워 보냈지만, 그러면 화면에 다음 질문 텍스트가 뜨는 시점이 TTS 합성 시간만큼 밀렸다. 지금은 이 배치 응답이 텍스트만 담아 즉시 돌아오고, 백엔드가 텍스트 전달 후 별도로 `POST /tts/synthesize`(§7 참고, 최초 질문과 동일한 엔드포인트)를 호출해 음성을 받아 `tts:audio`로 뒤이어 전달한다(§6.3).
+- **[2026-08-20 변경] 이 응답에는 더 이상 TTS가 포함되지 않는다.** 예전에는 AI 서버가 `nextQuestion`의 Typecast 합성 결과를 `ttsAudioBase64`/`ttsMimeType`으로 같은 응답에 채워 보냈지만, 그러면 화면에 다음 질문 텍스트가 뜨는 시점이 TTS 합성 시간만큼 밀렸다. 지금은 이 배치 응답이 텍스트만 담아 즉시 돌아오고, 백엔드가 텍스트 전달 후 별도로 `POST /tts/synthesize/stream`(바로 아래 표 참고)을 호출해 스트리밍 음성을 받아 `tts:audio`(streamPath)로 뒤이어 전달한다(§6.3/§6.4).
 - 네트워크·타임아웃·HTTP 502/503/504는 500ms 후 한 번 재시도한다.
 - HTTP 4xx와 응답 계약 오류는 재시도하지 않는다.
 
+**TTS 합성 엔드포인트는 FastAPI에 두 개가 존재한다** (`/analysis/audio/batch` 응답에는 포함되지 않음):
+
+| 엔드포인트 | 요청 | 응답 |
+| --- | --- | --- |
+| `POST /tts/synthesize/stream` | `{ "text": "..." }` | HTTP 청크 스트림, `Content-Type: audio/mpeg`(설정과 무관하게 항상 mp3, 940f6f4). `ChatStartHandler`(최초 질문)·`QuestionDeliveryService.deliverTtsToken()`(후속 질문) 모두 이 엔드포인트로 통일됐다(§6.4) |
+| `POST /tts/synthesize` | `{ "text": "..." }` | `{ "ttsAudioBase64": "...", "ttsMimeType": "audio/mpeg" }` — 배치(비스트리밍) 합성. **현재 NestJS 쪽에서 이 경로를 호출해 WS 페이로드에 싣는 코드가 확인되지 않는다** — 최초 질문 경로도 스트리밍으로 통일됐으므로 실제로는 안 쓰이는 legacy 엔드포인트일 가능성이 있다(확인 필요, `apps/backend`에서 `ttsAudioBase64` 참조 여부로 재확인할 것) |
+
 ### 6.3 FastAPI 응답 이후 NestJS → Frontend
 
-FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 TTS 합성을 기다리지 않고 곧바로 `ai:question`을 보낸다(`AudioBinaryHandler.processBatchAndSendNextQuestion` → `QuestionDeliveryService.deliverQuestion`). 이후 별도로 `POST /tts/synthesize`를 호출해 음성이 준비되면 같은 `messageId`로 `tts:audio`를 뒤이어 보낸다(`deliverTtsWhenReady`) — 합성이 끝나기 전에 이미 다음 질문으로 넘어갔거나 대화가 끝났으면 늦게 온 음성은 조용히 버린다.
+FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 TTS 합성을 기다리지 않고 곧바로 `ai:question`을 보낸다(`AudioBinaryHandler.processBatchAndSendNextQuestion` → `QuestionDeliveryService.deliverQuestion`). 이후 별도로 `QuestionDeliveryService.deliverTtsToken()`이 같은 `messageId`로 `tts:audio`(streamPath, §4.2/§6.4 참고)를 비동기로 뒤이어 보낸다 — 프론트가 그 `streamPath`로 실제 요청을 보내는 시점에 이미 다음 질문으로 넘어갔거나 대화가 끝났으면 늦게 온 음성은 조용히 버린다.
 
 ```json
 {
@@ -649,6 +658,19 @@ FastAPI 응답을 검증하고 DB 저장까지 완료한 뒤 NestJS는 TTS 합�
 ```
 
 **분석 자체가 실패한 경우**(예: 무음 녹음이라 STT 결과가 없음, FastAPI 5xx 재시도 소진 등)엔 **아무것도 저장되지 않으므로 `audio:transcript` 자체를 보내지 않는다** — 실패한 답변은 애초에 메시지로 존재한 적이 없다. `error`(`code: "AUDIO_ANALYSIS_FAILED"`) 이벤트만으로 실패를 알린다. 프론트(시니어 녹음 화면)는 이 이벤트를 받으면 배너로 실패를 안내하고, 같은 질문에 대한 녹음을 곧바로 다시 열어 처음 화면 진입 때와 같은 "답변 대기" 상태로 돌아간다(무한 대기하거나 실패 말풍선이 남지 않는다).
+
+### 6.4 TTS 오디오 전달 — `GET /chats/tts-stream` (2026-08-21 신설)
+
+`tts:audio`(§4.2)가 실어보내는 `streamPath`가 가리키는 실제 엔드포인트다. `<audio src>`가 헤더를 붙일 수 없으므로, 일반 `Authorization` 헤더 대신 쿼리 파라미터에 담긴 전용 단기 JWT로 인증한다.
+
+```http
+GET /chats/tts-stream?messageId=104&token=<30초 TTL 단기 JWT>
+```
+
+- 토큰은 `AuthService.signTtsStreamToken(messageId, seniorId)`가 발급하며 payload는 `{ purpose: 'tts-stream', messageId, seniorId }`, TTL은 30초(`TTS_STREAM_TOKEN_TTL`)다. 일반 로그인 access token과는 별개이며 이 엔드포인트 전용이다.
+- NestJS `TtsStreamController`가 `TtsClient.synthesizeStream(text)`로 FastAPI `POST /tts/synthesize/stream`(§6.1 하단 참고)을 호출하고, 그 응답 스트림을 그대로 1:1 중계한다(`Content-Type`도 업스트림 값을 그대로 전달, 항상 `audio/mpeg`).
+- **[2026-08-23 수정, a916206]** 업스트림 스트림이 중간에 끊기면(`Readable`의 `error` 이벤트) 이전에는 처리되지 않은 예외로 NestJS 프로세스 전체가 죽었다 — 지금은 헤더 전송 전이면 HTTP 502로, 이미 스트리밍 중이면 `res.destroy()`로 정리한다.
+- FastAPI `AI_BASE_URL` 요청의 타임아웃은 45초다(`TTS_STREAM_TIMEOUT_MS`, a508be1에서 Render 콜드스타트 여유를 두려고 30초→45초로 상향). 첫 바이트를 이미 스트리밍하기 시작한 뒤에는 재시도하지 않는다(브라우저에 이미 일부가 전달됐기 때문).
 
 ## 7. Frontend ↔ NestJS 과거 메시지 REST API
 
@@ -707,12 +729,13 @@ NestJS → Frontend:
 - FastAPI multipart Client와 응답 계약 검증
 - **[결정사항] 답변 메시지는 분석 성공 시점에야 처음 DB에 저장된다** — 분석 실패 시 아무것도 저장하지 않고 `error`(`AUDIO_ANALYSIS_FAILED`)만 보낸다(§4.3, §6.3)
 - 메시지별 분석 결과 저장과 다음 질문 WS 전송
-- 질문(최초·후속 공통)마다 Typecast TTS 생성과 `tts:audio` WS 중계, 프론트 재생까지 연결 완료 — 최초 질문은 TTS 준비 후 함께 전달(§4.2), 후속 질문은 텍스트를 먼저 보내고 TTS는 합성되는 대로 비동기로 뒤이어 전달한다(§6.3, 2026-08-20 변경)
+- 질문(최초·후속 공통)마다 Typecast 실시간 TTS 스트리밍과 프론트 재생까지 연결 완료 — 순서는 최초·후속 공통으로 `ai:question`(또는 `chat:started`+`ai:question`)을 먼저 보내고 `tts:audio`(streamPath)는 비동기로 뒤이어 보낸다(§4.2/§6.3). **[2026-08-21 변경]** 오디오 자체는 더 이상 base64로 WS에 실리지 않고, 프론트가 `streamPath`로 별도 인증 HTTP GET(`/chats/tts-stream`, §6.4)을 열어 FastAPI `POST /tts/synthesize/stream`의 청크를 그대로 받는다
 - 질문 생성 문맥(오늘 미채점 문항·최근 3일 요약·오늘 대화 전체) DB 조회 후 AI 서버 호출 시 전달 완료(§6.1)
 - 중복 전송 기존 ACK 재전송
 - 과거 메시지 cursor REST API
 - 같은 서버 프로세스의 단기 현재 질문 복원
 - Mock FastAPI를 사용한 단위·E2E 테스트
+- **안정성 보강(2026-08-22~23)**: TTS 스트림 중계 중 처리되지 않은 `error`로 서버 전체가 죽던 문제(a916206), AI서버 TTS 스트리밍이 wav 설정 시 헤더 없는 PCM을 내보내 재생 불가능하던 문제(940f6f4, 스트리밍 경로는 이제 설정과 무관하게 항상 mp3 고정), 로컬 Whisper 폴백의 `requests` 암묵 의존성 누락(dc4e410), `process.on('unhandledRejection'/'uncaughtException')` 안전망과 FastAPI 호출 타임아웃 30초→45초 상향(콜드스타트 여유, a508be1) — 전부 수정·병합 완료
 
 ### Frontend와 맞춰야 할 부분
 

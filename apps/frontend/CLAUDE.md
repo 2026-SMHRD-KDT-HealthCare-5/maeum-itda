@@ -49,6 +49,8 @@
 | `senior-my-info` | — (화면설계서 본문에 화면ID 미배정, Figma '시니어 내 정보' 기준으로 구현됨, 아래 참고) | — |
 | `guardian-my-info` | — (화면설계서 본문에 화면ID 미배정, Figma '보호자 내 정보' 기준으로 구현됨 — UC-12(알림 설정) 흡수 완료, 아래 참고) | UC-12 |
 | `admin` | (관리자 - 데이터 품질 검토) | — |
+| `not-found` | — (화면설계서에 없는 유틸리티 화면, 알 수 없는 경로 진입 시 표시) | — |
+| `debug-errors` | — (화면설계서에 없는 개발용 디버그 화면) | — |
 
 `join`, `senior-connection`, `guardian-connection`은 2026-08-28 문서 갱신으로 화면설계서에 화면ID(`JOIN_01`, `SENIOR_LINK_01`, `GUARDIAN_LINK_01`)가 새로 부여된 화면입니다. `senior-connection`/`guardian-connection`을 하나로 합친 디렉터리로 두지 않고 역할별로 나눈 것은, 기존 화면들(`senior-home`/`guardian-home`처럼)이 전부 역할별 디렉터리 컨벤션을 따르기 때문입니다. 세 화면 모두 다른 placeholder 화면과 동일한 수준(스캐폴딩, 실제 기능 아님)으로 이미 만들어져 있고 `AppRouter`에도 라우트가 연결되어 있습니다 — 실제 구현 시 새 파일을 추가하지 말고 이 placeholder를 교체하세요. 각 화면의 컴포넌트 상태(hover/disabled/error/empty 등)까지 포함한 상세 디자인은 Figma가 기준입니다 — 화면설계서 본문의 개요 와이어프레임보다는 구체적이지만, AGENTS.md 기준으로 이 역시 **참고용일 뿐 최종 스펙으로 맹신하지 마세요**. `pages/*` 구현 시 최신 요구사항/결정사항/기존 코드/`shared/ui` 컴포넌트와 맞춰 조정하세요(자세한 조정 기준은 AGENTS.md 참고). Figma 내보내기 파일은 `docs/screens/<화면이름>/`에 저장되어 있습니다(메인 PNG는 폴더 바로 아래, hover/disabled/error/empty 등 컴포넌트 상태 세트는 `states/` 서브폴더 — 후자는 참고용일 뿐 강제 사항 아님).
 
