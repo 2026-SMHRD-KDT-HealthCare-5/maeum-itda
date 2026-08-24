@@ -21,11 +21,14 @@ _ENV_FILE = _PROJECT_ROOT / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
-    # OpenAI STT (/v1/audio/transcriptions)
+    # OpenAI STT — 기본은 gpt-live-transcribe (Realtime WebSocket).
+    # whisper-1 / gpt-transcribe / gpt-4o-transcribe* 는 예전 파일 업로드
+    # 엔드포인트(/v1/audio/transcriptions)로 폴백한다.
     openai_api_key: str = ""
-    openai_stt_model: str = "gpt-transcribe"   # OpenAI 현재 권장 STT 모델. whisper-1은 단어 타임스탬프 필요할 때만
+    openai_stt_model: str = "gpt-live-transcribe"
     openai_stt_language: str = "ko"
     openai_stt_prompt: str = ""                # 녹음 상황 힌트(고유명사 등), 없으면 빈 문자열
+    openai_stt_delay: str = "low"              # gpt-live-transcribe delay: minimal/low/medium/high/xhigh
     openai_timeout_sec: int = 60
 
     # OpenAI LLM (Chat Completions)

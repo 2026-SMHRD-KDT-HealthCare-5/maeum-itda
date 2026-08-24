@@ -18,6 +18,7 @@ import { ChatAuthHandler } from './handlers/chat-auth.handler';
 import { ChatStartHandler } from './handlers/chat-start.handler';
 import { ConversationMessageRepository } from './repositories/conversation-message.repository';
 import { AudioMetadataHandler } from './handlers/audio-metadata.handler';
+import { AudioLiveHandler } from './handlers/audio-live.handler';
 import { ChatConnectionStateService } from './chat-connection-state.service';
 import { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import { QuestionAnswerQueueService } from './question-answer-queue.service';
@@ -47,6 +48,7 @@ import { QuestionProcessingTrackerService } from './question-processing-tracker.
     ChatStartHandler,
     ChatEndHandler,
     AudioMetadataHandler,
+    AudioLiveHandler,
     AudioBinaryHandler,
     ChatConnectionStateService,
     ChatsService,

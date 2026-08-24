@@ -144,3 +144,5 @@ export function createSilenceWatcher(
     hasDetectedVoice: () => detectedVoice,
   }
 }
+
+export * from './pcm-stream'

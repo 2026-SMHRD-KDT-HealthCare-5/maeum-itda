@@ -6,7 +6,7 @@ import json
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 
 from app.config import get_settings
@@ -21,6 +21,7 @@ from app.schemas import (
 from app.services import audio_features
 from app.services import llm as llm_service
 from app.services import stt as stt_service
+from app.services import stt_live
 from app.services import tts as tts_service
 from app.session_manager import SessionState
 
@@ -37,6 +38,112 @@ MAX_CONVERSATION_TURNS = 200
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.websocket("/analysis/stt/live")
+async def stt_live_proxy(client_ws: WebSocket):
+    """안부 대화 중 PCM 청크를 gpt-live-transcribe 세션으로 중계한다.
+
+    NestJS ↔ FastAPI ↔ OpenAI Realtime. 클라이언트 JSON:
+      {"type":"append","audio":"<base64 pcm16>"} | {"type":"commit"} | {"type":"close"}
+    서버 JSON:
+      {"type":"delta","delta":"..."} | {"type":"completed","transcript":"..."}
+      | {"type":"error","reason":"...","unavailable":bool}
+    """
+    import websockets
+
+    await client_ws.accept()
+    settings = get_settings()
+    if not settings.openai_api_key:
+        await client_ws.send_json(
+            {"type": "error", "reason": "OPENAI_API_KEY missing", "unavailable": True}
+        )
+        await client_ws.close()
+        return
+
+    openai_ws = None
+    pump_task = None
+    try:
+        openai_ws = await websockets.connect(
+            stt_live.OPENAI_REALTIME_URL,
+            additional_headers={"Authorization": f"Bearer {settings.openai_api_key}"},
+            open_timeout=10,
+            close_timeout=5,
+        )
+        await openai_ws.send(
+            json.dumps(
+                stt_live.build_session_update(
+                    language=settings.openai_stt_language,
+                    prompt=settings.openai_stt_prompt,
+                    delay=settings.openai_stt_delay,
+                )
+            )
+        )
+
+        async def pump_openai_events() -> None:
+            assert openai_ws is not None
+            async for raw in openai_ws:
+                event = json.loads(raw)
+                kind, text = stt_live.classify_realtime_event(event)
+                if kind == "delta" and text:
+                    await client_ws.send_json({"type": "delta", "delta": text})
+                elif kind == "completed":
+                    await client_ws.send_json({"type": "completed", "transcript": text})
+                elif kind == "unavailable":
+                    await client_ws.send_json(
+                        {"type": "error", "reason": text, "unavailable": True}
+                    )
+                elif kind == "error":
+                    await client_ws.send_json(
+                        {"type": "error", "reason": text, "unavailable": False}
+                    )
+
+        pump_task = asyncio.create_task(pump_openai_events())
+
+        while True:
+            message = await client_ws.receive_json()
+            msg_type = message.get("type")
+            if msg_type == "append":
+                audio = message.get("audio")
+                if isinstance(audio, str) and audio:
+                    await openai_ws.send(
+                        json.dumps({"type": "input_audio_buffer.append", "audio": audio})
+                    )
+            elif msg_type == "commit":
+                await openai_ws.send(json.dumps(stt_live.build_audio_commit()))
+            elif msg_type == "close":
+                break
+    except WebSocketDisconnect:
+        logger.info("live STT 클라이언트 연결 종료")
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("live STT 프록시 실패: %s", exc)
+        try:
+            status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+            unavailable = status in {401, 403}
+            await client_ws.send_json(
+                {
+                    "type": "error",
+                    "reason": str(exc),
+                    "unavailable": unavailable,
+                }
+            )
+        except Exception:  # noqa: BLE001
+            pass
+    finally:
+        if pump_task is not None:
+            pump_task.cancel()
+            try:
+                await pump_task
+            except asyncio.CancelledError:
+                pass
+            except Exception:  # noqa: BLE001
+                pass
+        if openai_ws is not None:
+            await openai_ws.close()
+        try:
+            await client_ws.close()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @app.post("/analysis/audio/batch", response_model=BatchAnalysisResponse)

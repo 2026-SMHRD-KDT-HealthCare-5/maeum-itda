@@ -12,7 +12,13 @@ export interface WsEvent<TEvent extends string, TPayload> {
 export type AudioEndType = 'auto' | 'manual'
 
 export type ClientWsRequestEvent =
-  'unknown' | 'auth' | 'chat:start' | 'chat:end' | 'audio:metadata' | 'audio:binary'
+  | 'unknown'
+  | 'auth'
+  | 'chat:start'
+  | 'chat:end'
+  | 'audio:metadata'
+  | 'audio:binary'
+  | 'audio:pcm'
 
 export type WsErrorCode =
   | 'INVALID_EVENT'

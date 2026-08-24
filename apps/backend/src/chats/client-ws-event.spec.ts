@@ -30,6 +30,28 @@ describe('parseAuthenticatedClientEvent', () => {
     );
   });
 
+  it('유효한 audio:pcm을 타입이 정해진 이벤트로 변환한다', () => {
+    const event = parseAuthenticatedClientEvent(
+      JSON.stringify({
+        event: 'audio:pcm',
+        payload: {
+          questionMessageId: 10,
+          generationId: 'generation-1',
+          pcmBase64: 'AAAA',
+        },
+        ts: '2026-08-13T00:00:01.000Z',
+      }),
+    );
+
+    expect(event).toEqual(
+      expect.objectContaining({
+        event: 'audio:pcm',
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        payload: expect.objectContaining({ questionMessageId: 10 }),
+      }),
+    );
+  });
+
   it('지원하지 않는 chat:end 사유를 Handler 호출 전에 거부한다', () => {
     expect(() =>
       parseAuthenticatedClientEvent(
