@@ -4,6 +4,7 @@ import {
   fetchNotifications,
   markAllNotificationsRead,
   markNotificationRead,
+  markNotificationUnread,
   NOTIFICATIONS_QUERY_KEY,
   type Notification,
 } from '../../../entities/notification'
@@ -34,6 +35,22 @@ export function GuardianNotificationPage() {
               : Math.max(0, current.unreadCount - 1),
             notifications: current.notifications.map((item) =>
               item.id === notification.id ? { ...item, isRead: true } : item,
+            ),
+          },
+      )
+    },
+  })
+
+  const markUnreadMutation = useMutation({
+    mutationFn: (notification: Notification) => markNotificationUnread(notification.id),
+    onSuccess: (_data, notification) => {
+      queryClient.setQueryData<Awaited<ReturnType<typeof fetchNotifications>>>(
+        NOTIFICATIONS_QUERY_KEY,
+        (current) =>
+          current && {
+            unreadCount: notification.isRead ? current.unreadCount + 1 : current.unreadCount,
+            notifications: current.notifications.map((item) =>
+              item.id === notification.id ? { ...item, isRead: false } : item,
             ),
           },
       )
@@ -74,6 +91,10 @@ export function GuardianNotificationPage() {
             notifications={notificationsQuery.data.notifications}
             onMarkRead={(notification) => {
               if (!notification.isRead) markReadMutation.mutate(notification)
+            }}
+            onToggleRead={(notification) => {
+              if (notification.isRead) markUnreadMutation.mutate(notification)
+              else markReadMutation.mutate(notification)
             }}
             onMarkAllRead={() => markAllReadMutation.mutate()}
           />

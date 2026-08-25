@@ -49,6 +49,10 @@ export async function markNotificationRead(alertId: number): Promise<void> {
   await apiClient.notifications.notificationsControllerMarkAsRead(alertId)
 }
 
+export async function markNotificationUnread(alertId: number): Promise<void> {
+  await apiClient.notifications.notificationsControllerMarkAsUnread(alertId)
+}
+
 export async function markAllNotificationsRead(): Promise<void> {
   await apiClient.notifications.notificationsControllerMarkAllAsRead()
 }

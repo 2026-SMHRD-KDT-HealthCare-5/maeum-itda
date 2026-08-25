@@ -8,6 +8,7 @@ import styles from './MarkNotificationReadAction.module.css'
 interface MarkNotificationReadActionProps {
   notifications: Notification[]
   onMarkRead: (notification: Notification) => void
+  onToggleRead: (notification: Notification) => void
   onMarkAllRead: () => void
 }
 
@@ -16,6 +17,7 @@ interface MarkNotificationReadActionProps {
 export function MarkNotificationReadAction({
   notifications,
   onMarkRead,
+  onToggleRead,
   onMarkAllRead,
 }: MarkNotificationReadActionProps) {
   if (notifications.length === 0) {
@@ -62,6 +64,7 @@ export function MarkNotificationReadAction({
                 key={notification.id}
                 notification={notification}
                 onRead={onMarkRead}
+                onToggleRead={onToggleRead}
               />
             ))}
           </ul>
@@ -74,9 +77,11 @@ export function MarkNotificationReadAction({
 function NotificationRow({
   notification,
   onRead,
+  onToggleRead,
 }: {
   notification: Notification
   onRead: (notification: Notification) => void
+  onToggleRead: (notification: Notification) => void
 }) {
   const isWarning = notification.title.includes('하락')
   const link = reportLinkPath(notification.target)
@@ -84,7 +89,7 @@ function NotificationRow({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
-    onRead(notification)
+    onToggleRead(notification)
   }
 
   return (
@@ -99,9 +104,9 @@ function NotificationRow({
         ]
           .filter(Boolean)
           .join(' ')}
-        onClick={() => onRead(notification)}
+        onClick={() => onToggleRead(notification)}
         onKeyDown={handleKeyDown}
-        aria-label={`${notification.title}, ${notification.isRead ? '읽음' : '읽지 않음'}`}
+        aria-label={`${notification.title}, ${notification.isRead ? '읽음, 다시 누르면 읽지 않음으로' : '읽지 않음'}`}
       >
         <span
           className={[styles.icon, isWarning ? styles.iconWarning : styles.iconReport].join(' ')}
