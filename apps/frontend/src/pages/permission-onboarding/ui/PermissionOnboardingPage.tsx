@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { FiAlertCircle, FiBell, FiCheck, FiLoader, FiShield, FiX } from 'react-icons/fi'
 import { useSession } from '../../../entities/user'
+import { updateCheckinReminder } from '../../../features/set-checkin-reminder'
+import { updateNotificationThreshold } from '../../../features/set-notification-threshold'
 import { Button, Card, PageHeading } from '../../../shared/ui'
 import { homePathForRole, markPermissionOnboardingComplete } from '../../../shared/lib'
 import permissionDaseul from '../../../shared/assets/character/character-daseul-permission.webp'
@@ -54,7 +56,22 @@ export function PermissionOnboardingPage() {
     let cancelled = false
 
     requestNotificationPermission().then((result) => {
-      if (!cancelled) setNotificationState(result)
+      if (cancelled) return
+      setNotificationState(result)
+
+      // 안부 알림/정서 지수 하락 알림은 기본값이 켜짐이라, 브라우저 알림 권한을
+      // 거절한 경우에만 서버 설정을 꺼짐으로 되돌린다(그 외엔 마이페이지에서
+      // 직접 끌 때만 꺼짐) — 실패해도 온보딩 진행 자체를 막을 이유는 아니라
+      // best-effort로만 반영한다.
+      if (result === 'denied') {
+        const disableNotifications =
+          session.role === 'senior'
+            ? updateCheckinReminder({ enabled: false })
+            : updateNotificationThreshold({ enabled: false })
+        disableNotifications.catch(() => {
+          // 실패해도 온보딩은 계속 진행한다 — 마이페이지에서 다시 끌 수 있다.
+        })
+      }
     })
 
     return () => {
@@ -121,7 +138,7 @@ export function PermissionOnboardingPage() {
           언제든 기기 설정에서 변경할 수 있어요.
         </p>
         <Button type="button" onClick={handleContinue}>
-          동의하고 계속하기
+          계속하기
         </Button>
       </div>
     </main>
