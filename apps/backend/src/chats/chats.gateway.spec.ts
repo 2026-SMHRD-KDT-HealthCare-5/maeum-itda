@@ -5,6 +5,7 @@ import { ChatsGateway, WS_AUTH_TIMEOUT_MS } from './chats.gateway';
 import type { ChatAuthHandler } from './handlers/chat-auth.handler';
 import type { ChatStartHandler } from './handlers/chat-start.handler';
 import type { AudioMetadataHandler } from './handlers/audio-metadata.handler';
+import type { AudioLiveHandler } from './handlers/audio-live.handler';
 import type { ChatConnectionStateService } from './chat-connection-state.service';
 import type { AudioBinaryHandler } from './handlers/audio-binary.handler';
 import type { ChatEndHandler } from './handlers/chat-end.handler';
@@ -56,6 +57,10 @@ describe('ChatsGateway', () => {
       handleAudioMetadata: jest.fn(),
       clearClient: jest.fn(),
     };
+    const audioLiveHandler = {
+      handleAudioPcm: jest.fn(),
+      clearClient: jest.fn(),
+    };
     const audioBinaryHandler = {
       handleAudioBinary: jest.fn(),
       clearClient: jest.fn(),
@@ -79,6 +84,7 @@ describe('ChatsGateway', () => {
       chatStartHandler as unknown as ChatStartHandler,
       chatEndHandler as unknown as ChatEndHandler,
       audioMetadataHandler as unknown as AudioMetadataHandler,
+      audioLiveHandler as unknown as AudioLiveHandler,
       audioBinaryHandler as unknown as AudioBinaryHandler,
       chatConnectionStateService as unknown as ChatConnectionStateService,
       chatInactivityService as unknown as ChatInactivityService,
@@ -91,6 +97,7 @@ describe('ChatsGateway', () => {
       chatStartHandler,
       chatEndHandler,
       audioMetadataHandler,
+      audioLiveHandler,
       audioBinaryHandler,
       chatConnectionStateService,
       lastTurnRecalcTimerService,
