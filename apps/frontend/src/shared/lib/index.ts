@@ -82,6 +82,36 @@ export function useAnimatedPresence(isOpen: boolean, exitDuration = 180) {
   return { isRendered, isClosing }
 }
 
+const PERMISSION_ONBOARDING_KEY_PREFIX = 'maeum-itda:permissionsOnboarded:'
+
+// 로그인/회원가입 성공 직후 마이크·알림 권한을 미리 안내하는 온보딩 화면
+// (pages/permission-onboarding)을 계정당 딱 한 번만 거치도록 하는 플래그.
+// 기기 단위가 아니라 계정(userId) 단위로 저장한다 — 같은 브라우저에서
+// 시니어/보호자 계정을 번갈아 테스트하는 경우가 있어, 기기 단위로 두면
+// 먼저 로그인한 계정이 플래그를 소비해버려 다른 계정은 온보딩을 아예 못 본다.
+// TODO(임시): 디자인 확정 전까지는 완료 플래그를 무시하고 항상 온보딩 화면을
+// 보여준다 — 사용자가 완료로 판단하면 아래 주석의 원래 구현으로 되돌릴 것.
+// return localStorage.getItem(PERMISSION_ONBOARDING_KEY_PREFIX + userId) === '1'
+export function hasCompletedPermissionOnboarding(userId: number): boolean {
+  return localStorage.getItem(PERMISSION_ONBOARDING_KEY_PREFIX + userId) === '1'
+}
+
+export function markPermissionOnboardingComplete(userId: number): void {
+  localStorage.setItem(PERMISSION_ONBOARDING_KEY_PREFIX + userId, '1')
+}
+
+export function homePathForRole(role: 'senior' | 'guardian'): string {
+  return role === 'senior' ? '/senior' : '/guardian'
+}
+
+// 로그인/회원가입 성공 직후 이동할 경로 — 이 계정이 아직 권한 온보딩을 거치지
+// 않았으면 역할별 홈 대신 온보딩 화면으로 먼저 보낸다.
+export function resolvePostAuthPath(userId: number, role: 'senior' | 'guardian'): string {
+  return hasCompletedPermissionOnboarding(userId)
+    ? homePathForRole(role)
+    : '/onboarding/permissions'
+}
+
 let sharedAudioContext: AudioContext | null = null
 
 // iOS Safari는 사용자 제스처 콜스택 안에서 만들어지거나 resume()된 AudioContext만

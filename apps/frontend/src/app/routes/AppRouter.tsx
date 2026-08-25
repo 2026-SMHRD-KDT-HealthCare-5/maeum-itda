@@ -12,6 +12,11 @@ const DebugErrorsPage = lazy(() =>
 const SplashPage = lazy(() => import('../../pages/splash').then((m) => ({ default: m.SplashPage })))
 const LoginPage = lazy(() => import('../../pages/login').then((m) => ({ default: m.LoginPage })))
 const JoinPage = lazy(() => import('../../pages/join').then((m) => ({ default: m.JoinPage })))
+const PermissionOnboardingPage = lazy(() =>
+  import('../../pages/permission-onboarding').then((m) => ({
+    default: m.PermissionOnboardingPage,
+  })),
+)
 const SeniorHomePage = lazy(() =>
   import('../../pages/senior-home').then((m) => ({ default: m.SeniorHomePage })),
 )
@@ -64,6 +69,7 @@ export function AppRouter() {
         <Route path="/" element={<SplashPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/join" element={<JoinPage />} />
+        <Route path="/onboarding/permissions" element={<PermissionOnboardingPage />} />
         <Route path="/debug/errors" element={<DebugErrorsPage />} />
 
         <Route
