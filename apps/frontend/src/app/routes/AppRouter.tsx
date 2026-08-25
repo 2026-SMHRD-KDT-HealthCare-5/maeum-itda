@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { Route, Routes, useLocation } from 'react-router-dom'
+import { resetViewportZoom } from '../../shared/lib'
 import { ProtectedRoute } from './ProtectedRoute'
 
 const NotFoundPage = lazy(() =>
@@ -63,6 +64,15 @@ const GuardianMyInfoPage = lazy(() =>
 // 쓰는 recharts(EmotionTrendChart)가 메인 청크를 500KB 경고 이상으로 키웠기
 // 때문 — 라우트 단위 스플리팅으로 recharts를 해당 라우트 청크에만 담는다.
 export function AppRouter() {
+  const location = useLocation()
+
+  // 로그인 입력 중 확대된 화면이 진입 후에도 그대로 유지되는 문제 대응 —
+  // shared/lib의 resetViewportZoom 참고. 로그인 화면에만 국한된 문제가
+  // 아니라 SPA 네비게이션 전반에서 재발할 수 있어 라우트 전환마다 실행한다.
+  useEffect(() => {
+    resetViewportZoom()
+  }, [location.pathname])
+
   return (
     <Suspense fallback={null}>
       <Routes>

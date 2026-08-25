@@ -1,4 +1,6 @@
-const SHELL_CACHE = 'maeum-itda-shell-v5'
+const SHELL_CACHE = 'maeum-itda-shell-v6'
+const RUNTIME_CACHE = 'maeum-itda-runtime-v1'
+const CURRENT_CACHES = [SHELL_CACHE, RUNTIME_CACHE]
 const SHELL_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -9,6 +11,13 @@ const SHELL_ASSETS = [
   '/pwa/icon-face-maskable-512.png',
 ]
 
+// Vite가 빌드 시 파일명에 콘텐츠 해시를 붙이는 정적 에셋(이미지/폰트/JS/CSS)만
+// 대상으로 한다 — 해시가 파일명에 있으니 캐시-우선으로 무기한 재사용해도
+// 내용이 바뀌면 자동으로 다른 URL이 되어 안전하다. 지금까지 이 asset들은
+// 아예 캐싱 대상이 아니어서, PWA로 설치해도 매번 네트워크로 다시 받아오느라
+// 이미지 로딩이 느렸다.
+const CACHEABLE_ASSET_PATTERN = /\.(?:webp|png|jpe?g|gif|svg|js|css|woff2?)$/
+
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)))
 })
@@ -17,7 +26,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== SHELL_CACHE).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => !CURRENT_CACHES.includes(key)).map((key) => caches.delete(key))))
       .then(() => self.clients.claim()),
   )
 })
@@ -27,10 +36,26 @@ self.addEventListener('activate', (event) => {
 // CORS 등으로 실패한 API 응답 대신 캐시된 index.html이 조용히 반환되어 버린다.
 self.addEventListener('fetch', (event) => {
   const { request } = event
-  if (request.method !== 'GET' || request.mode !== 'navigate') return
-  if (new URL(request.url).origin !== self.location.origin) return
+  if (request.method !== 'GET') return
+  const url = new URL(request.url)
+  if (url.origin !== self.location.origin) return
 
-  event.respondWith(fetch(request).catch(() => caches.match('/')))
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request).catch(() => caches.match('/')))
+    return
+  }
+
+  if (CACHEABLE_ASSET_PATTERN.test(url.pathname)) {
+    event.respondWith(
+      caches.open(RUNTIME_CACHE).then(async (cache) => {
+        const cached = await cache.match(request)
+        if (cached) return cached
+        const response = await fetch(request)
+        if (response.ok) cache.put(request, response.clone())
+        return response
+      }),
+    )
+  }
 })
 
 // 위험 알림 웹 푸시 수신 — 백엔드(web-push-delivery.service.ts의 WebPushPayload)가

@@ -1,7 +1,38 @@
+import { useEffect, useRef, useState } from 'react'
 import { FiMic, FiMoreHorizontal, FiSquare } from 'react-icons/fi'
 
 import type { RecordingPhase } from '../model'
 import styles from './RecordVoiceAnswerAction.module.css'
+
+// 캐릭터 이미지 전환 시 이전 이미지가 갑자기 사라지지 않도록, 이전 src를
+// 잠깐 더 겹쳐 보여주며 CSS transition으로 페이드아웃한다. 진입 애니메이션은
+// CSS의 characterEnter 키프레임이 그대로 맡는다.
+const CHARACTER_FADE_MS = 320
+
+function useExitingCharacterImage(src: string) {
+  const [exiting, setExiting] = useState<string | null>(null)
+  const [fading, setFading] = useState(false)
+  const prevSrcRef = useRef(src)
+
+  useEffect(() => {
+    if (prevSrcRef.current === src) return
+    setExiting(prevSrcRef.current)
+    setFading(false)
+    prevSrcRef.current = src
+  }, [src])
+
+  useEffect(() => {
+    if (exiting === null) return undefined
+    const raf = requestAnimationFrame(() => setFading(true))
+    const timer = window.setTimeout(() => setExiting(null), CHARACTER_FADE_MS)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
+  }, [exiting])
+
+  return { exiting, fading }
+}
 
 type RecordVoiceAnswerActionProps = {
   characterImageAlt: string
@@ -44,6 +75,8 @@ export function RecordVoiceAnswerAction({
   onSkipQuestion,
   ttsAutoplayBlocked = false,
 }: RecordVoiceAnswerActionProps) {
+  const { exiting, fading } = useExitingCharacterImage(characterImageSrc)
+
   // 'waiting'(마이크는 열렸지만 아직 말소리 없음)과 'listening'(말소리 감지됨)
   // 둘 다 녹음 구간이 진행 중이므로 "지금 답변 마치기" 버튼을 눌러 답변을
   // 제출할 수 있다 — 'waiting'에서 눌러도 무음 답변은 서버로 보내지 않고
@@ -91,7 +124,21 @@ export function RecordVoiceAnswerAction({
   return (
     <section className={styles.controls} aria-labelledby="conversation-status">
       <div className={styles.characterFrame} data-state={phase}>
-        <img key={phase} src={characterImageSrc} alt={characterImageAlt} />
+        {exiting && (
+          <img
+            className={styles.characterExit}
+            data-fading={fading}
+            src={exiting}
+            alt=""
+            aria-hidden="true"
+          />
+        )}
+        <img
+          key={phase}
+          className={styles.characterImg}
+          src={characterImageSrc}
+          alt={characterImageAlt}
+        />
       </div>
 
       <div className={styles.listening} aria-live="polite">

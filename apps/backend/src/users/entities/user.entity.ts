@@ -48,10 +48,12 @@ export class User {
   // 계정을 번갈아 테스트하면 브라우저(origin) 단위로 구독이 하나뿐이라 한
   // 계정이 구독을 해지하면 다른 계정도 "구독 없음"처럼 보이는데, 이 값을 구독
   // 존재로부터 유도하면 그 혼선이 그대로 켜짐/꺼짐에 새어든다 — 그래서 독립된
-  // 플래그로 둔다. default는 false다 — true였을 때 가입만 해도 구독 없이
-  // "켜짐"으로 보이는 문제가 있었다(실 DB 확인: 37명 중 30명이 구독 0건인데
-  // 켜짐 상태). 물리 컬럼 기본값은 database/schema.sql에서 함께 바꾼다.
-  @Column({ name: 'NOTIFICATION_ENABLED', type: 'boolean', default: false })
+  // 플래그로 둔다. default는 true다(2026-08-25 변경) — 온보딩 권한 요청
+  // 화면(permission-onboarding)이 가입 직후 반드시 한 번 브라우저 알림 권한을
+  // 물어보고, 거절 시점에 이 값을 false로 되돌리므로(그 외엔 마이페이지에서
+  // 직접 끌 때만 false) "가입만 하고 구독 없이 켜짐으로 보이는" 예전 문제가
+  // 재발하지 않는다. 물리 컬럼 기본값은 database/schema.sql에서 함께 바꾼다.
+  @Column({ name: 'NOTIFICATION_ENABLED', type: 'boolean', default: true })
   notificationEnabled!: boolean;
 
   @Column({

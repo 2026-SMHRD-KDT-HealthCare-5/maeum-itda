@@ -64,9 +64,14 @@ export class UsersService {
     role: UserRole;
   }): Promise<User> {
     // create()는 아직 SQL을 실행하지 않고 저장할 User 객체를 만든다.
+    // notificationEnabled는 DB 컬럼 기본값에 기대지 않고 여기서 명시적으로
+    // true를 채운다 — 온보딩 권한 거절/마이페이지 토글 오프 때만 false가 되고
+    // 그 외엔 항상 켜짐이어야 하는 정책이라, 컬럼 기본값(schema.sql)이 나중에
+    // 어긋나도 가입 흐름 자체는 이 값에 영향받지 않게 한다.
     const user = this.usersRepository.create({
       ...data,
       phone: normalizePhoneNumber(data.phone) as string,
+      notificationEnabled: true,
     });
 
     // save()가 INSERT 또는 UPDATE SQL을 실행한다.

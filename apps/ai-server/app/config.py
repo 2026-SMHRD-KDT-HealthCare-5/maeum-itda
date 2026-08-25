@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # OpenAI LLM (Chat Completions)
     openai_llm_model: str = "gpt-4o"
-    openai_llm_timeout_sec: int = 15
+    openai_llm_timeout_sec: int = 30
 
     # 로컬 whisper 폴백 (faster-whisper)
     local_whisper_model_size: str = "small"

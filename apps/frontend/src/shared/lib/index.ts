@@ -208,6 +208,22 @@ export function resolvePostAuthPath(userId: number, role: 'senior' | 'guardian')
     : '/onboarding/permissions'
 }
 
+// 로그인 폼 입력 중 브라우저가 확대(핀치 줌 또는 iOS 자동 줌)된 상태가 SPA
+// 네비게이션(새로고침 없는 client-side routing)에서는 저절로 리셋되지 않고
+// 그대로 유지되는 문제 대응. viewport meta의 maximum-scale을 한 프레임만
+// 강제해 현재 확대 배율을 1배로 되돌린 뒤 원래 content로 되돌려서, 사용자가
+// 이후 다시 확대하는 것 자체는 계속 가능하게 둔다(접근성상 확대 자체를
+// 막지 않음).
+export function resetViewportZoom(): void {
+  const viewport = document.querySelector('meta[name="viewport"]')
+  if (!(viewport instanceof HTMLMetaElement)) return
+  const original = viewport.content
+  viewport.content = `${original}, maximum-scale=1`
+  requestAnimationFrame(() => {
+    viewport.content = original
+  })
+}
+
 let sharedAudioContext: AudioContext | null = null
 
 // iOS Safari는 사용자 제스처 콜스택 안에서 만들어지거나 resume()된 AudioContext만
