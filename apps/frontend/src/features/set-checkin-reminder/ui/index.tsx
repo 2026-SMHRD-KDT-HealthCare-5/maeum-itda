@@ -1,5 +1,3 @@
-import { useRef, useState } from 'react'
-import { useAnimatedPresence, useFocusTrap } from '../../../shared/lib'
 import { InlineFeedback, Toggle, type InlineFeedbackTone } from '../../../shared/ui'
 import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
@@ -30,18 +28,9 @@ export function SetCheckinReminderAction({
   onRequestPushSubscribe,
   onRequestPushUnsubscribe,
 }: SetCheckinReminderActionProps) {
-  const [isTimeModalOpen, setIsTimeModalOpen] = useState(false)
-  const timeModalPresence = useAnimatedPresence(isTimeModalOpen)
-  const modalRef = useRef<HTMLDivElement>(null)
-  useFocusTrap(modalRef, timeModalPresence.isRendered, () => setIsTimeModalOpen(false))
   const [hour, minute] = value.time.split(':').map(Number)
   const timePeriod = hour < 12 ? '오전' : '오후'
   const displayHour = hour % 12 || 12
-
-  function formatHour(optionHour: number) {
-    const period = optionHour < 12 ? '오전' : '오후'
-    return `${period} ${optionHour % 12 || 12}시`
-  }
 
   // 토글 값은 항상 사용자가 설정한 값(enabled) 그대로여야 한다 — 켤 때만
   // 내부적으로 구독을 시도하고, 실제로 구독까지 성공했을 때만 켜짐으로
@@ -94,75 +83,19 @@ export function SetCheckinReminderAction({
         <span className={styles.timeLabel}>
           <strong>알림 시간</strong>
           <small>
-            매일 {timePeriod} {displayHour}시에 알림이 와요
+            매일 {timePeriod} {displayHour}:{String(minute).padStart(2, '0')}에 알림이 와요
           </small>
         </span>
-        <button
-          type="button"
+        <input
+          type="time"
           className={styles.timeValue}
-          onClick={() => setIsTimeModalOpen(true)}
-          aria-haspopup="dialog"
-        >
-          {timePeriod} {displayHour}:{String(minute).padStart(2, '0')}
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 20h4l10-10-4-4L4 16v4Z" />
-            <path d="m13 7 4 4" />
-          </svg>
-        </button>
+          value={value.time}
+          onChange={(event) => {
+            if (event.target.value) onChange({ ...value, time: event.target.value })
+          }}
+          aria-label="안부 알림 시간"
+        />
       </div>
-
-      {timeModalPresence.isRendered && (
-        <div
-          className={`${styles.modalOverlay} ${timeModalPresence.isClosing ? styles.modalOverlayClosing : ''}`}
-          onClick={() => setIsTimeModalOpen(false)}
-        >
-          <div
-            ref={modalRef}
-            className={`${styles.modal} ${timeModalPresence.isClosing ? styles.modalClosing : ''}`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reminder-time-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className={styles.modalHeader}>
-              <div>
-                <p>안부 알림</p>
-                <h3 id="reminder-time-title">몇 시에 알려드릴까요?</h3>
-              </div>
-              <button
-                type="button"
-                className={styles.closeButton}
-                onClick={() => setIsTimeModalOpen(false)}
-                aria-label="시간 선택 닫기"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className={styles.hourGrid}>
-              {Array.from({ length: 24 }, (_, optionHour) => {
-                const optionValue = `${String(optionHour).padStart(2, '0')}:00`
-                const isSelected = value.time === optionValue
-
-                return (
-                  <button
-                    type="button"
-                    key={optionValue}
-                    className={isSelected ? styles.selectedHour : undefined}
-                    aria-pressed={isSelected}
-                    onClick={() => {
-                      onChange({ ...value, time: optionValue })
-                      setIsTimeModalOpen(false)
-                    }}
-                  >
-                    {formatHour(optionHour)}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
