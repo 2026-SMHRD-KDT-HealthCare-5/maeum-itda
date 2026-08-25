@@ -8,9 +8,8 @@ import {
   type ChatMessage,
 } from '../../../entities/conversation'
 import { SelectDailyRecordDateAction } from '../../../features/select-daily-record-date'
-import { toDateKey } from '../../../features/select-daily-record-date/model'
 import { extractApiErrorMessage } from '../../../shared/api'
-import { useDelayedPending } from '../../../shared/lib'
+import { toDateKey, useDelayedPending } from '../../../shared/lib'
 import { ErrorState, LoadingSpinner } from '../../../shared/ui'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import daseulNoDataImage from '../../../shared/assets/character/character-daseul-no-data.webp'

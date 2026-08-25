@@ -16,6 +16,42 @@ export function getSeoulDateKey(date: Date = new Date()): string {
   return seoulDateKeyFormatter.format(date)
 }
 
+// select-daily-record-date/select-report-date 캘린더 모달이 공유하는 날짜
+// 유틸 — 둘 다 로컬 시간 기준으로 "하루"를 고르는 화면이라 동일한 계산이
+// 필요했다(원래 각 feature에 복제돼 있던 것을 이쪽으로 옮김). select-report-week는
+// weekStart를 라우트/쿼리 키로 써야 해서 UTC 자정 기준으로 별도 계산하므로
+// 여기 포함하지 않는다.
+export function isSameDate(left: Date, right: Date): boolean {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  )
+}
+
+export function toDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 월요일 시작이 아니라 일요일 시작 6~7행 그리드를 만든다(달력 UI 관례).
+export function getCalendarDates(year: number, month: number): Date[] {
+  const firstDate = new Date(year, month, 1)
+  const lastDate = new Date(year, month + 1, 0)
+  const startDate = new Date(year, month, 1 - firstDate.getDay())
+  const endOffset = 6 - lastDate.getDay()
+  const endDate = new Date(year, month, lastDate.getDate() + endOffset)
+  const dates: Date[] = []
+
+  for (const date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    dates.push(new Date(date))
+  }
+
+  return dates
+}
+
 // 로딩 스피너 깜빡임 방지: isPending이 delay(ms) 안에 끝나면 스피너를 아예 띄우지
 // 않고(빠른 화면은 스피너 없이 넘어감), 한 번 뜬 뒤엔 minDuration(ms)만큼은
 // 유지해서 순간적으로 나타났다 사라지는 걸 막는다.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { useAnimatedPresence } from '../../../shared/lib'
-import { formatKoreanDate, getCalendarDates, isSameDate, toDateKey } from '../lib'
+import { getCalendarDates, isSameDate, toDateKey, useAnimatedPresence } from '../../../shared/lib'
+import { formatKoreanDate } from '../lib'
 import styles from './SelectReportDateAction.module.css'
 
 const weekDays = ['일', '월', '화', '수', '목', '금', '토']
@@ -16,9 +16,9 @@ interface SelectReportDateActionProps {
 }
 
 // GUARDIAN_REPORT_01 (UC-08) — 일간 리포트 날짜 네비게이션 + 캘린더 모달.
-// features/select-daily-record-date와 같은 패턴을 이 feature 안에 자체
-// 구현으로 복제했다(보호자 리포트는 대화-기록-있음 표시가 필요 없어 그
-// 하이라이트 로직은 뺐다).
+// features/select-daily-record-date와 같은 패턴이지만(날짜 계산은 이제
+// shared/lib 공유), 보호자 리포트는 대화-기록-있음 표시가 필요 없어 그
+// 하이라이트 로직만 뺐다.
 export function SelectReportDateAction({
   selectedDate,
   onSelectDate,
