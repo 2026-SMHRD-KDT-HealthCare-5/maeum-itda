@@ -1,4 +1,4 @@
-/* 역할: 보호자 홈 한 번의 조회에 필요한 연결 정보, 전날 리포트, 최근 7일 추이를 정의한다. */
+/* 역할: 보호자 홈 한 번의 조회에 필요한 연결 정보, 오늘 리포트, 최근 7일 추이를 정의한다. */
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { GenerationStatus } from '../../reports/entities/daily-emotion-report.entity';
 import { EmotionLevel } from '../../reports/lib/weekly-report-statistics';
@@ -84,7 +84,7 @@ export class GuardianDashboardResponseDto {
 
   @ApiProperty({
     description:
-      '전날 리포트의 권장 행동. 대화 없음과 분석 데이터 부족은 각각 안내 문구로 구분',
+      '오늘 리포트의 권장 행동. 대화 없음과 분석 데이터 부족은 각각 안내 문구로 구분',
     example: '가볍게 안부를 확인해 주세요.',
   })
   dasolMessage: string;

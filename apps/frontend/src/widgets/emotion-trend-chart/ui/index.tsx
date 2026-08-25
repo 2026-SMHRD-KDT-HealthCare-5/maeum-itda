@@ -157,7 +157,20 @@ export function EmotionTrendChart({
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={chartData} margin={{ top: 20, right: 12, bottom: 2, left: 6 }}>
               <defs>
-                <filter id="emotion-line-shadow" x="-20%" y="-30%" width="140%" height="160%">
+                {/* filterUnits는 반드시 userSpaceOnUse여야 한다 — 기본값인
+                    objectBoundingBox는 대상 도형의 bounding box 기준 퍼센트인데,
+                    정서지수가 며칠 연속 같은 값이면(완전히 평평한 선) 선의 bounding
+                    box 높이가 0이 되어 필터 영역 자체가 0으로 찌그러지면서 그림자뿐
+                    아니라 선 전체가 렌더링에서 사라진다(실제로 겪은 버그). 절대
+                    좌표 기반으로 넉넉히 잡아 이 문제를 피한다. */}
+                <filter
+                  id="emotion-line-shadow"
+                  filterUnits="userSpaceOnUse"
+                  x="-50"
+                  y="-50"
+                  width="1000"
+                  height="500"
+                >
                   <feDropShadow
                     dx="0"
                     dy="2"
