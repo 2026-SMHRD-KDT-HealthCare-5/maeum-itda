@@ -10,20 +10,20 @@ app/services/stt.py를 서버 실행 없이 그대로 불러와서 실행합니�
 
 사용법:
     # input_sound/ 안에 오디오 파일이 하나만 있으면 --audio 생략 가능 (자동 폴백 경로 그대로 테스트)
-    python scripts/test_stt.py
+    python scripts/manual_stt_check.py
 
     # 특정 파일을 지정 (input_sound/ 안의 파일명만 써도 되고, 다른 경로의 전체 경로여도 됨)
-    python scripts/test_stt.py --audio my_voice.mp3
-    python scripts/test_stt.py --audio "C:\\Users\\...\\아무데나\\sample.wav"
+    python scripts/manual_stt_check.py --audio my_voice.mp3
+    python scripts/manual_stt_check.py --audio "C:\\Users\\...\\아무데나\\sample.wav"
 
     # OpenAI 경로만 강제로 테스트 (로컬 폴백 안 탐)
-    python scripts/test_stt.py --engine openai
+    python scripts/manual_stt_check.py --engine openai
 
     # 로컬 faster-whisper만 강제로 테스트 (API 키 없어도 됨, 첫 실행은 모델 다운로드로 느림)
-    python scripts/test_stt.py --engine local
+    python scripts/manual_stt_check.py --engine local
 
     # output_text/에 저장하지 않고 화면 출력만
-    python scripts/test_stt.py --no-save
+    python scripts/manual_stt_check.py --no-save
 """
 import argparse
 import json

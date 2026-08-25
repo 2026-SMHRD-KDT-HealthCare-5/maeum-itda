@@ -13,16 +13,16 @@ app/services/tts.py를 서버 실행 없이 그대로 불러와서 실행합니�
 
 사용법:
     # input_text/ 안에 .txt 파일이 하나만 있으면 --text 없이 그 내용을 그대로 합성
-    python scripts/test_tts.py
+    python scripts/manual_tts_check.py
 
     # 텍스트를 직접 지정 (TTFB 등 측정값은 항상 출력됨)
-    python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?"
+    python scripts/manual_tts_check.py --text "오늘 하루는 어떻게 보내셨어요?"
 
     # 저장 경로를 직접 지정하고 싶을 때
-    python scripts/test_tts.py --text "..." --out output_sound/my_test.mp3
+    python scripts/manual_tts_check.py --text "..." --out output_sound/my_test.mp3
 
     # 보유 보이스 목록만 확인하고 싶을 때
-    python scripts/test_tts.py --list-voices
+    python scripts/manual_tts_check.py --list-voices
 
 TTFB(첫 청크 도달 시간)는 요구사항정의서 FR-01-05가 요구하는 지표(~200ms)라
 이 스크립트가 특히 그 값을 눈에 띄게 출력합니다.
