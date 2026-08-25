@@ -6,6 +6,7 @@ import { sendVoiceAnswer } from '../api'
 import {
   createSilenceWatcher,
   pickSupportedAudioMimeType,
+  RECORDING_AUDIO_BITS_PER_SECOND,
   startPcmStream,
   type PcmStreamHandle,
   type SilenceWatcherHandle,
@@ -166,7 +167,10 @@ export function useRecordVoiceAnswer({
         const mimeType = pickSupportedAudioMimeType()
         mimeTypeRef.current = mimeType
         chunksRef.current = []
-        const recorder = new MediaRecorder(stream, { mimeType })
+        const recorder = new MediaRecorder(stream, {
+          mimeType,
+          audioBitsPerSecond: RECORDING_AUDIO_BITS_PER_SECOND,
+        })
         recorder.ondataavailable = (event) => {
           if (event.data.size > 0) chunksRef.current.push(event.data)
         }

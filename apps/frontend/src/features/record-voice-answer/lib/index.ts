@@ -12,6 +12,15 @@ export function pickSupportedAudioMimeType(): string {
   return 'audio/webm'
 }
 
+// 음성 답변은 STT 인식용일 뿐 음질이 중요하지 않은데, MediaRecorder에
+// audioBitsPerSecond를 안 주면 브라우저 기본값을 쓴다 — Safari(iOS)의
+// audio/mp4(AAC) 기본 비트레이트가 Chrome의 audio/webm;codecs=opus보다
+// 훨씬 높아, 같은 발화 길이에도 파일이 커진다. 모바일 네트워크 업로드가
+// 느릴 때 이 차이가 "생각 중" 대기시간에 그대로 얹힌다 — 명시적으로 낮춰
+// 플랫폼 기본값 차이를 없앤다(24kHz PCM으로도 STT가 되는 수준이라 32kbps면
+// 충분하다).
+export const RECORDING_AUDIO_BITS_PER_SECOND = 32_000
+
 const SILENCE_RMS_THRESHOLD = 0.02
 
 // RMS(음량)만으로는 "소리가 났다"는 것만 알 뿐, 그게 말인지 바람 소리·기침

@@ -243,6 +243,28 @@ export function getUnlockedAudioContext(): AudioContext {
   return sharedAudioContext
 }
 
+let sharedTtsAudio: HTMLAudioElement | null = null
+
+// 1초 무음 WAV(재생 자체가 목적이라 길이만 있으면 됨) — 사용자 제스처로
+// 이 엘리먼트를 한 번 실제로 재생시켜 두면, 그 뒤로 같은 엘리먼트에 src만
+// 바꿔 다시 play()하는 건 iOS Safari/PWA에서도 새 제스처 없이 허용된다.
+const SILENT_AUDIO_SRC =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEAQB8AAEAfAAABAAgAAABmYWN0BAAAAAAAAABkYXRhAAAAAA=='
+
+// "안부 대화 시작하기" 탭 핸들러처럼 확실한 사용자 제스처 안에서 한 번
+// 호출해 TTS용 <audio> 엘리먼트를 미리 해금해둔다. playTtsAudioStream이
+// 매 질문마다 새 Audio()를 만들면 그 엘리먼트는 제스처 없이 처음
+// play()되는 셈이라, 2번째 질문부터 iOS Safari/PWA에서 자동재생이
+// 조용히 막혔다(음성 없이 텍스트로만 전달) — getUnlockedAudioContext와
+// 같은 이유·같은 해법이다.
+export function getUnlockedTtsAudioElement(): HTMLAudioElement {
+  if (!sharedTtsAudio) {
+    sharedTtsAudio = new Audio(SILENT_AUDIO_SRC)
+    void sharedTtsAudio.play().catch(() => {})
+  }
+  return sharedTtsAudio
+}
+
 export interface TtsPlaybackHandle {
   // 재생이 끝나거나(ended) 아예 시작하지 못했으면(autoplay 차단, 디코딩 실패
   // 등) resolve된다 — 호출부는 이 promise를 기다렸다가 다음 동작(마이크 열기
@@ -261,7 +283,9 @@ export interface TtsPlaybackHandle {
 // autoplayBlocked=true로 즉시 종료 처리한다 — 소리만 못 듣고 넘어갈 뿐 대화 흐름
 // (마이크 열기 등)이 막히면 안 되기 때문이다.
 export function playTtsAudioStream(streamUrl: string): TtsPlaybackHandle {
-  const audio = new Audio(streamUrl)
+  const audio = getUnlockedTtsAudioElement()
+  audio.pause()
+  audio.src = streamUrl
   let settled = false
   let resolveFinished!: (result: { autoplayBlocked: boolean }) => void
 
