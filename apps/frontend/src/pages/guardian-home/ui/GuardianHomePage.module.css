@@ -1,6 +1,6 @@
 .page {
   min-height: 100svh;
-  padding: 32px 20px 112px;
+  padding: 24px 20px 104px;
   box-sizing: border-box;
   display: grid;
   gap: 16px;
@@ -67,6 +67,143 @@
   text-align: center;
 }
 
+.emptyHome {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  min-height: calc(100svh - 152px);
+  box-sizing: border-box;
+  padding-bottom: 28px;
+}
+
+.emptyGreeting {
+  margin: 8px 4px 2px;
+}
+
+.emptyGreeting h1 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: clamp(28px, 7.4vw, 34px);
+  line-height: 1.25;
+  letter-spacing: -0.04em;
+}
+
+.emptyGreeting p {
+  margin: 7px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+.connectionCard {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 112px minmax(0, 1fr);
+  column-gap: 14px;
+  padding: 18px 20px 22px;
+  border-color: rgba(31, 111, 84, 0.06);
+  border-radius: 28px;
+  box-shadow: 0 14px 36px rgba(37, 51, 45, 0.08);
+  text-align: left;
+}
+
+.connectionCharacter {
+  width: 112px;
+  height: 148px;
+  overflow: hidden;
+  align-self: end;
+}
+
+.connectionCharacter img {
+  display: block;
+  width: 170px;
+  height: auto;
+  transform: translate(-10px, 7px);
+}
+
+.connectionCopy {
+  margin: 0;
+}
+
+.connectionCopy h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 20px;
+  line-height: 1.35;
+  letter-spacing: -0.03em;
+}
+
+.connectionCopy p {
+  max-width: 290px;
+  margin: 7px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.connectionCard button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  grid-column: 1 / -1;
+  max-width: none;
+}
+
+.connectionCard button svg {
+  width: 20px;
+  height: 20px;
+}
+
+.buttonLabel {
+  margin-left: 20px;
+}
+
+.benefits h2 {
+  margin: 0 4px 10px;
+  color: var(--color-text-primary);
+  font-size: 19px;
+  line-height: 1.4;
+}
+
+.benefitCard {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 18px 10px;
+  border-radius: 24px;
+}
+
+.benefitItem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.benefitItem + .benefitItem::before {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  left: 0;
+  width: 1px;
+  background: var(--color-border-subtle);
+  content: '';
+}
+
+.benefitItem svg {
+  width: 34px;
+  height: 34px;
+  color: #79b69d;
+  stroke-width: 1.7;
+}
+
 @media (max-width: 360px) {
   .page {
     padding-inline: 14px;
@@ -84,5 +221,44 @@
   .recommendationCard {
     margin-top: 4px;
     padding: 16px 14px;
+  }
+
+  .emptyHome {
+    gap: 22px;
+  }
+
+  .emptyGreeting {
+    margin-top: 12px;
+  }
+
+  .connectionCard {
+    grid-template-columns: 96px minmax(0, 1fr);
+    padding-inline: 18px;
+  }
+
+  .connectionCharacter {
+    width: 96px;
+    height: 136px;
+  }
+
+  .connectionCharacter img {
+    width: 156px;
+    transform: translate(-12px, 7px);
+  }
+
+  .benefitCard {
+    padding-inline: 4px;
+  }
+
+  .benefitItem {
+    font-size: 12px;
+  }
+}
+
+@media (max-height: 700px) {
+  .emptyHome {
+    justify-content: flex-start;
+    min-height: auto;
+    padding-bottom: 0;
   }
 }

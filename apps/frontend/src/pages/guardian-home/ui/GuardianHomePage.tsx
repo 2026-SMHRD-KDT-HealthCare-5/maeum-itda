@@ -1,14 +1,22 @@
 import { useQuery } from '@tanstack/react-query'
-import { daysSinceConnected } from '../../../entities/connection'
+import { FiBell, FiChevronRight, FiFileText } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
+import {
+  CONNECTION_QUERY_KEY,
+  daysSinceConnected,
+  fetchMyConnection,
+} from '../../../entities/connection'
 import {
   EmotionScoreCard,
   RecommendedActionCard,
   fetchGuardianDashboard,
 } from '../../../entities/report'
-import { extractApiErrorMessage } from '../../../shared/api'
+import { useSession } from '../../../entities/user'
+import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
-import { Card, ErrorState, LoadingSpinner } from '../../../shared/ui'
+import { Button, Card, ErrorState, LoadingSpinner } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
+import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.webp'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import styles from './GuardianHomePage.module.css'
@@ -26,27 +34,82 @@ function toWeeklyReportHref(firstDate: string | undefined): string {
   return `/guardian/report/weekly/${date.toISOString().slice(0, 10)}`
 }
 
-// GUARDIAN_HOME_01 (UC-08) — 결정사항 로그 §7에서 "오늘의 정서 지수"/"다슬이의
-// 한마디" 카드를 추가했다. GET /guardian/dashboard 실연동.
+// GUARDIAN_HOME_01 (UC-08) — GET /connections/me로 연결 여부를 먼저 확인해
+// 미연결 보호자에게는 즉시 연결 CTA를 보여주고, 연결된 경우에만 상대적으로 무거운
+// GET /guardian/dashboard를 호출해 정서 지수·다슬이의 한마디·추이를 조합한다.
 export function GuardianHomePage() {
+  const { session } = useSession()
+  const navigate = useNavigate()
+  const connectionQuery = useQuery({
+    queryKey: CONNECTION_QUERY_KEY,
+    queryFn: fetchMyConnection,
+  })
+  const hasConnectedSenior = connectionQuery.data?.status === 'CONNECTED'
   const dashboardQuery = useQuery({
     queryKey: ['guardian-dashboard'],
     queryFn: fetchGuardianDashboard,
+    enabled: hasConnectedSenior,
   })
-  const showSpinner = useDelayedPending(dashboardQuery.isPending)
+  const isPagePending =
+    connectionQuery.isPending || (hasConnectedSenior && dashboardQuery.isPending)
+  const showSpinner = useDelayedPending(isPagePending, { delay: 120, minDuration: 250 })
   const dashboard = dashboardQuery.data
+  const hasNoConnectedSenior =
+    connectionQuery.isSuccess &&
+    (!hasConnectedSenior || (dashboardQuery.isError && isNotFoundError(dashboardQuery.error)))
+  const pageError = connectionQuery.error ?? dashboardQuery.error
 
   return (
     <>
       <main className={styles.page}>
         {showSpinner && <LoadingSpinner overlay label="오늘의 소식을 불러오고 있어요" />}
 
-        {!showSpinner && dashboardQuery.isError && (
+        {!showSpinner && pageError && !hasNoConnectedSenior && (
           <ErrorState
-            message={extractApiErrorMessage(dashboardQuery.error, '정보를 불러오지 못했어요.')}
-            onRetry={() => void dashboardQuery.refetch()}
-            isRetrying={dashboardQuery.isFetching}
+            message={extractApiErrorMessage(pageError, '정보를 불러오지 못했어요.')}
+            onRetry={() => {
+              if (connectionQuery.isError) void connectionQuery.refetch()
+              else void dashboardQuery.refetch()
+            }}
+            isRetrying={connectionQuery.isFetching || dashboardQuery.isFetching}
           />
+        )}
+
+        {!showSpinner && hasNoConnectedSenior && (
+          <div className={styles.emptyHome}>
+            <header className={styles.emptyGreeting}>
+              <h1>{session?.name ?? '보호자'}님, 반가워요</h1>
+              <p>소중한 분의 안부를 함께 살펴볼까요?</p>
+            </header>
+
+            <Card className={styles.connectionCard}>
+              <div className={styles.connectionCharacter}>
+                <img src={daseulSummaryImage} alt="안내 책자를 들고 있는 다솔이" />
+              </div>
+              <div className={styles.connectionCopy}>
+                <h2>아직 연결된 시니어가 없어요</h2>
+                <p>시니어와 연결하면 정서 리포트와 중요한 알림을 받아볼 수 있어요.</p>
+              </div>
+              <Button type="button" onClick={() => navigate('/guardian/connection')}>
+                <span className={styles.buttonLabel}>시니어 연결하기</span>
+                <FiChevronRight aria-hidden="true" />
+              </Button>
+            </Card>
+
+            <section className={styles.benefits} aria-labelledby="connection-benefits-title">
+              <h2 id="connection-benefits-title">연결하면 이용할 수 있어요</h2>
+              <Card className={styles.benefitCard}>
+                <div className={styles.benefitItem}>
+                  <FiFileText aria-hidden="true" />
+                  <span>정서 변화 리포트</span>
+                </div>
+                <div className={styles.benefitItem}>
+                  <FiBell aria-hidden="true" />
+                  <span>위험 신호 알림</span>
+                </div>
+              </Card>
+            </section>
+          </div>
         )}
 
         {!showSpinner && dashboard && (
