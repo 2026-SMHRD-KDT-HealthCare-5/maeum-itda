@@ -1,5 +1,11 @@
-import { useEffect, useState } from 'react'
-import { getCalendarDates, isSameDate, toDateKey, useAnimatedPresence } from '../../../shared/lib'
+import { useRef, useState } from 'react'
+import {
+  getCalendarDates,
+  isSameDate,
+  toDateKey,
+  useAnimatedPresence,
+  useFocusTrap,
+} from '../../../shared/lib'
 import { formatKoreanDate } from '../lib'
 import styles from './SelectReportDateAction.module.css'
 
@@ -27,6 +33,8 @@ export function SelectReportDateAction({
 }: SelectReportDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const calendarPresence = useAnimatedPresence(isCalendarOpen)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, calendarPresence.isRendered, () => setIsCalendarOpen(false))
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
   )
@@ -55,16 +63,6 @@ export function SelectReportDateAction({
   const year = visibleMonth.getFullYear()
   const month = visibleMonth.getMonth()
   const calendarDates = getCalendarDates(year, month)
-
-  useEffect(() => {
-    if (!isCalendarOpen) return
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsCalendarOpen(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [isCalendarOpen])
 
   return (
     <>
@@ -100,6 +98,7 @@ export function SelectReportDateAction({
           onClick={() => setIsCalendarOpen(false)}
         >
           <div
+            ref={modalRef}
             className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useFocusTrap } from '../../../shared/lib'
 import styles from './DisconnectConnectionAction.module.css'
 
 interface DisconnectConnectionActionProps {
@@ -18,6 +19,8 @@ export function DisconnectConnectionAction({
   error = null,
 }: DisconnectConnectionActionProps) {
   const [isConfirming, setIsConfirming] = useState(false)
+  const confirmRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(confirmRef, isConfirming, () => setIsConfirming(false))
 
   return (
     <>
@@ -35,6 +38,7 @@ export function DisconnectConnectionAction({
 
       {isConfirming && (
         <div
+          ref={confirmRef}
           id="disconnect-confirmation"
           className={[styles.confirm, variant === 'guardian' ? styles.guardianConfirm : '']
             .filter(Boolean)

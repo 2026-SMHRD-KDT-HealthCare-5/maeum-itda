@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
@@ -116,6 +116,69 @@ export function useAnimatedPresence(isOpen: boolean, exitDuration = 180) {
   }, [exitDuration, isOpen, isRendered])
 
   return { isRendered, isClosing }
+}
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// 모달/다이얼로그 공통 키보드 접근성 — isActive가 true가 되면(보통
+// useAnimatedPresence의 isRendered) 다이얼로그 안 첫 포커스 가능 요소로
+// 포커스를 옮기고, Tab/Shift+Tab이 다이얼로그 밖으로 새지 않게 순환시키며,
+// Escape 입력 시 onRequestClose를 호출한다. isActive가 다시 false가 되면
+// (닫힘) 열기 전 포커스였던 요소로 되돌린다.
+export function useFocusTrap(
+  containerRef: RefObject<HTMLElement | null>,
+  isActive: boolean,
+  onRequestClose: () => void,
+): void {
+  const onRequestCloseRef = useRef(onRequestClose)
+  useEffect(() => {
+    onRequestCloseRef.current = onRequestClose
+  })
+
+  useEffect(() => {
+    if (!isActive) return
+    const container = containerRef.current
+    if (!container) return
+
+    const previouslyFocused = document.activeElement as HTMLElement | null
+
+    function getFocusableElements(): HTMLElement[] {
+      return Array.from(container!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+    }
+
+    const [firstOnOpen] = getFocusableElements()
+    ;(firstOnOpen ?? container).focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onRequestCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const elements = getFocusableElements()
+      if (elements.length === 0) {
+        event.preventDefault()
+        return
+      }
+      const firstElement = elements[0]
+      const lastElement = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [isActive, containerRef])
 }
 
 const PERMISSION_ONBOARDING_KEY_PREFIX = 'maeum-itda:permissionsOnboarded:'

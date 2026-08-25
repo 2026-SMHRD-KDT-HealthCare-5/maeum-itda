@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useAnimatedPresence } from '../../../shared/lib'
+import { useRef, useState } from 'react'
+import { useAnimatedPresence, useFocusTrap } from '../../../shared/lib'
 import { InlineFeedback, Toggle, type InlineFeedbackTone } from '../../../shared/ui'
 import type { CheckinReminderValue } from '../model'
 import styles from './SetCheckinReminderAction.module.css'
@@ -32,19 +32,11 @@ export function SetCheckinReminderAction({
 }: SetCheckinReminderActionProps) {
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false)
   const timeModalPresence = useAnimatedPresence(isTimeModalOpen)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, timeModalPresence.isRendered, () => setIsTimeModalOpen(false))
   const [hour, minute] = value.time.split(':').map(Number)
   const timePeriod = hour < 12 ? '오전' : '오후'
   const displayHour = hour % 12 || 12
-
-  useEffect(() => {
-    if (!isTimeModalOpen) return
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsTimeModalOpen(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [isTimeModalOpen])
 
   function formatHour(optionHour: number) {
     const period = optionHour < 12 ? '오전' : '오후'
@@ -125,6 +117,7 @@ export function SetCheckinReminderAction({
           onClick={() => setIsTimeModalOpen(false)}
         >
           <div
+            ref={modalRef}
             className={`${styles.modal} ${timeModalPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
