@@ -2,8 +2,9 @@
 
 백엔드가 전달한 시니어 발화 음성을 분석하는 AI 서버입니다.
 
-기존 STT → LLM 감정 판단·꼬리질문 생성 → TTS 로직은 유지하고, 백엔드와의
-통신 방식만 WebSocket에서 REST로 변경했습니다.
+확정 답변의 배치 분석은 REST로 처리하고, 말하는 중 부분 전사는 WebSocket으로
+중계합니다. 기본 STT는 OpenAI `gpt-live-transcribe`이며 키 무효·쿼터 소진 때만
+로컬 faster-whisper로 폴백합니다.
 
 ## API
 
@@ -62,6 +63,16 @@ Content-Type: multipart/form-data
 - `SCALE_ANALYSIS_MODE=empty`(테스트용)이면 `scaleAnalyses`는 항상 빈 배열입니다. 기본값 `test`는 고정 목업 점수(GAD_7 문항4=1)를 반환하며, `model`이어야 실제 LLM 채점을 씁니다.
 - **[2026-08-20 변경] 이 응답에는 TTS가 포함되지 않습니다.** 다음 질문 텍스트를 합성 대기 없이 먼저 반환하기 위해서입니다 — TTS는 아래 별도 엔드포인트로 분리되어 있습니다.
 - LLM 질문 생성에 실패하면 부분 응답 대신 HTTP `502`를 반환합니다.
+
+### 실시간 부분 전사
+
+```text
+WebSocket /analysis/stt/live
+```
+
+NestJS가 PCM16 mono 24kHz 청크를 전달하면 OpenAI Realtime transcription 세션을
+프록시해 부분/완료 전사를 돌려줍니다. 부분 전사는 화면 자막용이며 DB에는 저장하지
+않고, 확정 메시지 저장은 배치 분석 성공 후 NestJS가 처리합니다.
 
 ### TTS 합성
 
@@ -147,7 +158,7 @@ python scripts/manual_tts_check.py --text "오늘 하루는 어떻게 보내셨�
 
 ## 자동 테스트
 
-`tests/`에 pytest 기반 단위 테스트가 있습니다(`test_audio_features.py`, `test_config.py`, `test_llm.py`, `test_main.py`, `test_stt.py`). `scripts/*.py`(위 REST/개별 모듈 확인용 목 클라이언트)와는 별개입니다.
+`tests/`에 pytest 기반 단위 테스트가 있습니다(`test_audio_features.py`, `test_config.py`, `test_llm.py`, `test_main.py`, `test_stt.py`, `test_stt_live.py`). `scripts/*.py`(위 REST/개별 모듈 확인용 목 클라이언트)와는 별개입니다.
 
 ```powershell
 pytest
@@ -163,7 +174,8 @@ app/
   schemas.py            REST 요청/응답 스키마
   session_manager.py    LLM 전달용 대화 문맥 자료구조
   services/
-    stt.py              OpenAI STT와 로컬 Whisper 폴백
+    stt.py              gpt-live-transcribe 배치 전사와 로컬 Whisper 제한적 폴백
+    stt_live.py         Realtime transcription 이벤트·PCM 청크 계약
     audio_features.py   답변 음성에서 가벼운 수치 지표 추출(numpy·av, ML 모델 없음)
     llm.py               다음 꼬리질문 생성 및 감정 판단(같은 호출)
     llm_prompts.py       LLM 시스템 프롬프트
@@ -171,7 +183,7 @@ app/
 tests/                   pytest 단위 테스트
 scripts/
   mock_backend_client.py  REST API 확인용 목 클라이언트
-  test_stt.py
-  test_llm.py
-  test_tts.py
+  manual_stt_check.py
+  manual_llm_check.py
+  manual_tts_check.py
 ```
