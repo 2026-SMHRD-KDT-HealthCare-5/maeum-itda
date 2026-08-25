@@ -33,6 +33,10 @@ export class AudioBinaryHandler {
   private readonly logger = new Logger(AudioBinaryHandler.name);
   // FastAPI 요청·응답 안에서만 답변을 구분하는 임시 번호 — DB MESSAGE_ID가 아니다.
   private nextTempAnswerId = 1;
+  // 임시 지연 진단용 — questionMessageId별 "이 질문에 대한 첫 음성 바이너리를
+  // 받은 시각"을 기록해, 다음 질문을 클라이언트로 보내는 시점까지의 백엔드
+  // 쪽 총 소요시간을 잰다. 원인 파악 끝나면 지울 것.
+  private readonly audioReceivedAtByQuestion = new Map<number, number>();
   private readonly audioMetadataHandler: AudioMetadataHandler;
   private readonly questionAnswerQueueService: QuestionAnswerQueueService;
   private readonly analysisService: AnalysisService;
@@ -86,6 +90,12 @@ export class AudioBinaryHandler {
     }
 
     const audioBuffer = this.toBuffer(data);
+    if (!this.audioReceivedAtByQuestion.has(metadata.questionMessageId)) {
+      this.audioReceivedAtByQuestion.set(
+        metadata.questionMessageId,
+        Date.now(),
+      );
+    }
     if (audioBuffer.byteLength === 0) {
       this.sendError(
         client,
@@ -241,6 +251,16 @@ export class AudioBinaryHandler {
         client,
         completed.nextQuestion,
       );
+      // 임시 지연 진단 로그 — 원인 파악 끝나면 지울 것.
+      const receivedAt = this.audioReceivedAtByQuestion.get(
+        batch.questionMessageId,
+      );
+      this.audioReceivedAtByQuestion.delete(batch.questionMessageId);
+      if (receivedAt !== undefined) {
+        this.logger.log(
+          `[LATENCY] questionMessageId=${batch.questionMessageId} 백엔드 총 소요(음성 수신→다음 질문 전달)=${Date.now() - receivedAt}ms`,
+        );
+      }
       // TTS 합성을 기다리지 않고 텍스트부터 보낸다 — 음성은 준비되는 대로 별도로 뒤이어 보낸다.
       this.questionDeliveryService.deliverQuestion(
         client,
@@ -255,6 +275,7 @@ export class AudioBinaryHandler {
         batch.seniorId,
       );
     } catch {
+      this.audioReceivedAtByQuestion.delete(batch.questionMessageId);
       // AnalysisService.processPendingAnswerBatch는 실패 시 아무것도 저장하지
       // 않는다 — 이 답변들은 애초에 메시지로 존재한 적이 없으므로 프론트에
       // 알릴 audio:transcript도 없다. error 이벤트만으로 실패를 알리고,

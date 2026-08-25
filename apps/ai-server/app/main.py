@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
@@ -179,8 +180,12 @@ async def analyze_audio_batch(
     pending_scale_items_dict = _parse_pending_scale_items(pending_scale_items)
     conversation_turns_list = _parse_conversation_turns(conversation_turns)
 
+    # 임시 지연 진단 로그 — 구간별 소요시간을 questionMessageId로 상관지어 남긴다.
+    # 원인 파악 끝나면 지울 것.
+    t_request_start = time.monotonic()
     processed_answers: list[dict] = []
 
+    t_stt_start = time.monotonic()
     for audio_file, message_id in zip(audio_files, message_ids, strict=True):
         audio_bytes = await audio_file.read()
         audio_format = _resolve_audio_format(audio_file)
@@ -216,6 +221,8 @@ async def analyze_audio_batch(
             }
         )
 
+    t_stt_end = time.monotonic()
+
     session = SessionState(
         session_id=generation_id,
         user_id=str(question_message_id),
@@ -223,11 +230,13 @@ async def analyze_audio_batch(
         pending_scale_items=pending_scale_items_dict,
         conversation_turns=conversation_turns_list,
     )
+    t_llm_start = time.monotonic()
     llm_result = await asyncio.to_thread(
         llm_service.generate_next_question,
         processed_answers,
         session,
     )
+    t_llm_end = time.monotonic()
     next_question = llm_result.get("ai_question")
     if not isinstance(next_question, str) or not next_question.strip():
         raise HTTPException(status_code=502, detail="LLM 다음 질문 생성에 실패했습니다.")
@@ -252,6 +261,16 @@ async def analyze_audio_batch(
         )
         for answer in processed_answers
     ]
+
+    # 임시 지연 진단 로그 — 원인 파악 끝나면 지울 것.
+    t_request_end = time.monotonic()
+    logger.info(
+        "[LATENCY] questionMessageId=%s stt=%.0fms llm=%.0fms ai_server_total=%.0fms",
+        question_message_id,
+        (t_stt_end - t_stt_start) * 1000,
+        (t_llm_end - t_llm_start) * 1000,
+        (t_request_end - t_request_start) * 1000,
+    )
 
     # 다음 질문 텍스트는 TTS 합성을 기다리지 않고 곧바로 반환한다 — 화면 표시가
     # TTS 생성 시간만큼 불필요하게 지연되지 않게 하기 위함이다. 백엔드가 이 텍스트를
