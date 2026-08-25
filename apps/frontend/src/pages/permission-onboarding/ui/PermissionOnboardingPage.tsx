@@ -71,47 +71,49 @@ export function PermissionOnboardingPage() {
 
   return (
     <main className={styles.page}>
-      <section className={styles.intro} aria-label="권한 안내">
-        <div className={styles.characterSlot}>
-          <img
-            className={styles.character}
-            src={permissionDaseul}
-            alt="두 팔을 벌려 안내하는 다솔이"
+      <div className={styles.content}>
+        <section className={styles.intro} aria-label="권한 안내">
+          <div className={styles.characterSlot}>
+            <img
+              className={styles.character}
+              src={permissionDaseul}
+              alt="두 팔을 벌려 안내하는 다솔이"
+            />
+          </div>
+          <PageHeading
+            eyebrow="시작하기 전에"
+            title="알림 권한을 확인해 주세요"
+            description="마음잇다의 소중한 소식을 전해드리기 위해 알림 권한이 필요해요."
           />
-        </div>
-        <PageHeading
-          eyebrow="시작하기 전에"
-          title="알림 권한을 확인해 주세요"
-          description="마음잇다의 소중한 소식을 전해드리기 위해 알림 권한이 필요해요."
-        />
-      </section>
+        </section>
 
-      <section className={styles.permissionSection} aria-label="필요한 권한">
-        <Card className={styles.permissionCard}>
-          <div className={styles.permissionRow}>
-            <span className={styles.icon} aria-hidden="true">
-              <FiBell />
-            </span>
-            <div className={styles.permissionCopy}>
-              <p className={styles.cardTitle}>알림</p>
-              <p className={styles.cardDescription}>
-                안부 알림과 보호자 소식을 놓치지 않도록 알려드려요.
+        <section className={styles.permissionSection} aria-label="필요한 권한">
+          <Card className={styles.permissionCard}>
+            <div className={styles.permissionRow}>
+              <span className={styles.icon} aria-hidden="true">
+                <FiBell />
+              </span>
+              <div className={styles.permissionCopy}>
+                <p className={styles.cardTitle}>알림</p>
+                <p className={styles.cardDescription}>
+                  안부 알림과 보호자 소식을 놓치지 않도록 알려드려요.
+                </p>
+              </div>
+              <p
+                className={styles.status}
+                data-state={notificationState}
+                role="status"
+                aria-live="polite"
+              >
+                <StatusIcon
+                  className={notificationState === 'checking' ? styles.spinning : undefined}
+                />
+                {STATE_LABEL[notificationState]}
               </p>
             </div>
-            <p
-              className={styles.status}
-              data-state={notificationState}
-              role="status"
-              aria-live="polite"
-            >
-              <StatusIcon
-                className={notificationState === 'checking' ? styles.spinning : undefined}
-              />
-              {STATE_LABEL[notificationState]}
-            </p>
-          </div>
-        </Card>
-      </section>
+          </Card>
+        </section>
+      </div>
 
       <div className={styles.footer}>
         <p className={styles.privacyNote}>
