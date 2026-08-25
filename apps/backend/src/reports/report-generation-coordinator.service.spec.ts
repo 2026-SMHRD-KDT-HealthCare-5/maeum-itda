@@ -127,4 +127,47 @@ describe('ReportGenerationCoordinatorService', () => {
       notificationsService.createWeeklyReportReadyNotification,
     ).not.toHaveBeenCalled();
   });
+
+  it('한 대상이 실패해도 나머지 대상은 모두 처리한다(제한된 동시성)', async () => {
+    const targetRepository = {
+      findConnectedTargets: jest.fn().mockResolvedValue([
+        { guardianId: 1, seniorId: 11 },
+        { guardianId: 2, seniorId: 12 },
+        { guardianId: 3, seniorId: 13 },
+      ]),
+    };
+    const reportsService = {
+      generateDailyReport: jest.fn().mockImplementation((seniorId: number) => {
+        if (seniorId === 12) return Promise.reject(new Error('boom'));
+        return Promise.resolve({
+          reportId: seniorId,
+          emotionIndex: null,
+          generationStatus: GenerationStatus.WAITING,
+        });
+      }),
+    };
+    const weeklyService = { generateWeeklyReport: jest.fn() };
+    const notificationsService = {
+      createWeeklyReportReadyNotification: jest.fn(),
+      createEmotionIndexDropNotification: jest.fn(),
+    };
+    const coordinator = new ReportGenerationCoordinatorService(
+      targetRepository as unknown as ReportGenerationTargetRepository,
+      reportsService as unknown as ReportsService,
+      weeklyService as unknown as WeeklyReportGenerationService,
+      notificationsService as unknown as NotificationsService,
+    );
+
+    await coordinator.run(new Date('2026-08-14T00:00:00.000Z'));
+
+    expect(reportsService.generateDailyReport).toHaveBeenCalledTimes(3);
+    expect(reportsService.generateDailyReport).toHaveBeenCalledWith(
+      11,
+      '2026-08-13',
+    );
+    expect(reportsService.generateDailyReport).toHaveBeenCalledWith(
+      13,
+      '2026-08-13',
+    );
+  });
 });
