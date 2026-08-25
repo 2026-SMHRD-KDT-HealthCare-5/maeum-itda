@@ -3,6 +3,7 @@
 연결 흐름: AiClient.openLiveSttSession() → LiveSttSession.append/close
 */
 import WebSocket from 'ws';
+import { rawDataToString } from '../chats/ws-event';
 
 export interface LiveSttSessionCallbacks {
   onDelta: (delta: string) => void;
@@ -19,7 +20,7 @@ export class LiveSttSession {
     this.socket.on('message', (data) => {
       if (this.closed) return;
       try {
-        const parsed: unknown = JSON.parse(data.toString());
+        const parsed: unknown = JSON.parse(rawDataToString(data));
         if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
         if (parsed.type === 'delta' && typeof parsed.delta === 'string') {
           this.callbacks.onDelta(parsed.delta);
@@ -27,7 +28,9 @@ export class LiveSttSession {
         }
         if (parsed.type === 'error') {
           this.callbacks.onError(
-            typeof parsed.reason === 'string' ? parsed.reason : 'live STT error',
+            typeof parsed.reason === 'string'
+              ? parsed.reason
+              : 'live STT error',
           );
           this.close();
         }
