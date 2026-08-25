@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useSession } from '../../../entities/user'
+import { useAnimatedPresence } from '../../../shared/lib'
 import splashImage from './splash-daseul.webp'
 import styles from './SplashPage.module.css'
 
@@ -8,6 +9,9 @@ import styles from './SplashPage.module.css'
 // 최초 설치 등)에도 브랜딩을 보여주기 위한 최소 노출 시간 — 세션 복원이
 // 이보다 오래 걸리면 그동안은 계속 떠 있는다(아래 isRestoring과 OR 조건).
 const MIN_SPLASH_DURATION_MS = 700
+// SplashPage.module.css의 fadeOut 애니메이션 길이와 맞춘다 — 다르면 트랜지션이
+// 끝나기 전에 언마운트되거나, 다 끝난 뒤에도 잠깐 멈춰있는 것처럼 보인다.
+const EXIT_DURATION_MS = 200
 
 // 화면ID 미배정(신규, 결정사항 로그 §5) — 단순 브랜딩용 화면인지 목적은 아직
 // 확정되지 않았지만, "/"에서 빠져나갈 방법이 없는 건 실제 결함이라 즉시
@@ -22,9 +26,12 @@ export function SplashPage() {
     return () => clearTimeout(timer)
   }, [])
 
-  if (isRestoring || !minDurationElapsed) {
+  const shouldShowSplash = isRestoring || !minDurationElapsed
+  const presence = useAnimatedPresence(shouldShowSplash, EXIT_DURATION_MS)
+
+  if (presence.isRendered) {
     return (
-      <main className={styles.page}>
+      <main className={`${styles.page} ${presence.isClosing ? styles.closing : ''}`}>
         <img src={splashImage} alt="마음잇다 — 마음을 잇는 따뜻한 대화" className={styles.image} />
       </main>
     )
