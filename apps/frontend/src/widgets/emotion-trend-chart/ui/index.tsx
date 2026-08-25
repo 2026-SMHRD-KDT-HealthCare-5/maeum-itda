@@ -25,16 +25,6 @@ interface ScoreDotProps {
   payload?: DailyScorePoint
 }
 
-const defaultMockScores: DailyScorePoint[] = [
-  { date: '2026-08-07', emotionScore: 53 },
-  { date: '2026-08-08', emotionScore: 82 },
-  { date: '2026-08-09', emotionScore: null },
-  { date: '2026-08-10', emotionScore: 41 },
-  { date: '2026-08-11', emotionScore: 65 },
-  { date: '2026-08-12', emotionScore: 52 },
-  { date: '2026-08-13', emotionScore: 93 },
-]
-
 const THRESHOLD_SCORE = 50
 
 function formatDateLabel(date: string): string {
@@ -97,12 +87,12 @@ function ActiveScoreDot({ cx, cy }: ScoreDotProps) {
 // GUARDIAN_HOME_01 / 보호자 주간 리포트 (UC-08) 공유 — 최근 7일 정서지수.
 // null 점수 날짜는 배경 밴드로 표시하고, 유효 점수끼리는 선을 이어 추이를 보여준다.
 export function EmotionTrendChart({
-  dailyScores = defaultMockScores,
+  dailyScores,
   highlightToday = true,
   detailsHref,
   title = '최근 7일 정서 지수',
 }: {
-  dailyScores?: DailyScorePoint[]
+  dailyScores: DailyScorePoint[]
   highlightToday?: boolean
   detailsHref?: string
   title?: string
