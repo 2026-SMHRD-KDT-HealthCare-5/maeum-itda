@@ -124,8 +124,6 @@ export function GuardianReportPage() {
                 <EmotionScoreCard
                   title="이날의 정서 지수"
                   score={report.emotionScore}
-                  level={report.emotionLevel}
-                  comment={report.conversationSummary}
                   variant="dashboard"
                 />
               </Card>

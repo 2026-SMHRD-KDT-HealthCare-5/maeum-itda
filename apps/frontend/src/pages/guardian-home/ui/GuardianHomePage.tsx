@@ -71,8 +71,6 @@ export function GuardianHomePage() {
                 detailsHref="/guardian/report"
                 title="오늘의 정서 지수"
                 score={dashboard.latestDailyReport.emotionScore}
-                level={dashboard.latestDailyReport.emotionLevel}
-                comment={dashboard.latestDailyReport.conversationSummary}
                 variant="dashboard"
               />
             </Card>
