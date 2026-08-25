@@ -26,11 +26,11 @@ AI · 음성/텍스트 감정분석 기반 시니어 정서변화 모니터링 �
 |---|---|
 | Front-end | TypeScript, React, React Router, TanStack Query |
 | Back-end | TypeScript, Node.js, NestJS |
-| AI / Data Pipeline | Python, FastAPI, Whisper(faster-whisper, STT), OpenAI API(꼬리질문 생성·실시간 감성분석 LLM), Typecast(TTS, Streaming API) |
+| AI / Data Pipeline | Python, FastAPI, OpenAI `gpt-live-transcribe`(기본 STT·부분 자막), faster-whisper(키/쿼터 오류 시 로컬 폴백), OpenAI API(꼬리질문·감성분석·척도 채점), Typecast(TTS Streaming API) |
 | Database | MySQL |
 | 기타 | Git, GitHub, VS Code, pnpm, Turborepo |
 
-시스템은 클라이언트 - 백엔드 API 서버 - AI 서버 - MySQL DB - 알림 서버의 4계층 구조로 구성됩니다. 시니어와의 실시간 안부 대화는 WebSocket 기반이며, 로그인/리포트 조회/알림함 등은 REST API로 처리합니다.
+시스템은 웹/PWA 클라이언트, NestJS API 서버, FastAPI AI 서버, MySQL로 구성되며 Web Push Service를 통해 알림을 전달합니다. 시니어와의 실시간 안부 대화와 부분 전사는 WebSocket 기반이고, 로그인·리포트·알림함 등은 REST API로 처리합니다.
 
 ## 폴더 구조
 
@@ -44,13 +44,13 @@ maeum-itda/
 │   ├── shared-types/    # 서비스 전반에서 공유하는 타입 정의 (ChatMessage, 대화 이력 cursor pagination, WebSocket 이벤트 계약 등 실제 타입 존재)
 │   ├── api-client/       # 프론트-백엔드 간 API 클라이언트 (backend OpenAPI 스펙 기반 swagger-typescript-api 생성 완료)
 │   └── config/           # 공통 설정(lint, tsconfig 등) (공유 ESLint config 실제 동작, apps/frontend가 사용 중)
-├── infra/                # 배포/인프라 관련 설정 (TODO: 초기 세팅 예정)
+├── infra/                # 향후 배포/인프라 설정을 둘 자리(현재 .gitkeep만 존재)
 └── docs/                 # 기획서, 요구사항정의서, 화면설계서 등 프로젝트 문서
 ```
 
 > `infra`만 아직 폴더/자리만 있고 실제 코드는 채워지지 않았습니다. `apps/frontend`는 FSD 구조로 핵심 화면 대부분이, `apps/backend`는 실시간 대화·리포트·알림/웹 푸시 로직이, `apps/ai-server`는 STT·척도 채점·TTS까지 한 턴 파이프라인이, `packages/api-client`는 생성된 실제 API 클라이언트가 각각 실제 API 호출로 동작합니다. AI 서버가 만들어내는 TTS 오디오(2026-08-21부로 실시간 스트리밍)와 척도 문항 커버리지(`pendingScaleItems`)/이전 세션 요약(`prevSessionSummary`) 연동도 백엔드까지 전부 종단간 연결됐습니다. **감성분석은 2026-08-21부로 별도 5감정 분류 모델(KLUE 텍스트/Kresnik 음성)이 아니라 꼬리질문 생성과 같은 LLM 호출이 직접 담당합니다** — 별도 체크포인트나 확률 보정·가중합 로직은 더 이상 없습니다(자세한 내용은 [결정사항 로그](docs/마음잇다_결정사항_및_이슈로그.md) §8 참고). 현재 상태와 남은 작업은 `docs/sprint-plan.md`를 참고하세요.
 >
-> ⚠️ **`apps/ai-server`는 아직 pnpm이 인식하는 패키지가 아닙니다.** `package.json`이 없어 `pnpm --filter ai-server ...`가 동작하지 않으며, Python(FastAPI) 프로젝트이므로 의존성은 pnpm이 아닌 별도 가상환경(`venv`)과 `requirements.txt`로 관리할 예정입니다.
+> **`apps/ai-server`는 pnpm 패키지가 아닙니다.** Python(FastAPI) 프로젝트이므로 `.venv`와 `requirements.txt`로 의존성을 관리합니다. 루트의 `pnpm dev:ai-server` 또는 `pnpm dev:all`로 실행할 수 있지만 `pnpm --filter ai-server ...`는 사용할 수 없습니다.
 
 ## 시작하기
 
@@ -77,8 +77,8 @@ pnpm --filter backend dev
 
 # ai-server(FastAPI)는 pnpm 워크스페이스 밖이므로 별도 실행 (자세한 내용은 apps/ai-server/README.md 참고)
 cd apps/ai-server
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env   # OPENAI_API_KEY, TYPECAST_API_KEY 등 채워넣기
 uvicorn app.main:app --reload --port 8000
