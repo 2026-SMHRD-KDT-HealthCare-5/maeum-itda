@@ -1,4 +1,4 @@
-/* 역할: 보호자 홈이 사용하는 서울 기준 전날과 최근 7개 달력 날짜를 계산한다. */
+/* 역할: 보호자 홈이 사용하는 서울 기준 오늘과 최근 7개 달력 날짜를 계산한다. */
 const SEOUL_TIME_ZONE = 'Asia/Seoul';
 
 function formatSeoulDate(value: Date): string {
@@ -26,7 +26,7 @@ export function toGuardianDashboardPeriod(
   now = new Date(),
 ): GuardianDashboardPeriod {
   const today = formatSeoulDate(now);
-  const reportDate = addDays(today, -1);
+  const reportDate = today;
   const startDate = addDays(reportDate, -6);
   return {
     reportDate,

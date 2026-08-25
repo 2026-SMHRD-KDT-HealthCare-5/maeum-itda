@@ -4,20 +4,20 @@ import {
 } from './guardian-dashboard-period';
 
 describe('guardian dashboard period', () => {
-  it('서울 기준 전날까지 최근 7일을 만든다', () => {
+  it('서울 기준 오늘까지 최근 7일을 만든다', () => {
     expect(
       toGuardianDashboardPeriod(new Date('2026-08-14T03:00:00.000Z')),
     ).toEqual({
-      reportDate: '2026-08-13',
-      startDate: '2026-08-07',
+      reportDate: '2026-08-14',
+      startDate: '2026-08-08',
       dates: [
-        '2026-08-07',
         '2026-08-08',
         '2026-08-09',
         '2026-08-10',
         '2026-08-11',
         '2026-08-12',
         '2026-08-13',
+        '2026-08-14',
       ],
     });
   });

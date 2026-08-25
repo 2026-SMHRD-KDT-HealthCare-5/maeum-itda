@@ -23,7 +23,7 @@ describe('GuardianDashboardService', () => {
     };
   }
 
-  it('연결 정보, 전날 리포트, 최근 7일 추이를 한 응답으로 조합한다', async () => {
+  it('연결 정보, 오늘 리포트, 최근 7일 추이를 한 응답으로 조합한다', async () => {
     const { service, repository } = createService();
     repository.findConnectedPair.mockResolvedValue({
       guardianId: 10,
@@ -37,7 +37,7 @@ describe('GuardianDashboardService', () => {
         reportId: 9,
         seniorId: 9,
         weeklyReportId: null,
-        reportDate: '2026-08-13',
+        reportDate: '2026-08-14',
         emotionIndex: 49,
         oneLineSummary: '평소보다 정서지수가 낮게 나타났어요.',
         recommendedAction: '가볍게 안부를 확인해 주세요.',
@@ -51,24 +51,24 @@ describe('GuardianDashboardService', () => {
 
     expect(repository.findDailyReports).toHaveBeenCalledWith(
       9,
-      '2026-08-07',
-      '2026-08-13',
+      '2026-08-08',
+      '2026-08-14',
     );
     expect(result.latestDailyReport).toMatchObject({
       reportId: 9,
-      reportDate: '2026-08-13',
+      reportDate: '2026-08-14',
       emotionIndex: 49,
       emotionLevel: EmotionLevel.BAD,
     });
     expect(result.dasolMessage).toBe('가볍게 안부를 확인해 주세요.');
     expect(result.recentSevenDays).toHaveLength(7);
     expect(result.recentSevenDays.at(-1)).toEqual({
-      date: '2026-08-13',
+      date: '2026-08-14',
       emotionIndex: 49,
     });
   });
 
-  it('전날 리포트가 없으면 점수는 null이고 대화 없음 문구를 반환한다', async () => {
+  it('오늘 리포트가 없으면 점수는 null이고 대화 없음 문구를 반환한다', async () => {
     const { service, repository } = createService();
     repository.findConnectedPair.mockResolvedValue({
       guardianId: 10,
