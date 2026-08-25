@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAnimatedPresence } from '../../../shared/lib'
+import { useAnimatedPresence, useFocusTrap } from '../../../shared/lib'
 import styles from './SelectReportWeekAction.module.css'
 
 interface SelectReportWeekActionProps {
@@ -64,6 +64,8 @@ export function SelectReportWeekAction({
   const selectedWeek = parseDateKey(weekStart)
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const calendarPresence = useAnimatedPresence(isCalendarOpen)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, calendarPresence.isRendered, () => setIsCalendarOpen(false))
   const [visibleMonth, setVisibleMonth] = useState(() => selectedWeek ?? new Date())
 
   function selectWeek(date: Date) {
@@ -84,15 +86,6 @@ export function SelectReportWeekAction({
     setVisibleMonth(next)
     onVisibleMonthChange?.(next)
   }
-
-  useEffect(() => {
-    if (!isCalendarOpen) return
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsCalendarOpen(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [isCalendarOpen])
 
   if (!selectedWeek) return <p className={styles.invalidDate}>올바르지 않은 주간 날짜예요.</p>
 
@@ -135,6 +128,7 @@ export function SelectReportWeekAction({
           onClick={() => setIsCalendarOpen(false)}
         >
           <div
+            ref={modalRef}
             className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 
 export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
@@ -14,6 +14,42 @@ const seoulDateKeyFormatter = new Intl.DateTimeFormat('en-CA', {
 // 서비스 기준 날짜(서울)를 GET /chats/messages?date= 등의 YYYY-MM-DD 형식으로 반환한다.
 export function getSeoulDateKey(date: Date = new Date()): string {
   return seoulDateKeyFormatter.format(date)
+}
+
+// select-daily-record-date/select-report-date 캘린더 모달이 공유하는 날짜
+// 유틸 — 둘 다 로컬 시간 기준으로 "하루"를 고르는 화면이라 동일한 계산이
+// 필요했다(원래 각 feature에 복제돼 있던 것을 이쪽으로 옮김). select-report-week는
+// weekStart를 라우트/쿼리 키로 써야 해서 UTC 자정 기준으로 별도 계산하므로
+// 여기 포함하지 않는다.
+export function isSameDate(left: Date, right: Date): boolean {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  )
+}
+
+export function toDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 월요일 시작이 아니라 일요일 시작 6~7행 그리드를 만든다(달력 UI 관례).
+export function getCalendarDates(year: number, month: number): Date[] {
+  const firstDate = new Date(year, month, 1)
+  const lastDate = new Date(year, month + 1, 0)
+  const startDate = new Date(year, month, 1 - firstDate.getDay())
+  const endOffset = 6 - lastDate.getDay()
+  const endDate = new Date(year, month, lastDate.getDate() + endOffset)
+  const dates: Date[] = []
+
+  for (const date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+    dates.push(new Date(date))
+  }
+
+  return dates
 }
 
 // 로딩 스피너 깜빡임 방지: isPending이 delay(ms) 안에 끝나면 스피너를 아예 띄우지
@@ -80,6 +116,69 @@ export function useAnimatedPresence(isOpen: boolean, exitDuration = 180) {
   }, [exitDuration, isOpen, isRendered])
 
   return { isRendered, isClosing }
+}
+
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+
+// 모달/다이얼로그 공통 키보드 접근성 — isActive가 true가 되면(보통
+// useAnimatedPresence의 isRendered) 다이얼로그 안 첫 포커스 가능 요소로
+// 포커스를 옮기고, Tab/Shift+Tab이 다이얼로그 밖으로 새지 않게 순환시키며,
+// Escape 입력 시 onRequestClose를 호출한다. isActive가 다시 false가 되면
+// (닫힘) 열기 전 포커스였던 요소로 되돌린다.
+export function useFocusTrap(
+  containerRef: RefObject<HTMLElement | null>,
+  isActive: boolean,
+  onRequestClose: () => void,
+): void {
+  const onRequestCloseRef = useRef(onRequestClose)
+  useEffect(() => {
+    onRequestCloseRef.current = onRequestClose
+  })
+
+  useEffect(() => {
+    if (!isActive) return
+    const container = containerRef.current
+    if (!container) return
+
+    const previouslyFocused = document.activeElement as HTMLElement | null
+
+    function getFocusableElements(): HTMLElement[] {
+      return Array.from(container!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
+    }
+
+    const [firstOnOpen] = getFocusableElements()
+    ;(firstOnOpen ?? container).focus()
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        onRequestCloseRef.current()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const elements = getFocusableElements()
+      if (elements.length === 0) {
+        event.preventDefault()
+        return
+      }
+      const firstElement = elements[0]
+      const lastElement = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === firstElement) {
+        event.preventDefault()
+        lastElement.focus()
+      } else if (!event.shiftKey && document.activeElement === lastElement) {
+        event.preventDefault()
+        firstElement.focus()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+      previouslyFocused?.focus()
+    }
+  }, [isActive, containerRef])
 }
 
 const PERMISSION_ONBOARDING_KEY_PREFIX = 'maeum-itda:permissionsOnboarded:'

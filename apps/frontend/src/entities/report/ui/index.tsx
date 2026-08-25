@@ -52,8 +52,6 @@ export function EmotionScoreCard({
 }: {
   title: string
   score: number | null
-  level: EmotionLevel | null
-  comment: string | null
   variant?: 'default' | 'dashboard'
   detailsHref?: string
 }) {

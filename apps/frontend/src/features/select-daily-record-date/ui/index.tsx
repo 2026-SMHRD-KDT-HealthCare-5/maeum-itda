@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react'
-import { useAnimatedPresence } from '../../../shared/lib'
-import { formatKoreanDate, getCalendarDates, isSameDate, toDateKey } from '../model'
+import { useRef, useState } from 'react'
+import {
+  getCalendarDates,
+  isSameDate,
+  toDateKey,
+  useAnimatedPresence,
+  useFocusTrap,
+} from '../../../shared/lib'
+import { formatKoreanDate } from '../model'
 import styles from './SelectDailyRecordDateAction.module.css'
 
 const weekDays = ['일', '월', '화', '수', '목', '금', '토']
@@ -19,6 +25,8 @@ export function SelectDailyRecordDateAction({
 }: SelectDailyRecordDateActionProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const calendarPresence = useAnimatedPresence(isCalendarOpen)
+  const modalRef = useRef<HTMLDivElement>(null)
+  useFocusTrap(modalRef, calendarPresence.isRendered, () => setIsCalendarOpen(false))
   const [visibleMonth, setVisibleMonth] = useState(
     () => new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1),
   )
@@ -41,16 +49,6 @@ export function SelectDailyRecordDateAction({
   const year = visibleMonth.getFullYear()
   const month = visibleMonth.getMonth()
   const calendarDates = getCalendarDates(year, month)
-
-  useEffect(() => {
-    if (!isCalendarOpen) return
-
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsCalendarOpen(false)
-    }
-    document.addEventListener('keydown', closeOnEscape)
-    return () => document.removeEventListener('keydown', closeOnEscape)
-  }, [isCalendarOpen])
 
   return (
     <>
@@ -86,6 +84,7 @@ export function SelectDailyRecordDateAction({
           onClick={() => setIsCalendarOpen(false)}
         >
           <div
+            ref={modalRef}
             className={`${styles.modal} ${calendarPresence.isClosing ? styles.modalClosing : ''}`}
             role="dialog"
             aria-modal="true"
