@@ -4,7 +4,7 @@
 [완료] FastAPI 내부 STT·감성·척도·질문 생성 로직은 구현하지 않으며 요청·응답 경계만 담당한다.
 [연동 대기] 실제 서버 가용성은 URL 설정 여부가 아니라 분석 요청 성공·실패로 확인한다.
 */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import WebSocket from 'ws';
 import {
@@ -32,6 +32,7 @@ class FastApiHttpError extends Error {
 
 @Injectable()
 export class AiClient {
+  private readonly logger = new Logger(AiClient.name);
   private readonly baseUrl: string | undefined;
 
   constructor(configService: ConfigService) {
@@ -81,6 +82,9 @@ export class AiClient {
       throw new Error('FastAPI 음성 분석 서버 주소가 설정되지 않았습니다.');
     }
 
+    // 임시 지연 진단 로그 — questionMessageId로 ai-server 로그와 상관지어 본다.
+    // 원인 파악 끝나면 지울 것.
+    const requestStartedAt = Date.now();
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const response = await fetch(`${this.baseUrl}/analysis/audio/batch`, {
@@ -89,10 +93,14 @@ export class AiClient {
           signal: AbortSignal.timeout(FAST_API_TIMEOUT_MS),
         });
         if (!response.ok) throw new FastApiHttpError(response.status);
-        return validateQuestionAnswerAnalysisResponse(
+        const result = validateQuestionAnswerAnalysisResponse(
           await response.json(),
           batch,
         );
+        this.logger.log(
+          `[LATENCY] questionMessageId=${batch.questionMessageId} ai-server 왕복(attempt=${attempt})=${Date.now() - requestStartedAt}ms`,
+        );
+        return result;
       } catch (error: unknown) {
         if (attempt === 0 && this.isRetryable(error)) {
           await new Promise((resolve) =>

@@ -21,6 +21,12 @@ export interface AudioAnswerMetadata {
 export class ChatSocket {
   private socket: WebSocket | null = null
   private readonly listeners = new Map<ServerEventName, Set<Listener<never>>>()
+  // 임시 지연 진단용 — 음성 답변을 보낸 시각을 기록해, 다음 질문(ai:question)이
+  // 도착할 때까지 걸린 시간을 잰다. 한 소켓에서 답변→다음 질문은 항상 순차적으로만
+  // 오가므로(동시에 여러 질문이 대기 중일 수 없음) 단일 필드로 충분하다. DEV
+  // 빌드에만 걸려있지 않아 배포된 PWA에서도(브라우저 콘솔로) 확인 가능하다.
+  // 원인 파악 끝나면 지울 것.
+  private pendingAudioSentAt: number | null = null
 
   // 연결 → auth 전송 → auth:success/auth:error 응답까지 기다린다.
   connect(accessToken: string): Promise<void> {
@@ -77,6 +83,7 @@ export class ChatSocket {
   // metadata를 먼저 보내고 다음 프레임으로 음성 바이너리를 보낸다
   // (docs/ws-protocol.md §5.3 — 두 전송 사이 순서가 뒤바뀌면 안 된다).
   async sendAudioAnswer(metadata: AudioAnswerMetadata, audio: Blob): Promise<void> {
+    this.pendingAudioSentAt = Date.now()
     this.sendJson('audio:metadata', metadata)
     const buffer = await audio.arrayBuffer()
     this.socket?.send(buffer)
@@ -121,8 +128,18 @@ export class ChatSocket {
     } catch {
       return
     }
-    // 임시 지연 진단 로그 — 각 이벤트가 서버에서 찍힌 시각(ts)과 브라우저에 도착한
-    // 시각을 같이 남긴다. 원인 파악 끝나면 지울 것.
+    // 임시 지연 진단 로그 — "음성 답변 전송 → 다음 질문 도착"까지 걸린 총
+    // 시간(사용자가 느끼는 "생각 중" 대기시간 그 자체)을 잰다. DEV 여부와
+    // 무관하게 항상 찍혀 배포된 PWA 브라우저 콘솔에서도 바로 보인다.
+    // 원인 파악 끝나면 지울 것.
+    if (parsed.event === 'ai:question' && this.pendingAudioSentAt !== null) {
+      console.log(
+        `[LATENCY] 음성 전송 → 다음 질문 도착 = ${Date.now() - this.pendingAudioSentAt}ms`,
+      )
+      this.pendingAudioSentAt = null
+    }
+    // 각 이벤트가 서버에서 찍힌 시각(ts)과 브라우저에 도착한 시각을 같이 남긴다.
+    // 원인 파악 끝나면 지울 것.
     if (import.meta.env.DEV) {
       console.log(
         '[ChatSocket]',
