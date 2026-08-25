@@ -35,6 +35,7 @@
 | `pages/*` | 화면 ID | 관련 UC |
 |---|---|---|
 | `splash` | — (화면설계서에 없음, 결정사항 로그 §5의 신규 화면 — 아래 참고) | — |
+| `permission-onboarding` | — (화면설계서에 없음, 신규 화면 — 아래 참고) | — |
 | `join` | JOIN_01 | UC-00 |
 | `login` | LOGIN_01 | UC-00 |
 | `senior-home` | SENIOR_HOME_01 | UC-01, UC-13 |
@@ -57,6 +58,8 @@
 `pages/admin`은 의도적으로 비워둔 상태입니다 (`.gitkeep`만 있음) — 결정사항 로그 §1에서 관리자 화면을 MVP 범위에서 명시적으로 제외했고, `AppRouter`에도 관리자 라우트나 역할 분기가 전혀 없습니다(`senior`/`guardian`만 있음). 결정사항 로그를 먼저 확인하지 않고 임의로 추가하지 마세요.
 
 **`splash`는 화면설계서에 화면ID/상세 목업이 아직 없는 화면입니다** (결정사항 로그 §5). 다른 placeholder와 동일한 수준으로 스캐폴딩만 해뒀고 `AppRouter`에도 라우트가 연결되어 있습니다. UC/FR 자체가 아직 없고 목적(단순 브랜딩 vs 인증 복원 대기)도 미정이라 자동 리다이렉트를 넣지 않았습니다.
+
+**`permission-onboarding`도 화면설계서에 없는 신규 화면입니다.** 라우트는 `/onboarding/permissions`이며 `login-with-credentials`/`register-account`가 로그인·회원가입 성공 직후 (`shared/lib`의 `resolvePostAuthPath`를 거쳐) 계정당 한 번만 이 화면으로 보냅니다 — 계정별 완료 여부는 `shared/lib`의 `hasCompletedPermissionOnboarding`/`markPermissionOnboardingComplete`가 `localStorage`에 `userId` 단위로 저장합니다(기기 단위가 아님 — 한 브라우저에서 시니어/보호자 계정을 번갈아 테스트해도 서로 플래그를 침범하지 않도록). 이 화면은 알림(공통)·마이크(시니어만) 브라우저 권한을 실제 기능을 만나기 전에 미리 요청만 할 뿐, 알림 on/off 자체(진짜 사용자 설정)는 건드리지 않습니다 — 그 설정과 실제 push 구독은 여전히 `senior-my-info`/`guardian-my-info`의 기존 토글(`usePushSubscription`)이 전담합니다.
 
 `senior-daily-record`(UC-14)와 `guardian-weekly-report`(UC-15)는 화면설계서에 화면ID가 없지만 Figma 목업 기준으로 구현됐습니다(결정사항 로그 §7). `guardian-weekly-report`는 `guardian-report`와 `widgets/report-period-tabs`를 공유해 탭으로 전환되며, 라우트(`/guardian/report/weekly/:weekStart`)는 분리된 채로 유지됩니다 — 페이지 병합 여부는 아직 미결. `senior-daily-record`는 `features/select-daily-record-date`(날짜 네비게이션 + 캘린더 모달)와 `entities/conversation`의 `DailyConversationList`, 요약 카드로 구성되며, 날짜별 turn과 요약 코멘트는 아직 페이지 로컬 mock입니다.
 

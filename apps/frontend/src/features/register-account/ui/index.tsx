@@ -2,6 +2,7 @@ import { useId, useRef, useState, type FormEvent, type InputHTMLAttributes } fro
 import { useNavigate } from 'react-router-dom'
 import { extractApiErrorMessage } from '../../../shared/api'
 import { useSession } from '../../../entities/user'
+import { resolvePostAuthPath } from '../../../shared/lib'
 import { Button } from '../../../shared/ui'
 import { checkLoginIdAvailable, registerAccount } from '../api'
 import {
@@ -147,7 +148,7 @@ export function RegisterAccountAction() {
         },
         { remember: true },
       )
-      navigate(result.role === 'senior' ? '/senior' : '/guardian')
+      navigate(resolvePostAuthPath(result.userId, result.role))
     } catch (error) {
       setNotice(extractApiErrorMessage(error, '회원가입에 실패했어요. 다시 시도해주세요.'))
     } finally {

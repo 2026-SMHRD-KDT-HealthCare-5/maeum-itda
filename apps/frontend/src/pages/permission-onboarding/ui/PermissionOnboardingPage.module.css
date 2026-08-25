@@ -1,0 +1,207 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  padding: 24px 20px max(24px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 92% 7%, rgba(198, 231, 216, 0.32), transparent 190px),
+    linear-gradient(180deg, #fbfaf6 0%, var(--color-surface-canvas) 100%);
+}
+
+.intro {
+  position: relative;
+  margin-top: clamp(24px, 5.5svh, 56px);
+}
+
+.intro :global([class*='heading']) {
+  min-height: auto;
+  margin-bottom: 0;
+}
+
+.characterSlot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: clamp(132px, 22svh, 196px);
+  overflow: hidden;
+}
+
+.character {
+  display: block;
+  width: clamp(174px, 52vw, 224px);
+  height: auto;
+  object-fit: contain;
+  transform: translateY(8%);
+}
+
+.permissionSection {
+  margin-top: 28px;
+}
+
+.permissionCard {
+  padding: 8px 20px;
+  border-color: rgba(31, 111, 84, 0.05);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(37, 51, 45, 0.07);
+}
+
+.permissionRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 118px;
+}
+
+.icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  color: var(--primary);
+  background: var(--primary-tint);
+  font-size: 25px;
+}
+
+.permissionCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.cardTitle {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+
+.cardDescription {
+  margin: 0;
+  max-width: 210px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 5px;
+  margin: 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-subtle);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.divider {
+  height: 1px;
+  margin-left: 0;
+  background: var(--color-border-subtle);
+}
+
+.status[data-state='granted'] {
+  color: var(--primary);
+  background: var(--primary-tint);
+}
+
+.status[data-state='denied'],
+.status[data-state='unsupported'] {
+  color: #a33d35;
+  background: #fbeceb;
+}
+
+.footer {
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.privacyNote {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.privacyNote svg {
+  flex: 0 0 auto;
+  color: var(--primary);
+}
+
+.spinning {
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (min-height: 760px) {
+  .page {
+    padding-top: 28px;
+  }
+
+  .permissionSection {
+    margin-top: 32px;
+  }
+}
+
+@media (max-height: 700px) {
+  .intro {
+    margin-top: 8px;
+  }
+
+  .characterSlot {
+    height: 120px;
+  }
+
+  .permissionSection {
+    margin-top: 20px;
+  }
+
+  .permissionRow {
+    min-height: 104px;
+  }
+
+  .footer {
+    padding-top: 20px;
+  }
+}
+
+@media (max-width: 360px) {
+  .permissionCard {
+    padding-inline: 16px;
+  }
+
+  .permissionRow {
+    gap: 10px;
+  }
+
+  .icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .status {
+    padding-inline: 8px;
+    font-size: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}

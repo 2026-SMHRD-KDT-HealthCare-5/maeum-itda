@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { extractApiErrorMessage } from '../../../shared/api'
-import { useDelayedPending } from '../../../shared/lib'
+import { resolvePostAuthPath, useDelayedPending } from '../../../shared/lib'
 import { Button, LoadingSpinner, TextField, Toggle } from '../../../shared/ui'
 import { useSession } from '../../../entities/user'
 import { login as requestLogin } from '../api'
@@ -38,7 +38,7 @@ export function LoginForm() {
         },
         { remember: values.autoLogin },
       )
-      navigate(result.role === 'senior' ? '/senior' : '/guardian')
+      navigate(resolvePostAuthPath(result.userId, result.role))
     } catch (error) {
       setNotice(extractApiErrorMessage(error, '로그인에 실패했어요. 다시 시도해주세요.'))
     } finally {
