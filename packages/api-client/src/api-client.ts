@@ -1235,8 +1235,9 @@ export class Api<
      *
      * @tags 4. 음성 분석
      * @name AnalysisControllerGetStatus
-     * @summary 메시지의 음성 분석 상태 조회
+     * @summary 메시지의 음성 분석 상태 조회(본인 메시지만)
      * @request GET:/analysis/audio/{messageId}/status
+     * @secure
      */
     analysisControllerGetStatus: (
       messageId: number,
@@ -1245,6 +1246,7 @@ export class Api<
       this.request<VoiceAnalysisStatusResponseDto, ApiErrorResponseDto>({
         path: `/analysis/audio/${messageId}/status`,
         method: "GET",
+        secure: true,
         format: "json",
         ...params,
       }),
@@ -1254,8 +1256,9 @@ export class Api<
      *
      * @tags 4. 음성 분석
      * @name AnalysisControllerRetry
-     * @summary 메모리에 대기 중인 질문별 음성 분석 재시도
+     * @summary 메모리에 대기 중인 질문별 음성 분석 재시도(본인 대화만)
      * @request POST:/analysis/audio/question/{questionMessageId}/retry
+     * @secure
      */
     analysisControllerRetry: (
       questionMessageId: number,
@@ -1264,6 +1267,7 @@ export class Api<
       this.request<RetryAudioAnalysisResponseDto, ApiErrorResponseDto>({
         path: `/analysis/audio/question/${questionMessageId}/retry`,
         method: "POST",
+        secure: true,
         format: "json",
         ...params,
       }),
@@ -1272,7 +1276,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 7. 리포트
+     * @tags 5. 리포트
      * @name ReportsControllerGetReportCalendar
      * @summary 보호자 일간·주간 리포트 통합 달력 조회
      * @request GET:/reports/calendar
@@ -1309,7 +1313,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 7. 리포트
+     * @tags 5. 리포트
      * @name ReportsControllerGetDailyReport
      * @summary 보호자 일간 정서 리포트 조회
      * @request GET:/reports/daily
@@ -1337,7 +1341,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 7. 리포트
+     * @tags 5. 리포트
      * @name ReportsControllerGetWeeklyReport
      * @summary 보호자 주간 정서 리포트 조회
      * @request GET:/reports/weekly
@@ -1366,7 +1370,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerGetVapidPublicKey
      * @summary 브라우저 웹 푸시 구독용 VAPID 공개키 조회
      * @request GET:/notifications/push/vapid-public-key
@@ -1384,9 +1388,9 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerUpsertPushSubscription
-     * @summary 보호자 웹 푸시 구독 등록·갱신
+     * @summary 웹 푸시 구독 등록·갱신 (보호자/시니어 공용)
      * @request PUT:/notifications/push-subscriptions
      * @secure
      */
@@ -1407,9 +1411,9 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerDeletePushSubscription
-     * @summary 현재 브라우저 웹 푸시 구독 해제
+     * @summary 현재 브라우저 웹 푸시 구독 해제 (보호자/시니어 공용)
      * @request DELETE:/notifications/push-subscriptions
      * @secure
      */
@@ -1429,7 +1433,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerGetNotifications
      * @summary 보호자 알림 목록 조회
      * @request GET:/notifications
@@ -1447,7 +1451,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerMarkAsRead
      * @summary 보호자 알림 한 건 읽음 처리
      * @request PATCH:/notifications/{alertId}/read
@@ -1467,7 +1471,27 @@ export class Api<
     /**
      * No description
      *
-     * @tags 8. 보호자 알림
+     * @tags 6. 보호자 알림
+     * @name NotificationsControllerMarkAsUnread
+     * @summary 보호자 알림 한 건 읽지 않음으로 되돌리기
+     * @request PATCH:/notifications/{alertId}/unread
+     * @secure
+     */
+    notificationsControllerMarkAsUnread: (
+      alertId: number,
+      params: RequestParams = {},
+    ) =>
+      this.request<void, ApiErrorResponseDto>({
+        path: `/notifications/${alertId}/unread`,
+        method: "PATCH",
+        secure: true,
+        ...params,
+      }),
+
+    /**
+     * No description
+     *
+     * @tags 6. 보호자 알림
      * @name NotificationsControllerMarkAllAsRead
      * @summary 보호자 알림 모두 읽음 처리
      * @request PATCH:/notifications/read-all
@@ -1485,7 +1509,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerGetMyConnection
      * @summary 초기 연결 상태 조회
      * @request GET:/connections/me
@@ -1503,7 +1527,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerDisconnect
      * @summary 현재 보호자-시니어 연결 해제
      * @request DELETE:/connections/me
@@ -1520,7 +1544,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerCreateRequest
      * @summary 보호자가 시니어에게 연결 요청
      * @request POST:/connections/requests
@@ -1543,7 +1567,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerAcceptRequest
      * @summary 시니어가 연결 요청 수락
      * @request POST:/connections/requests/{relationshipId}/accept
@@ -1564,7 +1588,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerRejectRequest
      * @summary 시니어가 연결 요청 거절
      * @request POST:/connections/requests/{relationshipId}/reject
@@ -1584,7 +1608,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 5. 보호자-시니어 연결
+     * @tags 7. 보호자-시니어 연결
      * @name ConnectionsControllerCancelRequest
      * @summary 보호자가 보낸 연결 요청 취소
      * @request DELETE:/connections/requests/{relationshipId}
@@ -1605,7 +1629,7 @@ export class Api<
     /**
      * No description
      *
-     * @tags 6. 보호자 대시보드
+     * @tags 8. 보호자 대시보드
      * @name GuardianDashboardControllerGetDashboard
      * @summary 보호자 홈 대시보드 통합 조회
      * @request GET:/guardian/dashboard

@@ -108,9 +108,19 @@ export class GuardianNotificationRepository {
       .addSelect('notification.IS_READ', 'isRead')
       .addSelect('notification.CREATED_AT', 'createdAt')
       .addSelect('notification.DAILY_REPORT_ID', 'dailyReportId')
-      .addSelect('dailyReport.REPORT_DATE', 'reportDate')
+      // getRawMany()는 엔티티 컬럼 변환을 안 타서 DATE 컬럼이 드라이버 그대로(Date
+      // 객체)로 나온다 — JSON 직렬화하면 "2026-08-17T00:00:00.000Z"처럼 풀 타임스탬프가
+      // 되어 프론트가 그대로 라우트에 넣으면 400이 난다(실제로 겪은 버그). SQL에서
+      // 바로 'YYYY-MM-DD' 문자열로 포맷해 이 문제를 없앤다.
+      .addSelect(
+        "DATE_FORMAT(dailyReport.REPORT_DATE, '%Y-%m-%d')",
+        'reportDate',
+      )
       .addSelect('notification.WEEKLY_REPORT_ID', 'weeklyReportId')
-      .addSelect('weeklyReport.START_DATE', 'weekStart')
+      .addSelect(
+        "DATE_FORMAT(weeklyReport.START_DATE, '%Y-%m-%d')",
+        'weekStart',
+      )
       .where('notification.GUARDIAN_ID = :guardianId', { guardianId })
       .orderBy('notification.ALERT_ID', 'DESC')
       .take(limit);
@@ -137,6 +147,19 @@ export class GuardianNotificationRepository {
     }
 
     // 이미 읽은 알림은 변경 행이 0건일 수 있으므로 존재하면 성공으로 취급한다.
+    return this.repository.existsBy({ alertId, guardianId });
+  }
+
+  async markAsUnread(alertId: number, guardianId: number): Promise<boolean> {
+    const result = await this.repository.update(
+      { alertId, guardianId },
+      { isRead: false },
+    );
+    if ((result.affected ?? 0) > 0) {
+      return true;
+    }
+
+    // 이미 읽지 않은 알림은 변경 행이 0건일 수 있으므로 존재하면 성공으로 취급한다.
     return this.repository.existsBy({ alertId, guardianId });
   }
 

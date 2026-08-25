@@ -16,6 +16,7 @@ describe('NotificationsService', () => {
       findPage: jest.fn(),
       countUnread: jest.fn(),
       markAsRead: jest.fn(),
+      markAsUnread: jest.fn(),
       markAllAsRead: jest.fn(),
       saveWeeklyReportReady: jest.fn(),
       saveEmotionIndexDrop: jest.fn(),
@@ -118,6 +119,36 @@ describe('NotificationsService', () => {
       NotFoundException,
     );
     expect(repository.markAsRead).toHaveBeenCalledWith(99, 7);
+  });
+
+  it('읽은 알림을 다시 읽지 않음으로 되돌린다', async () => {
+    const repository = createRepository();
+    repository.markAsUnread.mockResolvedValue(true);
+    const { service } = createService(repository);
+
+    await service.markAsUnread(guardian, 12);
+
+    expect(repository.markAsUnread).toHaveBeenCalledWith(12, 7);
+  });
+
+  it('본인 소유가 아닌 알림은 읽지 않음 처리에서도 찾을 수 없음으로 처리한다', async () => {
+    const repository = createRepository();
+    repository.markAsUnread.mockResolvedValue(false);
+    const { service } = createService(repository);
+
+    await expect(service.markAsUnread(guardian, 99)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+  });
+
+  it('시니어 계정의 읽지 않음 처리 접근을 거부한다', async () => {
+    const repository = createRepository();
+    const { service } = createService(repository);
+
+    await expect(service.markAsUnread(senior, 12)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(repository.markAsUnread).not.toHaveBeenCalled();
   });
 
   it('보호자의 미확인 알림을 모두 읽음 처리한다', async () => {

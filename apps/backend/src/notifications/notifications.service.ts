@@ -78,6 +78,17 @@ export class NotificationsService {
     await this.notificationRepository.markAllAsRead(auth.sub);
   }
 
+  async markAsUnread(auth: AccessTokenPayload, alertId: number): Promise<void> {
+    this.requireGuardian(auth);
+    const updated = await this.notificationRepository.markAsUnread(
+      alertId,
+      auth.sub,
+    );
+    if (!updated) {
+      throw new NotFoundException('알림을 찾을 수 없습니다.');
+    }
+  }
+
   async createWeeklyReportReadyNotification(
     guardianId: number,
     weeklyReportId: number,

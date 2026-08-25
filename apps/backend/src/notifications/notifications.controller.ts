@@ -118,6 +118,18 @@ export class NotificationsController {
     await this.notificationsService.markAsRead(request.user, alertId);
   }
 
+  @Patch(':alertId/unread')
+  @HttpCode(204)
+  @ApiOperation({ summary: '보호자 알림 한 건 읽지 않음으로 되돌리기' })
+  @ApiNoContentResponse({ description: '읽지 않음 처리 완료' })
+  @ApiNotFoundResponse({ type: ApiErrorResponseDto })
+  async markAsUnread(
+    @Req() request: AuthenticatedRequest,
+    @Param('alertId', ParseIntPipe) alertId: number,
+  ): Promise<void> {
+    await this.notificationsService.markAsUnread(request.user, alertId);
+  }
+
   @Patch('read-all')
   @HttpCode(204)
   @ApiOperation({ summary: '보호자 알림 모두 읽음 처리' })
