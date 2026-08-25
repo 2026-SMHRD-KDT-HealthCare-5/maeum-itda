@@ -8,15 +8,15 @@ app/services/llm.py를 서버 실행 없이 그대로 불러와서 실행합니�
 
 사용법:
     # 음성 특징 없이(무음에 가까운 값으로 채워서) 텍스트만으로 테스트
-    python scripts/test_llm.py --text "요즘 밤에 잠을 잘 못 자요"
+    python scripts/manual_llm_check.py --text "요즘 밤에 잠을 잘 못 자요"
 
     # 실제 답변 음성에서 뽑은 특징도 같이 넘기고 싶으면 --voice-features로
     # "키:값" 쌍을 콤마로 (audio_features.extract_features()가 반환하는 키와 동일)
-    python scripts/test_llm.py --text "요즘 밤에 잠을 잘 못 자요" \\
+    python scripts/manual_llm_check.py --text "요즘 밤에 잠을 잘 못 자요" \\
         --voice-features "duration_sec:4.2,rms_energy:0.03,silence_ratio:0.18,pitch_variation_hz:12.4"
 
     # 오늘 아직 채점 안 된 척도 문항도 흉내내고 싶으면
-    python scripts/test_llm.py --text "요즘 밤에 잠을 잘 못 자요" \\
+    python scripts/manual_llm_check.py --text "요즘 밤에 잠을 잘 못 자요" \\
         --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
 """
 import argparse

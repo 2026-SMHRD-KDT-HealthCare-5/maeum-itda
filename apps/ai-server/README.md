@@ -131,18 +131,18 @@ python scripts/mock_backend_client.py `
   --audio input_sound/sample.webm
 ```
 
-응답은 `output_text/mock_rest_{시각}.json`에 저장됩니다. **[2026-08-20 변경]** `/analysis/audio/batch`는 더 이상 TTS를 합성하지 않으므로(질문 텍스트를 합성 대기 없이 즉시 반환하기 위한 구조 변경) 이 스크립트는 TTS 음성을 따로 저장하지 않습니다 — `nextQuestion`을 실제 음성으로 듣고 싶으면 `scripts/test_tts.py`를 별도로 실행하세요.
+응답은 `output_text/mock_rest_{시각}.json`에 저장됩니다. **[2026-08-20 변경]** `/analysis/audio/batch`는 더 이상 TTS를 합성하지 않으므로(질문 텍스트를 합성 대기 없이 즉시 반환하기 위한 구조 변경) 이 스크립트는 TTS 음성을 따로 저장하지 않습니다 — `nextQuestion`을 실제 음성으로 듣고 싶으면 `scripts/manual_tts_check.py`를 별도로 실행하세요.
 
 ## 개별 모듈 테스트
 
 ```powershell
-python scripts/test_stt.py --audio input_sound/sample.webm
-python scripts/test_llm.py `
+python scripts/manual_stt_check.py --audio input_sound/sample.webm
+python scripts/manual_llm_check.py `
   --text "요즘 밤에 잠을 잘 못 자요" `
   --voice-features "duration_sec:4.2,rms_energy:0.03,silence_ratio:0.18,pitch_variation_hz:12.4" `
   --pending "SGDS_K:Q3,Q7;GAD_7:Q2"
-python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?"
-python scripts/test_tts.py --text "오늘 하루는 어떻게 보내셨어요?" --stream
+python scripts/manual_tts_check.py --text "오늘 하루는 어떻게 보내셨어요?"
+python scripts/manual_tts_check.py --text "오늘 하루는 어떻게 보내셨어요?" --stream
 ```
 
 ## 자동 테스트

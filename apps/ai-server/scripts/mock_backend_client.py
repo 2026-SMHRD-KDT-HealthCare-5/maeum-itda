@@ -200,7 +200,7 @@ def main() -> None:
     print(f"결과 저장: {output_path}")
     # /analysis/audio/batch는 더 이상 TTS를 합성하지 않는다(질문 텍스트를
     # TTS 생성을 기다리지 않고 즉시 반환하기 위한 구조 변경) — nextQuestion을
-    # 실제 음성으로 듣고 싶으면 scripts/test_tts.py를 별도로 실행할 것.
+    # 실제 음성으로 듣고 싶으면 scripts/manual_tts_check.py를 별도로 실행할 것.
 
 
 if __name__ == "__main__":
