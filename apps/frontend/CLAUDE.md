@@ -30,6 +30,13 @@
 
 `widgets/*`와 `pages/*`는 `ui/` 세그먼트만 갖습니다 (이들은 조합만 할 뿐, 자체 model/api를 갖지 않습니다).
 
+### 이미지 에셋 위치
+
+- **한 슬라이스에서만 쓰는 이미지**는 그 슬라이스의 `ui/` 폴더에 바로 콜로케이트합니다 (예: `pages/login/ui/logo-daseul.webp`, `pages/senior-conversation/ui/character-daseul-listening.webp`, `features/start-conversation/ui/character-daseul-greeting.webp`).
+- **둘 이상의 슬라이스에서 재사용하는 이미지**만 `shared/assets/{character,illustrations,web}/`로 옮깁니다 (예: 여러 화면이 공유하는 `character-daseul-guide.webp`/`character-daseul-no-data.webp`, `guardian-couple.webp`/`senior-couple.webp`).
+- 새 이미지를 추가할 때 재사용 여부가 아직 불확실하면 우선 콜로케이트하고, 실제로 두 번째 슬라이스에서 필요해지는 시점에 `shared/assets`로 옮기세요 — 미리 공유 폴더에 넣어두지 마세요.
+- 포맷은 PNG가 아니라 WebP로 통일합니다(PWA 아이콘 등 플랫폼이 PNG를 강제하는 경우는 예외).
+
 ## 화면 ID → `pages/*` 매핑 (화면설계서)
 
 | `pages/*` | 화면 ID | 관련 UC |
