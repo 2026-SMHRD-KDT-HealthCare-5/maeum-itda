@@ -20,7 +20,8 @@ import {
 import { DailyEmotionReport } from '../../reports/entities/daily-emotion-report.entity';
 import { toSeoulBusinessDayUtcRange } from '../../reports/lib/seoul-business-date';
 
-const SCALE_QUESTION_COUNTS: Record<ScaleType, number> = {
+// 척도별 전체 문항 정원 — daily-emotion-index.calculator.ts도 정서지수 분모로 재사용한다.
+export const SCALE_QUESTION_COUNTS: Record<ScaleType, number> = {
   [ScaleType.SGDS_K]: 15,
   [ScaleType.GAD_7]: 7,
   [ScaleType.LSNS_6]: 6,
