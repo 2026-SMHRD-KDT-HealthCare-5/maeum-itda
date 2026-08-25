@@ -100,12 +100,6 @@
   color: var(--color-text-secondary);
 }
 
-.divider {
-  height: 1px;
-  margin-left: 0;
-  background: var(--color-border-subtle);
-}
-
 .status[data-state='granted'] {
   color: var(--primary);
   background: var(--primary-tint);
