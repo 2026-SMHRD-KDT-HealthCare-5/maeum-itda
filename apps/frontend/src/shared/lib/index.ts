@@ -89,9 +89,6 @@ const PERMISSION_ONBOARDING_KEY_PREFIX = 'maeum-itda:permissionsOnboarded:'
 // 기기 단위가 아니라 계정(userId) 단위로 저장한다 — 같은 브라우저에서
 // 시니어/보호자 계정을 번갈아 테스트하는 경우가 있어, 기기 단위로 두면
 // 먼저 로그인한 계정이 플래그를 소비해버려 다른 계정은 온보딩을 아예 못 본다.
-// TODO(임시): 디자인 확정 전까지는 완료 플래그를 무시하고 항상 온보딩 화면을
-// 보여준다 — 사용자가 완료로 판단하면 아래 주석의 원래 구현으로 되돌릴 것.
-// return localStorage.getItem(PERMISSION_ONBOARDING_KEY_PREFIX + userId) === '1'
 export function hasCompletedPermissionOnboarding(userId: number): boolean {
   return localStorage.getItem(PERMISSION_ONBOARDING_KEY_PREFIX + userId) === '1'
 }
