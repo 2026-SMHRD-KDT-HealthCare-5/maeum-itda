@@ -27,4 +27,14 @@ export class ReportGenerationTargetRepository {
       seniorId,
     }));
   }
+
+  async findConnectedGuardianId(seniorId: number): Promise<number | null> {
+    const relationship = await this.dataSource
+      .getRepository(GuardianSeniorRelationship)
+      .findOne({
+        where: { seniorId, connectionStatus: ConnectionStatus.CONNECTED },
+        select: { guardianId: true },
+      });
+    return relationship?.guardianId ?? null;
+  }
 }
