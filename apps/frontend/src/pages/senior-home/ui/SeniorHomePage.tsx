@@ -8,6 +8,8 @@ import {
 import { useSession } from '../../../entities/user'
 import { StartConversationAction } from '../../../features/start-conversation'
 import { ViewAttendanceCalendarAction } from '../../../features/view-attendance-calendar'
+import { useDelayedPending } from '../../../shared/lib'
+import { Skeleton } from '../../../shared/ui'
 import guardianCoupleImage from '../../../shared/assets/illustrations/guardian-couple.webp'
 import { BottomTabBar, SENIOR_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import styles from './SeniorHomePage.module.css'
@@ -21,19 +23,12 @@ interface ConnectionCardCopy {
 
 // 홈에서는 연결 관계의 핵심 상태만 요약하고, 수락·거절 같은 실제 조작은
 // 연결 요청 화면에서 담당한다. 조회 실패도 연결 없음으로 오해하지 않도록 분리한다.
+// 로딩 중에는 카드 자체를 스켈레톤으로 대체하므로(아래 컴포넌트 참고)
+// 여기서는 확정된 상태(에러/연결됨/요청됨/없음)만 다룬다.
 function connectionCardCopy(
   connection: Connection | undefined,
-  isPending: boolean,
   isError: boolean,
 ): ConnectionCardCopy {
-  if (isPending) {
-    return {
-      label: '보호자 연결',
-      title: '연결 상태를 확인하고 있어요',
-      description: '잠시만 기다려 주세요.',
-    }
-  }
-
   if (isError) {
     return {
       label: '보호자 연결',
@@ -70,11 +65,13 @@ function connectionCardCopy(
 export function SeniorHomePage() {
   const { session } = useSession()
   const connectionQuery = useQuery({ queryKey: CONNECTION_QUERY_KEY, queryFn: fetchMyConnection })
-  const connectionCopy = connectionCardCopy(
-    connectionQuery.data,
-    connectionQuery.isPending,
-    connectionQuery.isError,
-  )
+  // 스플래시가 사라진 직후에도 조회가 끝나기 전이라면, 최종 모양이 정해지지
+  // 않은 카드를 잠깐 보여줬다가 다시 그리는 대신 스켈레톤으로 자리를 지킨다.
+  const showConnectionSkeleton = useDelayedPending(connectionQuery.isPending, {
+    delay: 120,
+    minDuration: 250,
+  })
+  const connectionCopy = connectionCardCopy(connectionQuery.data, connectionQuery.isError)
 
   return (
     <>
@@ -92,7 +89,9 @@ export function SeniorHomePage() {
 
           <StartConversationAction />
 
-          {connectionQuery.data?.status === 'CONNECTED' ? (
+          {showConnectionSkeleton ? (
+            <Skeleton className={styles.connectionSkeleton} />
+          ) : connectionQuery.data?.status === 'CONNECTED' ? (
             // 이미 연결된 보호자가 있으면 확인·조작할 대기 중인 요청이 없으므로
             // 연결 요청 화면으로 보낼 이유가 없다 — 카드를 눌러도 아무 동작 안 함.
             <div className={styles.connection}>
