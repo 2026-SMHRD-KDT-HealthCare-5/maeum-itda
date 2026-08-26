@@ -47,7 +47,7 @@ export class ProfileSettingsService {
     const user = await this.getUserForRole(auth, UserRole.SENIOR);
     return {
       enabled: user.notificationEnabled,
-      time: this.toHourMinute(user.checkinReminderTime ?? '09:00:00'),
+      time: this.toHourMinute(user.checkinReminderTime ?? '19:00:00'),
     };
   }
 
@@ -61,7 +61,7 @@ export class ProfileSettingsService {
     const saved = await this.usersRepository.save(user);
     return {
       enabled: saved.notificationEnabled,
-      time: this.toHourMinute(saved.checkinReminderTime ?? '09:00:00'),
+      time: this.toHourMinute(saved.checkinReminderTime ?? '19:00:00'),
     };
   }
 

@@ -13,7 +13,7 @@ export class UpdateSeniorCheckinSettingDto {
 
   @ApiPropertyOptional({
     description: 'Asia/Seoul 기준 매일 알림 시각',
-    example: '09:00',
+    example: '19:00',
     pattern: '^([01]\\d|2[0-3]):[0-5]\\d$',
   })
   @IsOptional()
@@ -29,7 +29,7 @@ export class SeniorCheckinSettingResponseDto {
 
   @ApiProperty({
     description: 'Asia/Seoul 기준 매일 알림 시각',
-    example: '09:00',
+    example: '19:00',
   })
   time!: string;
 }
