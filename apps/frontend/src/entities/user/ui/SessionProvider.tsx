@@ -51,6 +51,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session,
       isRestoring,
       login: (next: Session, options?: { remember?: boolean }) => {
+        // 계정 전환은 로그아웃 여부와 상관없이 항상 이 함수를 거친다(/login에
+        // 이미 로그인된 사용자의 접근을 막는 가드가 없어 로그아웃 없이도 재로그인이
+        // 가능함). 쿼리 키에 사용자 식별자가 없는 화면(예: 날짜별 대화 기록)이
+        // 이전 계정의 캐시를 그대로 보여주는 걸 막기 위해 새 세션을 세우기 전에
+        // 캐시를 전부 비운다.
+        queryClient.clear()
         // apiClient의 @secure 요청(GET/PATCH /users/me 등)에 Authorization
         // 헤더를 자동으로 실어주기 위해 securityData를 함께 채운다.
         apiClient.setSecurityData(next.accessToken)
@@ -67,7 +73,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSession(null)
       },
     }),
-    [session, isRestoring],
+    [session, isRestoring, queryClient],
   )
 
   return <SessionContext value={value}>{children}</SessionContext>
