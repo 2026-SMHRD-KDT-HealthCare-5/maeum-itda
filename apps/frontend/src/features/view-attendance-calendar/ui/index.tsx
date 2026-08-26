@@ -38,10 +38,10 @@ export function ViewAttendanceCalendarAction() {
   const encouragement = !isViewingCurrentMonth
     ? null
     : isTodayAttended
-      ? '오늘 대화 완료! 다슬이가 기뻐하고 있어요'
+      ? '오늘 대화 완료! 다슬이가 기뻐하고 있어요.'
       : attendedCount > 0
-        ? '쉬어간 날이 있어도 괜찮아요. 오늘 다시 이야기해요'
-        : '다슬이가 오늘 이야기를 기다리고 있어요'
+        ? '쉬어간 날이 있어도 괜찮아요. 오늘 다시 이야기해요!'
+        : '다슬이가 오늘 이야기를 기다리고 있어요!'
 
   const moveMonth = (offset: number) => {
     setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1))
@@ -112,9 +112,12 @@ export function ViewAttendanceCalendarAction() {
       </div>
 
       {encouragement && (
-        <p className={styles.encouragement} role="status">
-          {encouragement}
-        </p>
+        <div className={styles.encouragementCard} role="status">
+          <div className={styles.encouragementCopy}>
+            <strong>다슬이의 응원</strong>
+            <p>{encouragement}</p>
+          </div>
+        </div>
       )}
 
       <div className={styles.legend}>
@@ -122,7 +125,7 @@ export function ViewAttendanceCalendarAction() {
           <i className={styles.completedSample} aria-hidden="true" /> 대화 완료
         </span>
         <span>
-          <i className={styles.pendingSample} aria-hidden="true" /> 오늘
+          <i className={styles.todaySample} aria-hidden="true" /> 오늘
         </span>
       </div>
     </section>
