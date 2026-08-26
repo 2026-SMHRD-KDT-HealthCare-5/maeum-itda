@@ -155,14 +155,33 @@
   color: #fff;
 }
 
-.encouragement {
+.card .encouragementCard {
+  display: flex;
+  align-items: center;
   margin: 16px 0 0;
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: #f1f8f4;
+  padding: 13px 14px;
+  border: 1px solid rgba(31, 111, 84, 0.08);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f0f8f4, #f8fbf9);
+}
+
+.encouragementCopy {
+  min-width: 0;
+}
+
+.encouragementCopy strong {
+  display: block;
+  color: var(--primary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.encouragementCopy p {
+  margin: 2px 0 0;
   color: #33473e;
   font-size: 13.5px;
-  text-align: center;
+  line-height: 1.45;
+  word-break: keep-all;
 }
 
 .legend {
@@ -183,7 +202,7 @@
 }
 
 .completedSample,
-.pendingSample {
+.todaySample {
   box-sizing: border-box;
   display: inline-grid;
   width: 21px;
@@ -196,7 +215,7 @@
   font-style: normal;
 }
 
-.pendingSample {
+.legend .todaySample {
   border: 2px solid var(--primary);
   background: #fff;
 }
