@@ -200,6 +200,15 @@ export function homePathForRole(role: 'senior' | 'guardian'): string {
   return role === 'senior' ? '/senior' : '/guardian'
 }
 
+// 서비스 워커의 알림 클릭이 앱을 처음 열 때 스플래시(`/`)를 거치도록
+// ?redirect=로 원래 목적지(예: /senior/conversation)를 넘긴다 — 우리
+// 서버가 만든 값이지만, 앱 내부 상대 경로만 신뢰한다(오픈 리다이렉트 방지로
+// 절대 URL이나 //host 형태의 프로토콜 상대 경로는 버린다).
+export function sanitizeInternalRedirectPath(value: string | null): string | null {
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return null
+  return value
+}
+
 // 로그인/회원가입 성공 직후 이동할 경로 — 이 계정이 아직 권한 온보딩을 거치지
 // 않았으면 역할별 홈 대신 온보딩 화면으로 먼저 보낸다.
 export function resolvePostAuthPath(userId: number, role: 'senior' | 'guardian'): string {
