@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { SendConnectionRequestAction } from '../../../features/send-connection-request'
 import {
   CONNECTION_QUERY_KEY,
@@ -18,7 +18,11 @@ import styles from './GuardianConnectionPage.module.css'
 // /connections/me)와 요청/취소 mutation은 이 페이지가 소유한다.
 export function GuardianConnectionPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
+  // 홈/내 정보 어느 쪽에서 들어왔는지 호출부가 state로 넘겨준다 — 푸시
+  // 알림 클릭처럼 이력 없이 바로 진입한 경우엔 내 정보로 돌아간다.
+  const backTo = (location.state as { from?: string } | null)?.from ?? '/guardian/my-info'
 
   const connectionQuery = useQuery({
     queryKey: CONNECTION_QUERY_KEY,
@@ -43,8 +47,8 @@ export function GuardianConnectionPage() {
         <button
           type="button"
           className={styles.backButton}
-          onClick={() => navigate('/guardian/my-info')}
-          aria-label="내 정보로 돌아가기"
+          onClick={() => navigate(backTo)}
+          aria-label="뒤로 가기"
         >
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="m14.5 6-6 6 6 6" />

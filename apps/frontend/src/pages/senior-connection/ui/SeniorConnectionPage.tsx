@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { RespondConnectionRequestAction } from '../../../features/respond-connection-request'
 import {
   CONNECTION_QUERY_KEY,
@@ -18,7 +18,11 @@ import styles from './SeniorConnectionPage.module.css'
 // 'REQUESTED')이 있으면 수락/거절 화면을, 없으면 빈 상태를 보여준다.
 export function SeniorConnectionPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
+  // 홈/내 정보 어느 쪽에서 들어왔는지 호출부가 state로 넘겨준다 — 푸시
+  // 알림 클릭처럼 이력 없이 바로 진입한 경우엔 홈으로 돌아간다.
+  const backTo = (location.state as { from?: string } | null)?.from ?? '/senior'
 
   const connectionQuery = useQuery({
     queryKey: CONNECTION_QUERY_KEY,
@@ -50,8 +54,8 @@ export function SeniorConnectionPage() {
       <button
         type="button"
         className={styles.backButton}
-        onClick={() => navigate('/senior')}
-        aria-label="홈으로 돌아가기"
+        onClick={() => navigate(backTo)}
+        aria-label="뒤로 가기"
       >
         ‹
       </button>

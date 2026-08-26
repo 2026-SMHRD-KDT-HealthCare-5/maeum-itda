@@ -221,7 +221,11 @@ export function GuardianMyInfoPage() {
                   <Button
                     type="button"
                     className={styles.connectButton}
-                    onClick={() => navigate('/guardian/connection')}
+                    onClick={() =>
+                      navigate('/guardian/connection', {
+                        state: { from: '/guardian/my-info' },
+                      })
+                    }
                   >
                     어르신 연결하기
                   </Button>

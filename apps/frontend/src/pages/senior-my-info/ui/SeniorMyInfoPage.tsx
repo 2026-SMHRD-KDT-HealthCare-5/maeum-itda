@@ -204,7 +204,11 @@ export function SeniorMyInfoPage() {
                   <Button
                     type="button"
                     className={styles.connectButton}
-                    onClick={() => navigate('/senior/connection')}
+                    onClick={() =>
+                      navigate('/senior/connection', {
+                        state: { from: '/senior/my-info' },
+                      })
+                    }
                   >
                     요청 확인하기
                   </Button>
