@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { FiBell, FiChevronRight, FiFileText } from 'react-icons/fi'
+import { FiBarChart2, FiBell, FiChevronRight, FiFileText, FiMessageCircle } from 'react-icons/fi'
 import { useNavigate } from 'react-router-dom'
 import {
   CONNECTION_QUERY_KEY,
@@ -110,15 +110,29 @@ export function GuardianHomePage() {
                   <span className={styles.benefitIcon}>
                     <FiFileText aria-hidden="true" />
                   </span>
-                  <strong>정서 변화 리포트</strong>
-                  <p>매일의 감정 변화를 확인해요</p>
+                  <strong>매일 정서 리포트</strong>
+                  <p>대화로 살핀 하루 정서를 확인해요</p>
+                </div>
+                <div className={styles.benefitItem}>
+                  <span className={styles.benefitIcon}>
+                    <FiBarChart2 aria-hidden="true" />
+                  </span>
+                  <strong>주간 변화 추이</strong>
+                  <p>일주일의 정서 흐름을 한눈에 봐요</p>
+                </div>
+                <div className={styles.benefitItem}>
+                  <span className={styles.benefitIcon}>
+                    <FiMessageCircle aria-hidden="true" />
+                  </span>
+                  <strong>다슬이의 한마디</strong>
+                  <p>오늘 필요한 돌봄 행동을 제안해요</p>
                 </div>
                 <div className={styles.benefitItem}>
                   <span className={styles.benefitIcon}>
                     <FiBell aria-hidden="true" />
                   </span>
-                  <strong>위험 신호 알림</strong>
-                  <p>주의가 필요한 변화를 알려드려요</p>
+                  <strong>중요 알림</strong>
+                  <p>정서 하락과 새 리포트를 알려드려요</p>
                 </div>
               </Card>
             </section>
