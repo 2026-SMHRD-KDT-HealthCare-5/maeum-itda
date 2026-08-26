@@ -15,7 +15,8 @@ import { GuardianDashboardRepository } from './repositories/guardian-dashboard.r
 import { toEmotionLevel } from '../reports/lib/weekly-report-statistics';
 import { toSeoulBusinessDayUtcRange } from '../reports/lib/seoul-business-date';
 
-const NO_CONVERSATION_MESSAGE = '대화를 하지 않았습니다.';
+const NO_CONVERSATION_MESSAGE =
+  '오늘은 아직 다슬이와 대화를 나누지 않으셨어요. 보호자님이 직접 따뜻한 안부를 건네보는 건 어떨까요?';
 const INSUFFICIENT_DATA_MESSAGE = '정서지수를 분석하기 위한 대화가 부족합니다.';
 
 @Injectable()

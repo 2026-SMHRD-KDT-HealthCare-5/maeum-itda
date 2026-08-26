@@ -82,7 +82,9 @@ describe('GuardianDashboardService', () => {
 
     const result = await service.getDashboard(guardian, now);
 
-    expect(result.dasolMessage).toBe('대화를 하지 않았습니다.');
+    expect(result.dasolMessage).toBe(
+      '오늘은 아직 다슬이와 대화를 나누지 않으셨어요. 보호자님이 직접 따뜻한 안부를 건네보는 건 어떨까요?',
+    );
     expect(result.latestDailyReport.emotionIndex).toBeNull();
     expect(
       result.recentSevenDays.every(({ emotionIndex }) => emotionIndex === null),
