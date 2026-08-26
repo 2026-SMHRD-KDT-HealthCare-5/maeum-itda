@@ -137,6 +137,24 @@
   transform: translateY(16px);
 }
 
+.connectionSkeleton {
+  min-height: 154px;
+  border-radius: 28px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .connection {
+    animation: connection-card-enter 180ms ease-out both;
+  }
+}
+
+@keyframes connection-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* 이미 연결된 보호자가 있을 때는 카드가 클릭 불가능한 div로 렌더링된다 —
    hover/focus 효과는 실제로 이동 가능한 a(Link)에만 적용한다. */
 a.connection:hover {
@@ -189,8 +207,12 @@ a.connection:focus-visible {
     font-size: 30px;
   }
 
-  .connection {
+  .connection,
+  .connectionSkeleton {
     min-height: 150px;
+  }
+
+  .connection {
     padding-left: 17px;
     grid-template-columns: minmax(0, 1fr) 88px;
   }
