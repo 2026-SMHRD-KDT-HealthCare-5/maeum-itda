@@ -16,7 +16,7 @@ import { extractApiErrorMessage, isNotFoundError } from '../../../shared/api'
 import { useDelayedPending } from '../../../shared/lib'
 import { Button, Card, ErrorState, LoadingSpinner } from '../../../shared/ui'
 import daseulGuideImage from '../../../shared/assets/character/character-daseul-guide.webp'
-import daseulSummaryImage from '../../../shared/assets/character/character-daseul-summary.webp'
+import daseulLinkImage from '../../../shared/assets/character/character-daseul-link.png'
 import { BottomTabBar, GUARDIAN_TAB_ITEMS } from '../../../widgets/bottom-tab-bar'
 import { EmotionTrendChart } from '../../../widgets/emotion-trend-chart'
 import styles from './GuardianHomePage.module.css'
@@ -79,33 +79,46 @@ export function GuardianHomePage() {
           <div className={styles.emptyHome}>
             <header className={styles.emptyGreeting}>
               <h1>{session?.name ?? '보호자'}님, 반가워요</h1>
-              <p>소중한 분의 안부를 함께 살펴볼까요?</p>
+              <p>소중한 분과 연결하고 안부를 살펴보세요</p>
             </header>
 
-            <Card className={styles.connectionCard}>
+            <section className={styles.connectionStage} aria-labelledby="empty-connection-title">
               <div className={styles.connectionCharacter}>
-                <img src={daseulSummaryImage} alt="안내 책자를 들고 있는 다솔이" />
+                <img src={daseulLinkImage} alt="하트 모양 연결 고리를 이어 붙이는 다슬이" />
               </div>
-              <div className={styles.connectionCopy}>
-                <h2>아직 연결된 시니어가 없어요</h2>
-                <p>시니어와 연결하면 정서 리포트와 중요한 알림을 받아볼 수 있어요.</p>
-              </div>
-              <Button type="button" onClick={() => navigate('/guardian/connection')}>
-                <span className={styles.buttonLabel}>시니어 연결하기</span>
-                <FiChevronRight aria-hidden="true" />
-              </Button>
-            </Card>
+              <Card className={styles.connectionCard}>
+                <div className={styles.connectionCopy}>
+                  <h2 id="empty-connection-title">소중한 분과 아직 연결되지 않았어요</h2>
+                  <p>
+                    시니어 아이디로 연결 요청을 보내고
+                    <br />
+                    수락 후 매일의 안부를 함께 살펴보세요.
+                  </p>
+                </div>
+                <Button type="button" onClick={() => navigate('/guardian/connection')}>
+                  <span>시니어 연결하기</span>
+                  <FiChevronRight aria-hidden="true" />
+                </Button>
+                <p className={styles.connectionHint}>연결 요청은 시니어가 수락하면 완료돼요</p>
+              </Card>
+            </section>
 
             <section className={styles.benefits} aria-labelledby="connection-benefits-title">
               <h2 id="connection-benefits-title">연결하면 이용할 수 있어요</h2>
               <Card className={styles.benefitCard}>
                 <div className={styles.benefitItem}>
-                  <FiFileText aria-hidden="true" />
-                  <span>정서 변화 리포트</span>
+                  <span className={styles.benefitIcon}>
+                    <FiFileText aria-hidden="true" />
+                  </span>
+                  <strong>정서 변화 리포트</strong>
+                  <p>매일의 감정 변화를 확인해요</p>
                 </div>
                 <div className={styles.benefitItem}>
-                  <FiBell aria-hidden="true" />
-                  <span>위험 신호 알림</span>
+                  <span className={styles.benefitIcon}>
+                    <FiBell aria-hidden="true" />
+                  </span>
+                  <strong>위험 신호 알림</strong>
+                  <p>주의가 필요한 변화를 알려드려요</p>
                 </div>
               </Card>
             </section>
