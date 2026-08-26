@@ -103,7 +103,8 @@
   flex-direction: column;
 }
 
-.connectionCard {
+/* Card 공통 스타일과 로딩 순서가 바뀌어도 미연결 홈의 전용 레이아웃을 유지한다. */
+.connectionCard.connectionCard {
   display: flex;
   align-items: center;
   flex-direction: column;
@@ -189,7 +190,7 @@
   padding-top: 28px;
 }
 
-.benefitCard {
+.benefitCard.benefitCard {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
