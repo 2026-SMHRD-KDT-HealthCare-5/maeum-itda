@@ -95,7 +95,10 @@ export function GuardianHomePage() {
                     수락 후 매일의 안부를 함께 살펴보세요.
                   </p>
                 </div>
-                <Button type="button" onClick={() => navigate('/guardian/connection')}>
+                <Button
+                  type="button"
+                  onClick={() => navigate('/guardian/connection', { state: { from: '/guardian' } })}
+                >
                   <span>시니어 연결하기</span>
                   <FiChevronRight aria-hidden="true" />
                 </Button>

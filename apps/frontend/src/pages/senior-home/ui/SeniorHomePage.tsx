@@ -106,6 +106,7 @@ export function SeniorHomePage() {
             <Link
               className={styles.connection}
               to="/senior/connection"
+              state={{ from: '/senior' }}
               aria-label={
                 connectionCopy.action
                   ? `${connectionCopy.title}. ${connectionCopy.action}`
