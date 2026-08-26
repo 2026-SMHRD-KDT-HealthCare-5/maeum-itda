@@ -81,6 +81,8 @@ self.addEventListener('push', (event) => {
 })
 
 // 알림 클릭 시 이미 열려 있는 탭이 있으면 그 탭으로 포커스하고, 없으면 새 탭을 연다.
+// 새로 여는 경우엔 목적지로 바로 열지 않고 스플래시(/)를 거치게 한다 — 그래야
+// 세션 복원 브랜딩이 보이고, 복원이 끝나면 스플래시가 ?redirect= 값으로 이어준다.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const targetUrl = event.notification.data?.url || '/guardian'
@@ -89,7 +91,7 @@ self.addEventListener('notificationclick', (event) => {
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((client) => client.url.includes(self.location.origin))
       if (existing) return existing.focus()
-      return self.clients.openWindow(targetUrl)
+      return self.clients.openWindow(`/?redirect=${encodeURIComponent(targetUrl)}`)
     }),
   )
 })

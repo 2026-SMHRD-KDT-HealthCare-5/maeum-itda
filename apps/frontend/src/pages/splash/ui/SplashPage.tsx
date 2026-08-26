@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useSession } from '../../../entities/user'
-import { useAnimatedPresence } from '../../../shared/lib'
+import { sanitizeInternalRedirectPath, useAnimatedPresence } from '../../../shared/lib'
 import splashImage from './splash-daseul.webp'
 import styles from './SplashPage.module.css'
 
 // 세션 복원(localStorage accessToken 검증)이 없는 경우(로그아웃 상태, PWA
 // 최초 설치 등)에도 브랜딩을 보여주기 위한 최소 노출 시간 — 세션 복원이
 // 이보다 오래 걸리면 그동안은 계속 떠 있는다(아래 isRestoring과 OR 조건).
-const MIN_SPLASH_DURATION_MS = 700
+const MIN_SPLASH_DURATION_MS = 1400
 // SplashPage.module.css의 fadeOut 애니메이션 길이와 맞춘다 — 다르면 트랜지션이
 // 끝나기 전에 언마운트되거나, 다 끝난 뒤에도 잠깐 멈춰있는 것처럼 보인다.
 const EXIT_DURATION_MS = 200
@@ -19,6 +19,8 @@ const EXIT_DURATION_MS = 200
 // /login이 아니라 복원된 세션의 역할별 홈으로 보낸다.
 export function SplashPage() {
   const { session, isRestoring } = useSession()
+  const [searchParams] = useSearchParams()
+  const redirectTarget = sanitizeInternalRedirectPath(searchParams.get('redirect'))
   const [minDurationElapsed, setMinDurationElapsed] = useState(false)
 
   useEffect(() => {
@@ -37,5 +39,10 @@ export function SplashPage() {
     )
   }
   if (!session) return <Navigate to="/login" replace />
-  return <Navigate to={session.role === 'senior' ? '/senior' : '/guardian'} replace />
+  return (
+    <Navigate
+      to={redirectTarget ?? (session.role === 'senior' ? '/senior' : '/guardian')}
+      replace
+    />
+  )
 }
