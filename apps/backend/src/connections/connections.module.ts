@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { GuardianSeniorRelationship } from '../users/entities/guardian-senior-relationship.entity';
 import { User } from '../users/entities/user.entity';
 import { ConnectionsController } from './connections.controller';
@@ -11,6 +12,7 @@ import { ConnectionsRepository } from './repositories/connections.repository';
 @Module({
   imports: [
     AuthModule,
+    NotificationsModule,
     TypeOrmModule.forFeature([GuardianSeniorRelationship, User]),
   ],
   controllers: [ConnectionsController],

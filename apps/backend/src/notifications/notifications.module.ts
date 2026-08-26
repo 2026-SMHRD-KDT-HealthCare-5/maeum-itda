@@ -35,6 +35,6 @@ import { WebPushDeliveryService } from './web-push-delivery.service';
     CheckinReminderDispatchService,
     CheckinReminderScheduler,
   ],
-  exports: [NotificationsService],
+  exports: [NotificationsService, WebPushDeliveryService],
 })
 export class NotificationsModule {}
