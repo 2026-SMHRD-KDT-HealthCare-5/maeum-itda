@@ -6,10 +6,12 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { QueryFailedError } from 'typeorm';
 import type { AccessTokenPayload } from '../auth/auth.service';
+import { WebPushDeliveryService } from '../notifications/web-push-delivery.service';
 import {
   ConnectionStatus,
   GuardianSeniorRelationship,
@@ -20,7 +22,12 @@ import { ConnectionsRepository } from './repositories/connections.repository';
 
 @Injectable()
 export class ConnectionsService {
-  constructor(private readonly connectionsRepository: ConnectionsRepository) {}
+  private readonly logger = new Logger(ConnectionsService.name);
+
+  constructor(
+    private readonly connectionsRepository: ConnectionsRepository,
+    private readonly webPushDeliveryService: WebPushDeliveryService,
+  ) {}
 
   async getMyConnection(authenticatedUser: AccessTokenPayload) {
     const relationship = await this.findActiveForUser(authenticatedUser);
@@ -57,6 +64,7 @@ export class ConnectionsService {
         authenticatedUser.sub,
         senior.userId,
       );
+      await this.notifySeniorOfRequest(senior, saved.relationshipId);
       return this.toResponse(saved, authenticatedUser, senior);
     } catch (error: unknown) {
       if (this.isDuplicateEntry(error)) {
@@ -124,6 +132,29 @@ export class ConnectionsService {
     relationship.connectionStatus = ConnectionStatus.DISCONNECTED;
     relationship.disconnectedAt = new Date();
     await this.connectionsRepository.save(relationship);
+  }
+
+  // 시니어에게는 별도 알림함이 없어(알림함은 보호자 전용) 안부 리마인더와
+  // 동일하게 DB에 남기지 않고 푸시만 바로 보낸다. 발송 실패가 연결 요청
+  // 자체를 실패시키면 안 되므로 여기서 에러를 삼킨다.
+  private async notifySeniorOfRequest(
+    senior: User,
+    relationshipId: number,
+  ): Promise<void> {
+    if (!senior.notificationEnabled) return;
+    try {
+      await this.webPushDeliveryService.sendToUser(senior.userId, {
+        title: '새로운 연결 요청이 도착했어요',
+        body: '보호자님이 마음잇다로 안부를 함께 나누자고 요청했어요.',
+        url: '/senior/connection',
+        tag: `connection-request-${relationshipId}`,
+      });
+    } catch (error: unknown) {
+      this.logger.error(
+        `연결 요청 푸시 발송 실패: seniorId=${senior.userId}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+    }
   }
 
   private findActiveForUser(authenticatedUser: AccessTokenPayload) {

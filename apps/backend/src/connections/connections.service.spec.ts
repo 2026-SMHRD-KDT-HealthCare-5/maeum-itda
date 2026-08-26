@@ -4,6 +4,7 @@ import {
   ConnectionStatus,
   GuardianSeniorRelationship,
 } from '../users/entities/guardian-senior-relationship.entity';
+import type { WebPushDeliveryService } from '../notifications/web-push-delivery.service';
 import { User, UserRole } from '../users/entities/user.entity';
 import { ConnectionsService } from './connections.service';
 import type { ConnectionsRepository } from './repositories/connections.repository';
@@ -20,8 +21,12 @@ describe('ConnectionsService', () => {
     save: jest.fn(),
     remove: jest.fn(),
   };
+  const webPushDeliveryService = {
+    sendToUser: jest.fn(),
+  };
   const service = new ConnectionsService(
     connectionsRepository as unknown as ConnectionsRepository,
+    webPushDeliveryService as unknown as WebPushDeliveryService,
   );
 
   const guardianAuth = { sub: 2, role: UserRole.GUARDIAN };
@@ -42,6 +47,7 @@ describe('ConnectionsService', () => {
     loginId: 'senior01',
     name: '김순자',
     role: UserRole.SENIOR,
+    notificationEnabled: true,
   } as User;
 
   function requestedRelationship(): GuardianSeniorRelationship {
@@ -60,12 +66,13 @@ describe('ConnectionsService', () => {
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('보호자가 시니어에게 연결 요청을 생성한다', async () => {
+  it('보호자가 시니어에게 연결 요청을 생성하고 시니어에게 푸시를 보낸다', async () => {
     const relationship = requestedRelationship();
     connectionsRepository.findSeniorByLoginId.mockResolvedValue(senior);
     connectionsRepository.findActiveForUser.mockResolvedValue(null);
     connectionsRepository.findActiveForSenior.mockResolvedValue(null);
     connectionsRepository.createRequest.mockResolvedValue(relationship);
+    webPushDeliveryService.sendToUser.mockResolvedValue(undefined);
 
     const result = await service.createRequest(guardianAuth, {
       seniorLoginId: 'senior01',
@@ -73,6 +80,27 @@ describe('ConnectionsService', () => {
 
     expect(result.status).toBe(ConnectionStatus.REQUESTED);
     expect(result.counterpart.userId).toBe(1);
+    expect(webPushDeliveryService.sendToUser).toHaveBeenCalledWith(
+      senior.userId,
+      expect.objectContaining({
+        tag: `connection-request-${relationship.relationshipId}`,
+      }),
+    );
+  });
+
+  it('알림을 꺼둔 시니어에게는 연결 요청 푸시를 보내지 않는다', async () => {
+    const relationship = requestedRelationship();
+    connectionsRepository.findSeniorByLoginId.mockResolvedValue({
+      ...senior,
+      notificationEnabled: false,
+    });
+    connectionsRepository.findActiveForUser.mockResolvedValue(null);
+    connectionsRepository.findActiveForSenior.mockResolvedValue(null);
+    connectionsRepository.createRequest.mockResolvedValue(relationship);
+
+    await service.createRequest(guardianAuth, { seniorLoginId: 'senior01' });
+
+    expect(webPushDeliveryService.sendToUser).not.toHaveBeenCalled();
   });
 
   it('시니어 역할로 연결 요청을 생성할 수 없다', async () => {
