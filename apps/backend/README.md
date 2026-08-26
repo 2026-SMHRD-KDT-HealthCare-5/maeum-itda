@@ -61,6 +61,7 @@ MySQL
 - AI 재생 중에도 시니어 음성을 계속 캡처하며 브라우저 AEC를 적용합니다.
 - 실시간 끼어들기로 AI 음성을 중단하는 기능은 MVP에서 제외합니다(버튼 클릭 기반 "질문 건너뛰기"는 있음, 음성감지 기반 끼어들기는 에코 오탐 문제로 제거함).
 - **[2026-08-21 변경] TTS 오디오 자체는 더 이상 WebSocket으로 전송하지 않습니다.** `tts:audio` WS 이벤트는 짧은 인증 토큰이 붙은 스트리밍 URL(`streamPath`)만 담아 보내고, 프론트가 그 URL로 별도 인증 HTTP GET(`/chats/tts-stream`)을 열어 FastAPI의 실시간 스트림(mp3 청크)을 그대로 재생합니다 — base64 일괄 전달 방식은 폐기했습니다. 상세 계약은 `docs/ws-protocol.md` §4.2/§6.4 참고.
+- **[2026-08-24 변경] 발화 중에는 PCM 오디오를 실시간으로 중계해 부분 전사(자막)를 제공합니다.** 프론트가 녹음 중 `audio:pcm`(PCM16 mono 24kHz 청크)을 보내면 `AudioLiveHandler`가 이를 FastAPI `/analysis/stt/live`(OpenAI Realtime transcription 세션 프록시)로 그대로 중계하고, 돌아온 부분/완료 전사를 `audio:partial`로 클라이언트에 전달합니다. 이 부분 전사는 화면 자막용일 뿐 DB에 저장되지 않으며, 확정 답변 말풍선·저장은 여전히 배치 분석 성공 후의 `audio:transcript`(§6.3) 기준입니다. 상세 계약은 `docs/ws-protocol.md` §4.3.1 참고.
 
 ### 정서 분석과 리포트
 
@@ -179,7 +180,7 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 | --- | --- |
 | `auth` | 로그인/회원가입, JWT 발급·검증, TTS 스트림 전용 단기 토큰 |
 | `users` | 사용자 조회(`GET /users/me`) |
-| `chats` | 실시간 대화 WS 게이트웨이, 과거 메시지 cursor 조회, TTS 스트림 중계 |
+| `chats` | 실시간 대화 WS 게이트웨이, 실시간 부분 전사 중계, 과거 메시지 cursor 조회, TTS 스트림 중계 |
 | `analysis` | FastAPI 분석 요청·응답 처리, 정서지수 재계산 트리거 |
 | `connections` | 시니어-보호자 연결 요청·수락·거절·해제 |
 | `reports` | 일간/주간 리포트 생성·조회, 일간 요약 API 호출 |
@@ -230,6 +231,12 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - 역할: `audio:metadata` 필수값 검증과 연결별 임시 보관
 - 연결: `ChatConnectionStateService`, 인증된 사용자 정보
 - 이후 흐름: 현재 질문 식별정보 확인 후 다음 음성 바이너리 수신 대기
+
+### `audio-live.handler.ts`
+
+- 역할: `audio:pcm` 수신 후 FastAPI `/analysis/stt/live`로 중계, 부분/완료 전사를 `audio:partial`로 전달
+- 연결: FastAPI Realtime transcription 세션(WebSocket 프록시)
+- 이후 흐름: 확정 답변 저장과는 무관 — 화면 자막용 부분 전사만 왕복
 
 ### `chat-connection-state.service.ts`
 
@@ -326,6 +333,7 @@ TypeScript의 `export class ChatsModule {}`과 역할이 다릅니다.
 - FastAPI STT·척도 채점·감성분석 REST API 호출(`/analysis/audio/batch`)
 - 원본 음성 분석 완료 후 즉시 폐기
 - 직전 STT 결과(`audio:transcript`)와 다음 AI 질문(`ai:question`) 전송, TTS는 스트리밍 URL(`tts:audio`)로 비동기 전달
+- 발화 중 실시간 부분 전사 중계(`audio:pcm` → FastAPI `/analysis/stt/live` → `audio:partial`)
 - 무응답 안내(30초)·자동 종료(10분), 같은 서버 프로세스 내 단기 재접속 복원
 - 웹 푸시 발송 인프라(VAPID, `PushSubscription` 저장, 임계치 하락 알림 발송)
 - 일간/주간 리포트 생성·조회, 일간 대화 요약(UC-06-4)
