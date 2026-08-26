@@ -19,6 +19,12 @@
   font-weight: 800;
 }
 
+.monthSummary {
+  margin: 4px 0 0;
+  color: #5c6d64;
+  font-size: 13.5px;
+}
+
 .monthNavigation {
   margin-top: 18px;
 }
@@ -75,15 +81,17 @@
 }
 
 .date {
+  position: relative;
   width: 40px;
   height: 40px;
   padding: 0;
   justify-self: center;
-  border: 0;
+  border: 2px solid transparent;
   border-radius: 50%;
   background: transparent;
   cursor: pointer;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .date:hover {
@@ -109,7 +117,20 @@
   background: #ddefe4;
 }
 
-.today {
+/* 오늘이지만 아직 대화 전 — 채워진 원(완료)과 헷갈리지 않도록 테두리만 준다. */
+.todayPending {
+  border-color: var(--primary);
+  background: #fff;
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.todayPending:hover {
+  background: #f3faf6;
+}
+
+/* 오늘 대화까지 마친 상태 — 완료 표시(체크 배지)로 한 번 더 확인해준다. */
+.todayCompleted {
   background: var(--primary);
   box-shadow: 0 7px 16px rgba(31, 111, 84, 0.2);
   color: #fff;
@@ -117,8 +138,31 @@
   font-weight: 800;
 }
 
-.today:hover {
+.todayCompleted:hover {
   background: var(--primary-pressed);
+}
+
+.completedIcon {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 15px;
+  height: 15px;
+  padding: 2px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #2f8f66;
+  color: #fff;
+}
+
+.encouragement {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f1f8f4;
+  color: #33473e;
+  font-size: 13.5px;
+  text-align: center;
 }
 
 .legend {
@@ -140,6 +184,7 @@
 
 .completedSample,
 .pendingSample {
+  box-sizing: border-box;
   display: inline-grid;
   width: 21px;
   height: 21px;
@@ -152,7 +197,8 @@
 }
 
 .pendingSample {
-  background: #edf5f0;
+  border: 2px solid var(--primary);
+  background: #fff;
 }
 
 @media (max-width: 350px) {
