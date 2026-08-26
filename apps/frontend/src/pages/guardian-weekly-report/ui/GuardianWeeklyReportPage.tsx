@@ -93,7 +93,7 @@ export function GuardianWeeklyReportPage() {
           </div>
         )}
 
-        {weeklyReportQuery.isError && !reportMissing && (
+        {!showSpinner && weeklyReportQuery.isError && !reportMissing && (
           <ErrorState
             message={extractApiErrorMessage(weeklyReportQuery.error, '리포트를 불러오지 못했어요.')}
             onRetry={() => void weeklyReportQuery.refetch()}
@@ -101,7 +101,7 @@ export function GuardianWeeklyReportPage() {
           />
         )}
 
-        {report && (
+        {!showSpinner && report && (
           <>
             <section
               className={styles.trendSection}
@@ -147,7 +147,7 @@ export function GuardianWeeklyReportPage() {
           </>
         )}
 
-        {reportMissing && (
+        {!showSpinner && reportMissing && (
           <section
             className={styles.emptyState}
             aria-labelledby="weekly-report-empty-title"

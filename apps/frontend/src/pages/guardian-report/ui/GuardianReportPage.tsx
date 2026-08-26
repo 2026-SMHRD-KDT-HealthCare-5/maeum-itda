@@ -109,7 +109,7 @@ export function GuardianReportPage() {
           </div>
         )}
 
-        {dailyReportQuery.isError && !reportMissing && (
+        {!showSpinner && dailyReportQuery.isError && !reportMissing && (
           <ErrorState
             message={extractApiErrorMessage(dailyReportQuery.error, '리포트를 불러오지 못했어요.')}
             onRetry={() => void dailyReportQuery.refetch()}
@@ -117,7 +117,7 @@ export function GuardianReportPage() {
           />
         )}
 
-        {report && hasAnalysis && (
+        {!showSpinner && report && hasAnalysis && (
           <>
             {report.emotionScore !== null && (
               <Card className={styles.scoreCard} key={`score-${dateKey}`}>
@@ -163,7 +163,7 @@ export function GuardianReportPage() {
           </>
         )}
 
-        {report && !hasAnalysis && (
+        {!showSpinner && report && !hasAnalysis && (
           <section
             className={styles.emptyState}
             aria-labelledby="analysis-empty-title"
@@ -192,7 +192,7 @@ export function GuardianReportPage() {
           </section>
         )}
 
-        {reportMissing && (
+        {!showSpinner && reportMissing && (
           <section
             className={styles.emptyState}
             aria-labelledby="guardian-report-empty-title"

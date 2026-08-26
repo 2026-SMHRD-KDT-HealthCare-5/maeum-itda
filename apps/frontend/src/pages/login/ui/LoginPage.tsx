@@ -36,6 +36,8 @@ export function LoginPage() {
             src={brandImage}
             alt="마음잇다 — 마음을 연결하는 따뜻한 안부"
             className={styles.brandImage}
+            width={700}
+            height={700}
             onClick={handleLogoClick}
           />
         </div>
